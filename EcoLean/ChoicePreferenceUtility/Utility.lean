@@ -1,5 +1,8 @@
 import EcoLean.ChoicePreferenceUtility.Preference
 import Mathlib.Data.Real.Basic
+import EcoLean.ChoicePreferenceUtility.NoBetterThan
+import Mathlib.Data.Fintype.Card
+import Mathlib.Data.Finset.Card
 
 universe u
 
@@ -355,6 +358,213 @@ theorem generatedChoice_finiteNonempty_of_represents
   have hT : P.Transitive := transitive_of_represents hRep
   exact Preference.generatedChoice_finiteNonempty (P := P) hC hT
 
+
+/-!
+# Finite utility representation
+
+On a finite domain, a complete and transitive preference can be represented
+by the cardinality of its no-better-than sets.
+-/
+
+/--
+The finite no-better-than finset of `x`.
+-/
+noncomputable def noBetterThanFinset
+    [Fintype α]
+    (P : Preference α) (x : α) : Finset α := by
+  classical
+  exact Finset.univ.filter (fun y => y ∈ P.NoBetterThan x)
+
+/--
+The finite utility attached to a preference on a finite domain.
+
+It assigns to each `x` the number of objects no better than `x`.
+-/
+noncomputable def finiteUtility
+    [Fintype α]
+    (P : Preference α) : Utility.UtilityFunction α := by
+  classical
+  intro x
+  exact ((noBetterThanFinset P x).card : ℝ)
+
+/--
+Membership in the no-better-than finset is equivalent to weak preference.
+-/
+theorem mem_noBetterThanFinset_iff
+    [Fintype α]
+    (P : Preference α) {x y : α} :
+    y ∈ noBetterThanFinset P x ↔ y ∈ P.NoBetterThan x := by
+  classical
+  simp [noBetterThanFinset]
+
+/--
+If `x ≽ y`, then the finite utility of `x` is at least as large as that of `y`.
+-/
+theorem finiteUtility_ge_of_weakPref
+    [Fintype α]
+    (P : Preference α)
+    (hT : P.Transitive) {x y : α}
+    (hxy : P.weakPref x y) :
+    finiteUtility P x ≥ finiteUtility P y := by
+  classical
+  have hSub :
+      noBetterThanFinset P y ⊆ noBetterThanFinset P x := by
+    intro z hz
+    have hz' : z ∈ P.NoBetterThan y := by
+      exact (mem_noBetterThanFinset_iff P).mp hz
+    have hxz : z ∈ P.NoBetterThan x := by
+      exact noBetterThan_subset_of_weakPref P hT hxy hz'
+    exact (mem_noBetterThanFinset_iff P).mpr hxz
+  have hCard :
+      (noBetterThanFinset P y).card ≤ (noBetterThanFinset P x).card :=
+    Finset.card_le_card hSub
+  change ((noBetterThanFinset P x).card : ℝ) ≥ ((noBetterThanFinset P y).card : ℝ)
+  exact_mod_cast hCard
+
+/--
+If `¬ x ≽ y`, then the finite utility of `x` is strictly smaller than that of `y`.
+-/
+theorem finiteUtility_lt_of_not_weakPref
+    [Fintype α]
+    (P : Preference α)
+    (hC : P.Complete)
+    (hT : P.Transitive) {x y : α}
+    (hNot : ¬ P.weakPref x y) :
+    finiteUtility P x < finiteUtility P y := by
+  classical
+  have hyx : P.weakPref y x := by
+    cases hC x y with
+    | inl hxy =>
+        exact False.elim (hNot hxy)
+    | inr hyx =>
+        exact hyx
+
+  have hSub :
+      noBetterThanFinset P x ⊆ noBetterThanFinset P y := by
+    intro z hz
+    have hz' : z ∈ P.NoBetterThan x := by
+      exact (mem_noBetterThanFinset_iff P).mp hz
+    have hyz : z ∈ P.NoBetterThan y := by
+      exact noBetterThan_subset_of_weakPref P hT hyx hz'
+    exact (mem_noBetterThanFinset_iff P).mpr hyz
+
+  have hNotRev :
+      ¬ noBetterThanFinset P y ⊆ noBetterThanFinset P x := by
+    intro hRev
+    have hyy : y ∈ noBetterThanFinset P y := by
+      apply (mem_noBetterThanFinset_iff P).mpr
+      exact self_mem_noBetterThan_of_complete P hC y
+    have hyx' : y ∈ noBetterThanFinset P x := hRev hyy
+    have hxy' : y ∈ P.NoBetterThan x := by
+      exact (mem_noBetterThanFinset_iff P).mp hyx'
+    exact hNot hxy'
+
+  have hSSub :
+      noBetterThanFinset P x ⊂ noBetterThanFinset P y :=
+    ⟨hSub, hNotRev⟩
+
+  have hCard :
+      (noBetterThanFinset P x).card < (noBetterThanFinset P y).card :=
+    Finset.card_lt_card hSSub
+
+  change ((noBetterThanFinset P x).card : ℝ) < ((noBetterThanFinset P y).card : ℝ)
+  exact_mod_cast hCard
+
+/--
+The finite utility attached to a complete and transitive preference
+represents that preference.
+-/
+theorem finiteUtility_represents
+    [Fintype α]
+    (P : Preference α)
+    (hC : P.Complete)
+    (hT : P.Transitive) :
+    Represents (finiteUtility P) P := by
+  intro x y
+  constructor
+  · intro hxy
+    exact finiteUtility_ge_of_weakPref P hT hxy
+  · intro hxy
+    by_cases hxy' : P.weakPref x y
+    · exact hxy'
+    · have hlt : finiteUtility P x < finiteUtility P y :=
+        finiteUtility_lt_of_not_weakPref P hC hT hxy'
+      exact False.elim ((not_lt_of_ge hxy) hlt)
+
+/--
+Finite utility-existence theorem:
+
+every complete and transitive preference on a finite domain
+admits a utility representation.
+-/
+theorem exists_utility_of_finite_complete_transitive
+    [Fintype α]
+    (P : Preference α)
+    (hC : P.Complete)
+    (hT : P.Transitive) :
+    ∃ u : Utility.UtilityFunction α, Represents u P := by
+  refine ⟨finiteUtility P, ?_⟩
+  exact finiteUtility_represents P hC hT
+
 end Preference
+
+namespace ChoiceFunction
+
+variable {α : Type u}
+
+/--
+Finite utility rationalisation of choice:
+
+if a choice function on a finite domain chooses from feasible sets,
+satisfies finite nonemptiness, and is choice coherent, then it is
+rationalised by a utility function.
+-/
+theorem exists_utility_rationalizing_choice
+    [Fintype α]
+    (c : ChoiceFunction α)
+    (hFrom : c.ChoosesFrom)
+    (hFN : c.FiniteNonempty)
+    (hCC : c.ChoiceCoherent) :
+    ∃ u : Utility.UtilityFunction α, c = Utility.generatedChoice u := by
+  classical
+  let P : Preference α := generatedPref c
+
+  have hComp : P.Complete :=
+    generatedPref_complete c hFrom hFN
+
+  have hTrans : P.Transitive :=
+    generatedPref_transitive c hFrom hFN hCC
+
+  rcases Preference.exists_utility_of_finite_complete_transitive P hComp hTrans with
+    ⟨u, hRep⟩
+
+  have hEqPrefChoice : c = generatedChoiceFromGeneratedPref c := by
+    ext A x
+    constructor
+    · intro hx
+      exact subset_generatedChoiceFromGeneratedPref c hFrom hFN hCC hx
+    · intro hx
+      have hxA : x ∈ A := by
+        exact generatedChoiceFromGeneratedPref_choosesFrom (c := c) A hx
+      have hCase :=
+        choose_eq_empty_or_eq_generatedChoiceFromGeneratedPref c hFrom hFN hCC A
+      cases hCase with
+      | inl hEmpty =>
+          have hFinA : A.Finite := by
+            classical
+            exact Set.toFinite A
+          have hNEA : (c.choose A).Nonempty := hFN hFinA ⟨x, hxA⟩
+          simpa [hEmpty] using hNEA
+      | inr hEq =>
+          simpa [hEq] using hx
+
+  refine ⟨u, ?_⟩
+  calc
+    c = generatedChoiceFromGeneratedPref c := hEqPrefChoice
+    _ = P.generatedChoice := rfl
+    _ = Utility.generatedChoice u :=
+      Preference.generatedChoice_eq_generatedChoice_of_represents hRep
+
+end ChoiceFunction
 
 end EcoLean
