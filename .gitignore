@@ -1,0 +1,16 @@
+.lake/
+build/
+.lean/
+
+*.olean
+*.ilean
+*.c
+*.o
+*.trace
+
+
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
