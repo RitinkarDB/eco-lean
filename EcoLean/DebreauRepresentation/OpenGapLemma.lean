@@ -167,6 +167,22 @@ theorem boundPreservingOpenGapAdjustmentOn_of_along
   refine ⟨φ, hφmono, hφbd, ?_⟩
   simpa [image_range_eq_range_postcompose] using hφgap
 
+/--
+If one can construct a bound-preserving open-gap adjustment along every
+countable strictly increasing embedding `e`, then the subtype-level patched
+open gap lemma follows.
+-/
+theorem countableOpenGapLemmaOnSubtypes_of_along
+    (hAlong :
+      ∀ (T : Type) [LinearOrder T] [Countable T] (e : T → ℝ),
+        StrictMono e →
+        DomainGapCompatible e →
+        BoundPreservingOpenGapAdjustmentAlong e) :
+    CountableOpenGapLemmaOnSubtypes := by
+  intro T _ _ e he hCompat
+  exact boundPreservingOpenGapAdjustmentOn_of_along e
+    (hAlong T e he hCompat)
+
 
 /--
 Target theorem: the patched countable open gap lemma for countable linear
