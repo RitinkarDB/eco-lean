@@ -35,6 +35,39 @@ theorem countableOpenGapLemma
   exact countableOpenGapLemma_of_subtypeVersion hSub
 
 /--
+If the range of a strictly increasing map has compatible gap pattern, then for
+any two points `a < b` in the domain, either there is a domain point strictly
+between them or the corresponding image interval is an open gap.
+-/
+theorem gapPatternCompatible_of_strictMono_range
+    {T : Type} [LinearOrder T]
+    (e : T → ℝ)
+    (he : StrictMono e)
+    (hCompat : GapPatternCompatible (Set.range e)) :
+    ∀ {a b : T}, a < b →
+      (∃ c : T, a < c ∧ c < b) ∨
+      IsOpenGap (Set.range e) (e a) (e b) := by
+  intro a b hab
+  have hea : e a ∈ Set.range e := ⟨a, rfl⟩
+  have heb : e b ∈ Set.range e := ⟨b, rfl⟩
+  have heab : e a < e b := he hab
+  rcases hCompat hea heb heab with hmid | hgap
+  · left
+    rcases hmid with ⟨x, hxS, hax, hxb⟩
+    rcases hxS with ⟨c, rfl⟩
+    refine ⟨c, ?_, ?_⟩
+    · by_contra hnot
+      have hca : c ≤ a := le_of_not_gt hnot
+      have heca : e c ≤ e a := he.monotone hca
+      exact (not_le_of_gt hax) heca
+    · by_contra hnot
+      have hbc : b ≤ c := le_of_not_gt hnot
+      have hebc : e b ≤ e c := he.monotone hbc
+      exact (not_le_of_gt hxb) hebc
+  · right
+    exact hgap
+
+/--
 Target theorem: the patched countable open gap lemma for countable linear
 orders already realised as subtypes of `ℝ`.
 -/
@@ -43,6 +76,8 @@ theorem countableOpenGapLemmaOnSubtypes_proof :
   intro T _ _ e he hCompat
   -- real proof starts here
   sorry
+
+
 
 end Preference
 end EcoLean
