@@ -22,7 +22,7 @@ linearly ordered type already embedded in `ℝ`.
 def CountableOpenGapLemmaOnSubtypes : Prop :=
   ∀ (T : Type) [LinearOrder T] [Countable T] (e : T → ℝ),
     StrictMono e →
-    GapPatternCompatible (Set.range e) →
+    DomainGapCompatible e →
     BoundPreservingOpenGapAdjustmentOn (Set.range e)
 
 /--
@@ -47,9 +47,10 @@ theorem countableOpenGapLemma_of_subtypeVersion
       exact y.2
     · intro hx
       exact ⟨⟨x, hx⟩, rfl⟩
-  have hCompat' : GapPatternCompatible (Set.range e) := by
-    simpa [hrange] using hCompat
-  simpa [hrange] using hSub T e he hCompat'
+  have hCompat' : DomainGapCompatible e := by
+    intro a b hab hNoMid
+    simpa [e, hrange] using hCompat hab hNoMid
+  simpa [hrange, e] using hSub T e he hCompat'
 
 end Preference
 end EcoLean

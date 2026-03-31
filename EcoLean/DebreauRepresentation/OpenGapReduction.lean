@@ -7,9 +7,9 @@ import Mathlib.Data.Set.Countable
 This file reduces the gap-adjustment problem for a restricted utility function
 to the corresponding problem for its image as a subset of `ℝ`.
 
-The naive set-level countable open gap lemma is too strong for arbitrary
-countable subsets of `ℝ`, so we use a compatibility condition on the gap
-pattern of the set.
+The compatibility condition is phrased on adjacent points in the subtype order
+of a subset of `ℝ`, rather than directly as a property of arbitrary pairs of
+real numbers in the set.
 -/
 
 universe u
@@ -32,13 +32,33 @@ theorem restrictedUtilityImage_countable
   simpa [restrictedUtilityImage] using (Set.countable_range u)
 
 /--
-A countable subset of `ℝ` has compatible gap pattern if every strict interval
-between two of its points either contains another point of the set or is an
-open gap.
+There is no point strictly between `a` and `b`.
 -/
-def GapPatternCompatible (S : Set ℝ) : Prop :=
-  ∀ ⦃a b : ℝ⦄, a ∈ S → b ∈ S → a < b →
-    (∃ c : ℝ, c ∈ S ∧ a < c ∧ c < b) ∨ IsOpenGap S a b
+def NoMiddlePoint {T : Type} [LinearOrder T] (a b : T) : Prop :=
+  ¬ ∃ c : T, a < c ∧ c < b
+
+/--
+Compatibility condition for a subset `S ⊆ ℝ`, phrased on the subtype order
+of `S`.
+
+If `a < b` are adjacent points of `S` in the subtype order, then the interval
+between their real values is an open gap of `S`.
+-/
+def SetGapPatternCompatible (S : Set ℝ) : Prop :=
+  ∀ {a b : S}, a < b → NoMiddlePoint a b → IsOpenGap S a.1 b.1
+
+/--
+Compatibility condition for a strictly increasing real-valued map on a linear
+order.
+
+If `a < b` are adjacent in the domain order, then the interval between `e a`
+and `e b` is an open gap in the image of `e`.
+-/
+def DomainGapCompatible
+    {T : Type} [LinearOrder T]
+    (e : T → ℝ) : Prop :=
+  ∀ {a b : T}, a < b → NoMiddlePoint a b →
+    IsOpenGap (Set.range e) (e a) (e b)
 
 /--
 A subset `S ⊆ ℝ` admits a bound-preserving open-gap adjustment if there is a
@@ -79,11 +99,10 @@ theorem boundPreservingGapAdjustmentExists_of_countable_image
 /--
 Patched form of the countable open gap lemma.
 
-The compatibility hypothesis rules out the obvious counterexamples coming from
-isolated adjacent image points.
+The compatibility hypothesis is expressed on the subtype order of `S`.
 -/
 def CountableOpenGapLemma : Prop :=
-  ∀ S : Set ℝ, S.Countable → GapPatternCompatible S →
+  ∀ S : Set ℝ, S.Countable → SetGapPatternCompatible S →
     BoundPreservingOpenGapAdjustmentOn S
 
 /--
@@ -96,7 +115,7 @@ theorem boundPreservingGapAdjustmentExists_of_countable
     [Countable D]
     (hGapLemma : CountableOpenGapLemma)
     (u : Utility.UtilityFunction D)
-    (hCompat : GapPatternCompatible (restrictedUtilityImage u)) :
+    (hCompat : SetGapPatternCompatible (restrictedUtilityImage u)) :
     BoundPreservingGapAdjustmentExists u := by
   apply boundPreservingGapAdjustmentExists_of_image
   apply hGapLemma
