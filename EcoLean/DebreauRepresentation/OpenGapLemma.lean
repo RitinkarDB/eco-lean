@@ -68,6 +68,23 @@ theorem gapPatternCompatible_of_strictMono_range
     exact hgap
 
 /--
+If there is no domain point strictly between `a` and `b`, then the image
+interval between `e a` and `e b` is an open gap.
+-/
+theorem isOpenGap_of_no_middlePoint_of_strictMono_range
+    {T : Type} [LinearOrder T]
+    (e : T → ℝ)
+    (he : StrictMono e)
+    (hCompat : GapPatternCompatible (Set.range e))
+    {a b : T}
+    (hab : a < b)
+    (hNoMid : ¬ ∃ c : T, a < c ∧ c < b) :
+    IsOpenGap (Set.range e) (e a) (e b) := by
+  rcases gapPatternCompatible_of_strictMono_range e he hCompat hab with
+    hMid | hGap
+  · exact False.elim (hNoMid hMid)
+  · exact hGap
+/--
 Target theorem: the patched countable open gap lemma for countable linear
 orders already realised as subtypes of `ℝ`.
 -/
