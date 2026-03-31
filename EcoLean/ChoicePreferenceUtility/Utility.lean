@@ -5,6 +5,10 @@ import Mathlib.Data.Fintype.Card
 import Mathlib.Data.Finset.Card
 import Mathlib.Logic.Encodable.Basic
 import Mathlib.Topology.Algebra.InfiniteSum.ENNReal
+import Mathlib.Analysis.SpecificLimits.Normed
+import Mathlib.Topology.Algebra.InfiniteSum.Order
+import Mathlib.Topology.Algebra.InfiniteSum.Ring
+import Mathlib.Topology.Instances.NNReal.Lemmas
 
 universe u
 
@@ -570,36 +574,39 @@ theorem exists_utility_rationalizing_choice
 
 end ChoiceFunction
 
+
 /-!
 # Countable utility representation
 
-For the countable case, we attach to each alternative a positive dyadic weight
-using `Encodable.encode`, and then sum the weights of all alternatives no better
-than the given one.
-
-This is the natural infinite analogue of the finite no-better-than-cardinality
-construction.
+For the countable case, it is cleaner to index the utility sum by `ℕ`
+using `Encodable.decode`, rather than summing directly over `α`.
 -/
 
 namespace Preference
 
 variable {α : Type u}
 
-/-- A positive dyadic weight attached to an encodable alternative. -/
-noncomputable def dyadicWeight
-    [Encodable α]
-    (x : α) : NNReal :=
-  (1 / 2 : NNReal) ^ (Encodable.encode x + 1)
+/--
+The dyadic weight attached to index `n`.
+-/
+noncomputable def dyadicWeightNat (n : ℕ) : NNReal :=
+  (1 / 2 : NNReal) ^ (n + 1)
 
 /--
-The `NNReal` summand contributed by `z` to the countable utility of `x`.
+The `n`-th summand in the countable utility of `x`.
+
+If `n` does not decode to an element of `α`, the summand is zero.
+If `n` decodes to some `z`, then the summand is the dyadic weight at `n`
+precisely when `x ≽ z`.
 -/
-noncomputable def countableSummand
+noncomputable def countableSummandNat
     [Encodable α]
-    (P : Preference α) (x z : α) : NNReal :=
-  by
-    classical
-    exact if P.weakPref x z then dyadicWeight z else 0
+    (P : Preference α) (x : α) (n : ℕ) : NNReal := by
+  classical
+  match (Encodable.decode n : Option α) with
+  | none => exact 0
+  | some z =>
+      exact if P.weakPref x z then dyadicWeightNat n else 0
 
 /--
 The `NNReal`-valued countable utility attached to a preference.
@@ -607,7 +614,7 @@ The `NNReal`-valued countable utility attached to a preference.
 noncomputable def countableUtilityNNReal
     [Encodable α]
     (P : Preference α) : α → NNReal :=
-  fun x => ∑' z : α, countableSummand P x z
+  fun x => ∑' n : ℕ, countableSummandNat P x n
 
 /--
 The real-valued countable utility attached to a preference.
@@ -622,86 +629,237 @@ noncomputable def countableUtility
 -/
 
 /-- Dyadic weights are strictly positive. -/
-theorem dyadicWeight_pos
-    [Encodable α]
-    (x : α) :
-    0 < dyadicWeight x := by
-  unfold dyadicWeight
+theorem dyadicWeightNat_pos (n : ℕ) :
+    0 < dyadicWeightNat n := by
+  unfold dyadicWeightNat
   positivity
 
 /-- Dyadic weights are nonzero. -/
-theorem dyadicWeight_ne_zero
-    [Encodable α]
-    (x : α) :
-    dyadicWeight x ≠ 0 := by
-  exact ne_of_gt (dyadicWeight_pos x)
+theorem dyadicWeightNat_ne_zero (n : ℕ) :
+    dyadicWeightNat n ≠ 0 := by
+  exact ne_of_gt (dyadicWeightNat_pos n)
 
 /--
-If `x ≽ z`, then the summand contributed by `z` to the utility of `x`
-is exactly its dyadic weight.
+If `n` decodes to `z` and `x ≽ z`, then the `n`-th summand for `x`
+is exactly the dyadic weight at `n`.
 -/
-theorem countableSummand_eq_weight_of_weakPref
+theorem countableSummandNat_eq_weight_of_decode_some_of_weakPref
     [Encodable α]
-    (P : Preference α) {x z : α}
+    (P : Preference α) {x z : α} {n : ℕ}
+    (hDec : (Encodable.decode n : Option α) = some z)
     (hxz : P.weakPref x z) :
-    countableSummand P x z = dyadicWeight z := by
-  simp [countableSummand, hxz]
+    countableSummandNat P x n = dyadicWeightNat n := by
+  classical
+  unfold countableSummandNat
+  rw [hDec]
+  simp [hxz]
 
 /--
-If `¬ x ≽ z`, then the summand contributed by `z` to the utility of `x`
-is zero.
+If `n` decodes to `z` and `¬ x ≽ z`, then the `n`-th summand for `x` is zero.
 -/
-theorem countableSummand_eq_zero_of_not_weakPref
+theorem countableSummandNat_eq_zero_of_decode_some_of_not_weakPref
     [Encodable α]
-    (P : Preference α) {x z : α}
+    (P : Preference α) {x z : α} {n : ℕ}
+    (hDec : (Encodable.decode n : Option α) = some z)
     (hxz : ¬ P.weakPref x z) :
-    countableSummand P x z = 0 := by
-  simp [countableSummand, hxz]
-
-/-!
-# Pointwise comparison lemmas
-
-These are the key local inequalities that will later be upgraded to inequalities
-between the infinite sums defining the countable utility.
--/
+    countableSummandNat P x n = 0 := by
+  classical
+  unfold countableSummandNat
+  rw [hDec]
+  simp [hxz]
 
 /--
-If `x ≽ y`, then for every `z`, the `z`-summand in the utility of `y`
-is bounded above by the `z`-summand in the utility of `x`.
+If `n` does not decode to any element, then the `n`-th summand is zero.
 -/
-theorem countableSummand_le_of_weakPref
+theorem countableSummandNat_eq_zero_of_decode_none
+    [Encodable α]
+    (P : Preference α) {x : α} {n : ℕ}
+    (hDec : (Encodable.decode n : Option α) = none) :
+    countableSummandNat P x n = 0 := by
+  classical
+  unfold countableSummandNat
+  rw [hDec]
+
+/--
+Every `n`-th summand is bounded above by the dyadic weight at `n`.
+-/
+theorem countableSummandNat_le_dyadicWeightNat
+    [Encodable α]
+    (P : Preference α) (x : α) (n : ℕ) :
+    countableSummandNat P x n ≤ dyadicWeightNat n := by
+  classical
+  cases hDec : (Encodable.decode n : Option α) with
+  | none =>
+      simp [countableSummandNat, hDec]
+  | some z =>
+      by_cases hxz : P.weakPref x z
+      · simp [countableSummandNat, hDec, hxz]
+      · simp [countableSummandNat, hDec, hxz]
+
+/--
+If `x ≽ y`, then for every `n`, the `n`-th summand for `y`
+is bounded above by the `n`-th summand for `x`.
+-/
+theorem countableSummandNat_le_of_weakPref
     [Encodable α]
     (P : Preference α)
-    (hT : P.Transitive) {x y z : α}
+    (hT : P.Transitive) {x y : α}
     (hxy : P.weakPref x y) :
-    countableSummand P y z ≤ countableSummand P x z := by
-  unfold countableSummand
-  by_cases hyz : P.weakPref y z
-  · have hxz : P.weakPref x z := hT x y z hxy hyz
-    simp [hyz, hxz]
-  · by_cases hxz : P.weakPref x z
-    · simp [hyz, hxz]
-    · simp [hyz, hxz]
+    ∀ n : ℕ, countableSummandNat P y n ≤ countableSummandNat P x n := by
+  intro n
+  classical
+  cases hDec : (Encodable.decode n : Option α) with
+  | none =>
+      simp [countableSummandNat, hDec]
+  | some z =>
+      by_cases hyz : P.weakPref y z
+      · have hxz : P.weakPref x z := hT x y z hxy hyz
+        simp [countableSummandNat, hDec, hyz, hxz]
+      · by_cases hxz : P.weakPref x z
+        · simp [countableSummandNat, hDec, hyz, hxz]
+        · simp [countableSummandNat, hDec, hyz, hxz]
 
 /--
-If `¬ x ≽ y`, then at the specific coordinate `y`, the summand for `x`
+If `¬ x ≽ y`, then at the specific index encoding `y`, the summand for `x`
 is strictly smaller than the summand for `y`.
 -/
-theorem countableSummand_lt_at_witness_of_not_weakPref
+theorem countableSummandNat_lt_at_encode_of_not_weakPref
     [Encodable α]
     (P : Preference α)
     (hC : P.Complete) {x y : α}
     (hNot : ¬ P.weakPref x y) :
-    countableSummand P x y < countableSummand P y y := by
+    countableSummandNat P x (Encodable.encode y) <
+      countableSummandNat P y (Encodable.encode y) := by
+  classical
+  have hDec : (Encodable.decode (Encodable.encode y) : Option α) = some y :=
+    Encodable.encodek y
   have hyy : P.weakPref y y := weakPref_refl_of_complete P hC y
-  have hpos : 0 < dyadicWeight y := dyadicWeight_pos y
-  unfold countableSummand
-  simp [hNot, hyy]
-  exact hpos
+  rw [countableSummandNat_eq_zero_of_decode_some_of_not_weakPref P hDec hNot]
+  rw [countableSummandNat_eq_weight_of_decode_some_of_weakPref P hDec hyy]
+  exact dyadicWeightNat_pos (Encodable.encode y)
 
+/-!
+# Summability and representation in the countable case
+-/
 
+/-- The dyadic-weight series is summable. -/
 
+theorem summable_dyadicWeightNat :
+    Summable dyadicWeightNat := by
+  let r : NNReal := (1 / 2 : NNReal)
+  have hr : r < 1 := by
+    dsimp [r]
+    norm_num
+  have hgeom : Summable (fun n : ℕ => r ^ n) := by
+    exact NNReal.summable_geometric hr
+  have hmul : Summable (fun n : ℕ => r ^ n * r) := by
+    exact hgeom.mul_right r
+  unfold dyadicWeightNat
+  dsimp [r] at hmul ⊢
+  convert hmul using 1
 
+/--
+For each `x`, the summand family defining the countable utility is summable.
+-/
+theorem summable_countableSummandNat
+    [Encodable α]
+    (P : Preference α) (x : α) :
+    Summable (countableSummandNat P x) := by
+  exact NNReal.summable_of_le
+    (f := dyadicWeightNat)
+    (g := countableSummandNat P x)
+    (by
+      intro n
+      exact countableSummandNat_le_dyadicWeightNat P x n)
+    summable_dyadicWeightNat
+/--
+If `x ≽ y`, then the countable utility of `x` is at least as large as that of `y`.
+-/
+theorem countableUtility_ge_of_weakPref
+    [Encodable α]
+    (P : Preference α)
+    (hT : P.Transitive) {x y : α}
+    (hxy : P.weakPref x y) :
+    countableUtility P x ≥ countableUtility P y := by
+  have hNN :
+      countableUtilityNNReal P y ≤ countableUtilityNNReal P x := by
+    unfold countableUtilityNNReal
+    exact Summable.tsum_le_tsum
+      (countableSummandNat_le_of_weakPref (P := P) hT (x := x) (y := y) hxy)
+      (summable_countableSummandNat P y)
+      (summable_countableSummandNat P x)
+  change ((countableUtilityNNReal P x : NNReal) : ℝ) ≥
+      ((countableUtilityNNReal P y : NNReal) : ℝ)
+  exact_mod_cast hNN
+
+/--
+If `¬ x ≽ y`, then the countable utility of `x` is strictly smaller than that of `y`.
+-/
+theorem countableUtility_lt_of_not_weakPref
+    [Encodable α]
+    (P : Preference α)
+    (hC : P.Complete)
+    (hT : P.Transitive) {x y : α}
+    (hNot : ¬ P.weakPref x y) :
+    countableUtility P x < countableUtility P y := by
+  have hyx : P.weakPref y x := by
+    rcases hC x y with hxy | hyx
+    · exact False.elim (hNot hxy)
+    · exact hyx
+  have hle :
+      ∀ n : ℕ, countableSummandNat P x n ≤ countableSummandNat P y n := by
+    simpa using
+      (countableSummandNat_le_of_weakPref (P := P) hT (x := y) (y := x) hyx)
+  have hlt :
+      countableSummandNat P x (Encodable.encode y) <
+        countableSummandNat P y (Encodable.encode y) := by
+    exact countableSummandNat_lt_at_encode_of_not_weakPref P hC hNot
+  have hNN :
+      countableUtilityNNReal P x < countableUtilityNNReal P y := by
+    unfold countableUtilityNNReal
+    exact NNReal.tsum_lt_tsum
+      hle
+      hlt
+      (summable_countableSummandNat P y)
+  change ((countableUtilityNNReal P x : NNReal) : ℝ) <
+      ((countableUtilityNNReal P y : NNReal) : ℝ)
+  exact_mod_cast hNN
+
+/--
+The countable utility attached to a complete and transitive preference
+represents that preference.
+-/
+theorem countableUtility_represents
+    [Encodable α]
+    (P : Preference α)
+    (hC : P.Complete)
+    (hT : P.Transitive) :
+    Represents (countableUtility P) P := by
+  intro x y
+  constructor
+  · intro hxy
+    exact countableUtility_ge_of_weakPref P hT hxy
+  · intro hxy
+    by_cases hxy' : P.weakPref x y
+    · exact hxy'
+    · have hlt : countableUtility P x < countableUtility P y :=
+        countableUtility_lt_of_not_weakPref P hC hT hxy'
+      exact False.elim ((not_lt_of_ge hxy) hlt)
+
+/--
+Countable utility-existence theorem:
+
+every complete and transitive preference on an encodable domain
+admits a utility representation.
+-/
+theorem exists_utility_of_encodable_complete_transitive
+    [Encodable α]
+    (P : Preference α)
+    (hC : P.Complete)
+    (hT : P.Transitive) :
+    ∃ u : Utility.UtilityFunction α, Represents u P := by
+  refine ⟨countableUtility P, ?_⟩
+  exact countableUtility_represents P hC hT
 
 end Preference
 
