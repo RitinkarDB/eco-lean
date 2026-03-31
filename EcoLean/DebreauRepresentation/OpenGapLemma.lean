@@ -84,6 +84,42 @@ theorem isOpenGap_of_no_middlePoint_of_strictMono_range
     hMid | hGap
   · exact False.elim (hNoMid hMid)
   · exact hGap
+
+/--
+There is no point strictly between `a` and `b`.
+-/
+def NoMiddlePoint {T : Type} [LinearOrder T] (a b : T) : Prop :=
+  ¬ ∃ c : T, a < c ∧ c < b
+
+/--
+If there is no point strictly between `a` and `b`, then the image interval
+between `e a` and `e b` is an open gap.
+-/
+theorem isOpenGap_of_noMiddlePoint_of_strictMono_range
+    {T : Type} [LinearOrder T]
+    (e : T → ℝ)
+    (he : StrictMono e)
+    (hCompat : GapPatternCompatible (Set.range e))
+    {a b : T}
+    (hab : a < b)
+    (hNoMid : NoMiddlePoint a b) :
+    IsOpenGap (Set.range e) (e a) (e b) := by
+  rcases gapPatternCompatible_of_strictMono_range e he hCompat hab with
+    hMid | hGap
+  · exact False.elim (hNoMid hMid)
+  · exact hGap
+
+/--
+If there is a point strictly between `a` and `b`, then `NoMiddlePoint a b`
+fails.
+-/
+theorem not_noMiddlePoint_of_exists_middle
+    {T : Type} [LinearOrder T]
+    {a b : T}
+    (hMid : ∃ c : T, a < c ∧ c < b) :
+    ¬ NoMiddlePoint a b := by
+  intro hNoMid
+  exact hNoMid hMid
 /--
 Target theorem: the patched countable open gap lemma for countable linear
 orders already realised as subtypes of `ℝ`.
