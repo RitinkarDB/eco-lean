@@ -861,6 +861,8 @@ theorem exists_utility_of_encodable_complete_transitive
   refine ⟨countableUtility P, ?_⟩
   exact countableUtility_represents P hC hT
 
+
+
 end Preference
 
 end EcoLean
