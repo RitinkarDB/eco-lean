@@ -120,6 +120,23 @@ theorem not_noMiddlePoint_of_exists_middle
     ¬ NoMiddlePoint a b := by
   intro hNoMid
   exact hNoMid hMid
+
+/--
+If `a < b` and there is no point strictly between them, then their images under
+a strictly increasing map form an open gap in the image set.
+-/
+theorem image_pair_isOpenGap_of_noMiddlePoint
+    {T : Type} [LinearOrder T]
+    (e : T → ℝ)
+    (he : StrictMono e)
+    (hCompat : GapPatternCompatible (Set.range e))
+    {a b : T}
+    (hab : a < b)
+    (hNoMid : NoMiddlePoint a b) :
+    e a < e b ∧ IsOpenGap (Set.range e) (e a) (e b) := by
+  refine ⟨he hab, ?_⟩
+  exact isOpenGap_of_noMiddlePoint_of_strictMono_range e he hCompat hab hNoMid
+
 /--
 Target theorem: the patched countable open gap lemma for countable linear
 orders already realised as subtypes of `ℝ`.
