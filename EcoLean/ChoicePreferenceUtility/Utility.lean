@@ -9,6 +9,7 @@ import Mathlib.Analysis.SpecificLimits.Normed
 import Mathlib.Topology.Algebra.InfiniteSum.Order
 import Mathlib.Topology.Algebra.InfiniteSum.Ring
 import Mathlib.Topology.Instances.NNReal.Lemmas
+import Mathlib.Order.Monotone.Basic
 
 universe u
 
@@ -22,7 +23,10 @@ variable {α : Type u}
 # Utility functions
 
 This file formalises the Chapter 1 move in Kreps from preference rationalisation
-to utility representation.
+to utility representation. It treats both the finite and encodable cases,
+connects preferences and choice functions to utility, and records the
+ordinal invariance of utility representation under strictly increasing
+transformations.
 
 A utility function can be used in two related ways:
 
@@ -864,5 +868,241 @@ theorem exists_utility_of_encodable_complete_transitive
 
 
 end Preference
+
+namespace Utility
+
+variable {α : Type u}
+
+/-!
+# Ordinal invariance and finite-menu rationalisation
+-/
+
+/--
+A utility function rationalises a choice function on finite menus if, for every
+finite feasible set `A`, the choice from `A` coincides with utility maximisation.
+-/
+def RationalizesOnFinite
+    (u : UtilityFunction α) (c : ChoiceFunction α) : Prop :=
+  ∀ A : Set α, A.Finite → c.choose A = (generatedChoice u).choose A
+
+/--
+Strictly increasing transformations preserve the utility-generated preference.
+-/
+theorem generatedPref_eq_generatedPref_comp_strictMono
+    (u : UtilityFunction α)
+    {φ : ℝ → ℝ}
+    (hφ : StrictMono φ) :
+    generatedPref (fun x => φ (u x)) = generatedPref u := by
+  unfold generatedPref
+  simp only [Preference.mk.injEq]
+  funext x y
+  apply propext
+  change φ (u y) ≤ φ (u x) ↔ u y ≤ u x
+  simpa using (hφ.le_iff_le (a := u y) (b := u x))
+/--
+Strictly increasing transformations preserve the utility-generated choice function.
+-/
+theorem generatedChoice_eq_generatedChoice_comp_strictMono
+    (u : UtilityFunction α)
+    {φ : ℝ → ℝ}
+    (hφ : StrictMono φ) :
+    generatedChoice (fun x => φ (u x)) = generatedChoice u := by
+  rw [generatedChoice_eq_generatedChoice_of_generatedPref,
+      generatedChoice_eq_generatedChoice_of_generatedPref,
+      generatedPref_eq_generatedPref_comp_strictMono u hφ]
+
+/--
+If `u` rationalises `c`, then every strictly increasing transformation of `u`
+also rationalises `c`.
+-/
+theorem rationalizes_comp_strictMono
+    {u : UtilityFunction α} {c : ChoiceFunction α}
+    {φ : ℝ → ℝ}
+    (hRat : Rationalizes u c)
+    (hφ : StrictMono φ) :
+    Rationalizes (fun x => φ (u x)) c := by
+  rw [Rationalizes] at hRat ⊢
+  calc
+    c = generatedChoice u := hRat
+    _ = generatedChoice (fun x => φ (u x)) := by
+      symm
+      exact generatedChoice_eq_generatedChoice_comp_strictMono u hφ
+
+/--
+If `u` rationalises `c` on finite menus, then every strictly increasing
+transformation of `u` also rationalises `c` on finite menus.
+-/
+theorem rationalizesOnFinite_comp_strictMono
+    {u : UtilityFunction α} {c : ChoiceFunction α}
+    {φ : ℝ → ℝ}
+    (hRat : RationalizesOnFinite u c)
+    (hφ : StrictMono φ) :
+    RationalizesOnFinite (fun x => φ (u x)) c := by
+  intro A hAFin
+  rw [hRat A hAFin, generatedChoice_eq_generatedChoice_comp_strictMono u hφ]
+
+end Utility
+
+namespace Preference
+
+variable {α : Type u}
+
+/-!
+# Ordinal invariance and chapter summary theorems
+-/
+
+/--
+Strictly increasing transformations preserve utility representation.
+-/
+theorem represents_comp_strictMono
+    {u : Utility.UtilityFunction α} {P : Preference α}
+    {φ : ℝ → ℝ}
+    (hRep : Represents u P)
+    (hφ : StrictMono φ) :
+    Represents (fun x => φ (u x)) P := by
+  intro x y
+  rw [hRep x y]
+  simpa [ge_iff_le] using
+    (hφ.le_iff_le (a := u y) (b := u x)).symm
+/--
+Finite-domain summary theorem:
+a preference admits a utility representation if and only if it is complete and transitive.
+-/
+theorem exists_represents_iff_complete_transitive_finite
+    [Fintype α]
+    (P : Preference α) :
+    (∃ u : Utility.UtilityFunction α, Represents u P) ↔
+      P.Complete ∧ P.Transitive := by
+  constructor
+  · rintro ⟨u, hRep⟩
+    exact ⟨complete_of_represents hRep, transitive_of_represents hRep⟩
+  · rintro ⟨hC, hT⟩
+    exact exists_utility_of_finite_complete_transitive P hC hT
+
+/--
+Encodable-domain summary theorem:
+a preference admits a utility representation if and only if it is complete and transitive.
+-/
+theorem exists_represents_iff_complete_transitive_encodable
+    [Encodable α]
+    (P : Preference α) :
+    (∃ u : Utility.UtilityFunction α, Represents u P) ↔
+      P.Complete ∧ P.Transitive := by
+  constructor
+  · rintro ⟨u, hRep⟩
+    exact ⟨complete_of_represents hRep, transitive_of_represents hRep⟩
+  · rintro ⟨hC, hT⟩
+    exact exists_utility_of_encodable_complete_transitive P hC hT
+
+end Preference
+
+namespace ChoiceFunction
+
+variable {α : Type u}
+
+/-!
+# Finite-menu utility rationalisation on encodable domains
+-/
+
+/--
+On every finite menu, a coherent choice function coincides with the choice
+induced by its generated preference.
+-/
+theorem choose_eq_generatedChoiceFromGeneratedPref_of_finite
+    (c : ChoiceFunction α)
+    (hFrom : c.ChoosesFrom)
+    (hFN : c.FiniteNonempty)
+    (hCC : c.ChoiceCoherent)
+    {A : Set α}
+    (hAFin : A.Finite) :
+    c.choose A = (generatedChoiceFromGeneratedPref c).choose A := by
+  ext x
+  constructor
+  · intro hx
+    exact subset_generatedChoiceFromGeneratedPref c hFrom hFN hCC hx
+  · intro hx
+    have hxA : x ∈ A := by
+      exact generatedChoiceFromGeneratedPref_choosesFrom (c := c) A hx
+    have hCase :=
+      choose_eq_empty_or_eq_generatedChoiceFromGeneratedPref c hFrom hFN hCC A
+    cases hCase with
+    | inl hEmpty =>
+        have hNE : (c.choose A).Nonempty := hFN hAFin ⟨x, hxA⟩
+        simpa [hEmpty] using hNE
+    | inr hEq =>
+        simpa [hEq] using hx
+
+/--
+Encodable finite-menu utility rationalisation of choice.
+
+On an encodable domain, a coherent choice function is rationalised by a utility
+function on every finite feasible menu.
+-/
+theorem exists_utility_rationalizing_choice_on_finite_sets
+    [Encodable α]
+    (c : ChoiceFunction α)
+    (hFrom : c.ChoosesFrom)
+    (hFN : c.FiniteNonempty)
+    (hCC : c.ChoiceCoherent) :
+    ∃ u : Utility.UtilityFunction α, Utility.RationalizesOnFinite u c := by
+  classical
+  let P : Preference α := generatedPref c
+
+  have hComp : P.Complete :=
+    generatedPref_complete c hFrom hFN
+
+  have hTrans : P.Transitive :=
+    generatedPref_transitive c hFrom hFN hCC
+
+  rcases Preference.exists_utility_of_encodable_complete_transitive P hComp hTrans with
+    ⟨u, hRep⟩
+
+  refine ⟨u, ?_⟩
+  intro A hAFin
+  have hA : c.choose A = (generatedChoiceFromGeneratedPref c).choose A :=
+    choose_eq_generatedChoiceFromGeneratedPref_of_finite c hFrom hFN hCC hAFin
+  have hChoice : P.generatedChoice = Utility.generatedChoice u :=
+    Preference.generatedChoice_eq_generatedChoice_of_represents hRep
+  calc
+    c.choose A = (generatedChoiceFromGeneratedPref c).choose A := hA
+    _ = P.generatedChoice.choose A := rfl
+    _ = (Utility.generatedChoice u).choose A := by simpa [hChoice]
+
+/-!
+# Chapter 1 summary theorems for choice
+-/
+
+/--
+Finite-domain summary theorem for choice:
+a choice function is utility-rationalisable if and only if it chooses from
+feasible sets, satisfies finite nonemptiness, and is choice coherent.
+-/
+theorem exists_rationalizes_iff_axioms_finite
+    [Fintype α]
+    (c : ChoiceFunction α) :
+    (∃ u : Utility.UtilityFunction α, Utility.Rationalizes u c) ↔
+      c.ChoosesFrom ∧ c.FiniteNonempty ∧ c.ChoiceCoherent := by
+  constructor
+  · rintro ⟨u, hRat⟩
+    exact ⟨Utility.choosesFrom_of_rationalizes hRat,
+      Utility.finiteNonempty_of_rationalizes hRat,
+      Utility.choiceCoherent_of_rationalizes hRat⟩
+  · rintro ⟨hFrom, hFN, hCC⟩
+    exact exists_utility_rationalizing_choice c hFrom hFN hCC
+
+/--
+Encodable-domain existence theorem for choice on finite menus.
+-/
+theorem exists_rationalizesOnFinite_of_axioms_encodable
+    [Encodable α]
+    (c : ChoiceFunction α)
+    (hFrom : c.ChoosesFrom)
+    (hFN : c.FiniteNonempty)
+    (hCC : c.ChoiceCoherent) :
+    ∃ u : Utility.UtilityFunction α, Utility.RationalizesOnFinite u c := by
+  exact exists_utility_rationalizing_choice_on_finite_sets c hFrom hFN hCC
+
+end ChoiceFunction
+
 
 end EcoLean
