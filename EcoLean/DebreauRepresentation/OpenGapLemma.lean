@@ -137,30 +137,6 @@ theorem image_pair_isOpenGap_of_noMiddlePoint
   refine ⟨he hab, ?_⟩
   exact isOpenGap_of_noMiddlePoint_of_strictMono_range e he hCompat hab hNoMid
 
-/--
-There is no point strictly between `a` and `b`.
--/
-def NoMiddlePoint {T : Type} [LinearOrder T] (a b : T) : Prop :=
-  ¬ ∃ c : T, a < c ∧ c < b
-
-/--
-If there is no point strictly between `a` and `b`, then the image interval
-between `e a` and `e b` is an open gap.
--/
-theorem isOpenGap_of_noMiddlePoint_of_strictMono_range
-    {T : Type} [LinearOrder T]
-    (e : T → ℝ)
-    (he : StrictMono e)
-    (hCompat : GapPatternCompatible (Set.range e))
-    {a b : T}
-    (hab : a < b)
-    (hNoMid : NoMiddlePoint a b) :
-    IsOpenGap (Set.range e) (e a) (e b) := by
-  rcases gapPatternCompatible_of_strictMono_range e he hCompat hab with
-    hMid | hGap
-  · exact False.elim (hNoMid hMid)
-  · exact hGap
-
 
 /--
 If `NoMiddlePoint a b` fails, then there exists a point strictly between `a`
