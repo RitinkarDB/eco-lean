@@ -1,5 +1,17 @@
 import EcoLean.DebreauRepresentation.Contours
 
+/-!
+# Continuous preferences
+
+This file defines continuity of a preference in terms of the closedness of its
+upper and lower weak contour sets.
+
+It also proves the easy direction of the representation story:
+
+if a preference is represented by a continuous utility function, then the
+preference is continuous in this contour-set sense.
+-/
+
 universe u
 
 namespace EcoLean
@@ -16,6 +28,10 @@ def ContinuousPref (P : Preference α) : Prop :=
 
 /--
 A continuous utility representation induces a continuous preference.
+
+The idea is simple: each contour set of the represented preference is the
+preimage of a closed ray in `ℝ` under the utility function, and continuous
+preimages of closed sets are closed.
 -/
 theorem continuousPref_of_continuous_represents
     {P : Preference α}
