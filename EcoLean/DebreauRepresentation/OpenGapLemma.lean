@@ -252,6 +252,62 @@ def CoherentBoundedOpenGapEmbeddingChain
     (∀ n (x : codeTruncation f n),
       g (n + 1) (codeTruncationSuccInclusion f n x) = g n x)
 
+
+/--
+The natural inclusion of the `m`-th truncation into the `n`-th truncation,
+given `m ≤ n`.
+-/
+def codeTruncationInclusion
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ) {m n : ℕ} (hmn : m ≤ n) :
+    codeTruncation f m → codeTruncation f n :=
+  fun x => ⟨x.1, Nat.le_trans x.2 hmn⟩
+
+@[simp] theorem codeTruncationInclusion_val
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ) {m n : ℕ} (hmn : m ≤ n) (x : codeTruncation f m) :
+    (codeTruncationInclusion f hmn x).1 = x.1 := by
+  rfl
+
+@[simp] theorem codeTruncationInclusion_refl
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ) (n : ℕ) (x : codeTruncation f n) :
+    codeTruncationInclusion f (show n ≤ n by rfl) x = x := by
+  apply Subtype.ext
+  rfl
+
+@[simp] theorem codeTruncationInclusion_succ
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ) (n : ℕ) (x : codeTruncation f n) :
+    codeTruncationInclusion f (Nat.le_succ n) x =
+      codeTruncationSuccInclusion f n x := by
+  rfl
+
+/--
+Successor coherence implies coherence along arbitrary inclusions.
+-/
+theorem coherent_on_all_inclusions
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ)
+    {g : ∀ n, codeTruncation f n → ℝ}
+    (hcoh : ∀ n (x : codeTruncation f n),
+      g (n + 1) (codeTruncationSuccInclusion f n x) = g n x) :
+    ∀ {m n : ℕ} (hmn : m ≤ n) (x : codeTruncation f m),
+      g n (codeTruncationInclusion f hmn x) = g m x := by
+  intro m n hmn x
+  induction hmn with
+  | refl =>
+      simp
+  | @step n hmn ih =>
+      have h1 :
+          g (n + 1)
+            (codeTruncationSuccInclusion f n
+              (codeTruncationInclusion f hmn x)) =
+          g n (codeTruncationInclusion f hmn x) := by
+        exact hcoh n (codeTruncationInclusion f hmn x)
+      simpa [codeTruncationInclusion, codeTruncationSuccInclusion] using h1.trans ih
+
+
 /--
 Target coherence theorem for the finite truncations induced by an injective
 coding into `ℕ`.
@@ -263,6 +319,16 @@ theorem exists_coherent_boundedOpenGapEmbedding_chain
     CoherentBoundedOpenGapEmbeddingChain f := by
   sorry
 
+/--
+The global candidate extracted from a coherent chain, using the stage indexed by
+the code of the point itself.
+-/
+def coherentChainGlobalCandidate
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ)
+    (g : ∀ n, codeTruncation f n → ℝ) :
+    T → ℝ :=
+  fun t => g (f t) ⟨t, le_rfl⟩
 
 /--
 Order-version open gap lemma.
@@ -276,6 +342,10 @@ theorem countableOpenGapLemmaOnOrders_proof :
   rcases exists_injective_nat_of_countable T with ⟨f, hf⟩
   rcases exists_coherent_boundedOpenGapEmbedding_chain f hf with
     ⟨g, hgmono, hgint, hggap, hcoh⟩
+  let G : T → ℝ := coherentChainGlobalCandidate f g
+  -- next: prove `StrictMono G`
+  -- then prove `MapsIntoArctanIntervalOn G`
+  -- then prove `HasOnlyOpenGaps (Set.range G)`
   sorry
 /--
 Target theorem: the patched countable open gap lemma for countable linear
