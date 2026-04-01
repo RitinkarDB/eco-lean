@@ -5,6 +5,8 @@ import Mathlib.Order.Monotone.Basic
 import Mathlib.Data.Set.Finite.Range
 import Mathlib.Topology.Separation.Basic
 import Mathlib.Data.Finset.Sort
+import Mathlib.Logic.Encodable.Basic
+import Mathlib.Topology.Algebra.InfiniteSum.Real
 
 /-!
 # Open gap lemma
@@ -394,6 +396,143 @@ theorem mapsIntoArctanIntervalOn_coherentChainGlobalCandidate
   simpa [coherentChainGlobalCandidate] using hgint (f t) ⟨t, le_rfl⟩
 
 
+
+/--
+The `n`-th dyadic summand in the direct countable open-gap embedding.
+-/
+noncomputable def openGapSummand
+    {T : Type} [LinearOrder T] [Countable T]
+    (x : T) (n : ℕ) : NNReal := by
+  classical
+  letI : Encodable T := Encodable.ofCountable T
+  exact match Encodable.decode (α := T) n with
+  | none => 0
+  | some t => if t < x then dyadicWeightNat n else 0
+
+/--
+If `n` does not decode to an element of `T`, then the corresponding summand is
+zero.
+-/
+theorem openGapSummand_eq_zero_of_decode_none
+    {T : Type} [LinearOrder T] [Countable T]
+    (x : T) (n : ℕ)
+    (h : @Encodable.decode T (Encodable.ofCountable T) n = none) :
+    openGapSummand x n = 0 := by
+  classical
+  simp [openGapSummand, h]
+
+/--
+If `n` decodes to `t < x`, then the corresponding summand is the full dyadic
+weight at `n`.
+-/
+theorem openGapSummand_eq_weight_of_decode_some_of_lt
+    {T : Type} [LinearOrder T] [Countable T]
+    (x t : T) (n : ℕ)
+    (hDec : @Encodable.decode T (Encodable.ofCountable T) n = some t)
+    (ht : t < x) :
+    openGapSummand x n = dyadicWeightNat n := by
+  classical
+  simp [openGapSummand, hDec, ht]
+
+/--
+If `n` decodes to `t` but `t < x` fails, then the corresponding summand is
+zero.
+-/
+theorem openGapSummand_eq_zero_of_decode_some_of_not_lt
+    {T : Type} [LinearOrder T] [Countable T]
+    (x t : T) (n : ℕ)
+    (hDec : @Encodable.decode T (Encodable.ofCountable T) n = some t)
+    (ht : ¬ t < x) :
+    openGapSummand x n = 0 := by
+  classical
+  simp [openGapSummand, hDec, ht]
+
+/--
+Each dyadic summand is bounded above by the corresponding dyadic weight.
+-/
+theorem openGapSummand_le_weight
+    {T : Type} [LinearOrder T] [Countable T]
+    (x : T) (n : ℕ) :
+    openGapSummand x n ≤ dyadicWeightNat n := by
+  classical
+  letI : Encodable T := Encodable.ofCountable T
+  cases hDec : Encodable.decode (α := T) n with
+  | none =>
+      simp [openGapSummand, hDec]
+  | some t =>
+      by_cases hlt : t < x
+      · simp [openGapSummand, hDec, hlt]
+      · simp [openGapSummand, hDec, hlt]
+
+/--
+The summand family defining the direct countable open-gap embedding is
+summable.
+-/
+theorem summable_openGapSummand
+    {T : Type} [LinearOrder T] [Countable T]
+    (x : T) :
+    Summable (openGapSummand x) := by
+  exact NNReal.summable_of_le
+    (fun n => openGapSummand_le_weight x n)
+    summable_dyadicWeightNat
+
+/--
+The direct dyadic embedding of a countable linear order into `ℝ`.
+-/
+noncomputable def openGapEmbedding
+    {T : Type} [LinearOrder T] [Countable T] :
+    T → ℝ :=
+  fun x => ∑' n : ℕ, (openGapSummand x n : ℝ)
+
+/--
+If `x ≤ y`, then each dyadic summand for `x` is bounded above by the
+corresponding summand for `y`.
+-/
+theorem openGapSummand_mono
+    {T : Type} [LinearOrder T] [Countable T]
+    {x y : T}
+    (hxy : x ≤ y) :
+    ∀ n : ℕ, openGapSummand x n ≤ openGapSummand y n := by
+  intro n
+  classical
+  letI : Encodable T := Encodable.ofCountable T
+  cases hDec : Encodable.decode (α := T) n with
+  | none =>
+      simp [openGapSummand, hDec]
+  | some t =>
+      by_cases htx : t < x
+      · have hty : t < y := lt_of_lt_of_le htx hxy
+        simp [openGapSummand, hDec, htx, hty]
+      · by_cases hty : t < y
+        · simp [openGapSummand, hDec, htx, hty]
+        · simp [openGapSummand, hDec, htx, hty]
+
+/--
+At the code of `x`, the summand for `x` itself is zero.
+-/
+theorem openGapSummand_encode_self_eq_zero
+    {T : Type} [LinearOrder T] [Countable T]
+    (x : T) :
+    openGapSummand x (@Encodable.encode T (Encodable.ofCountable T) x) = 0 := by
+  classical
+  unfold openGapSummand
+  rw [Encodable.encodek (self := Encodable.ofCountable T) (a := x)]
+  simp
+
+/--
+At the code of `x`, the summand for any strict upper point `y` is the full
+dyadic weight.
+-/
+theorem openGapSummand_encode_of_lt
+    {T : Type} [LinearOrder T] [Countable T]
+    {x y : T}
+    (hxy : x < y) :
+    openGapSummand y (@Encodable.encode T (Encodable.ofCountable T) x) =
+      dyadicWeightNat (@Encodable.encode T (Encodable.ofCountable T) x) := by
+  classical
+  unfold openGapSummand
+  rw [Encodable.encodek (self := Encodable.ofCountable T) (a := x)]
+  simp [hxy]
 /--
 Order-version open gap lemma.
 
