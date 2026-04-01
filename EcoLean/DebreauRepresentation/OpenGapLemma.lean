@@ -7,6 +7,12 @@ import Mathlib.Topology.Separation.Basic
 import Mathlib.Data.Finset.Sort
 import Mathlib.Logic.Encodable.Basic
 import Mathlib.Topology.Algebra.InfiniteSum.Real
+import Mathlib.Analysis.SpecificLimits.Basic
+import Mathlib.Topology.Algebra.InfiniteSum.ENNReal
+import Mathlib.Analysis.Real.Pi.Bounds
+import Mathlib.Topology.Algebra.InfiniteSum.Order
+
+
 
 /-!
 # Open gap lemma
@@ -575,6 +581,70 @@ theorem strictMono_openGapEmbedding
   intro x y hxy
   exact openGapEmbedding_lt_of_lt hxy
 
+/--
+Each direct dyadic embedding value is nonnegative.
+-/
+theorem openGapEmbedding_nonneg
+    {T : Type} [LinearOrder T] [Countable T]
+    (x : T) :
+    0 ≤ openGapEmbedding x := by
+  rw [openGapEmbedding]
+  positivity
+
+
+/--
+The dyadic-weight series sums to `1` in `ℝ`.
+-/
+theorem tsum_dyadicWeightNat_real :
+    (∑' n : ℕ, (dyadicWeightNat n : ℝ)) = 1 := by
+  calc
+    (∑' n : ℕ, (dyadicWeightNat n : ℝ))
+        = ∑' n : ℕ, ((2 : ℝ)⁻¹ / 2 ^ n) := by
+            apply tsum_congr
+            intro n
+            calc
+              ((dyadicWeightNat n : NNReal) : ℝ)
+                  = (((2 : ℝ) ^ (n + 1))⁻¹) := by
+                      simp [dyadicWeightNat]
+              _ = ((2 : ℝ)⁻¹ / 2 ^ n) := by
+                      rw [pow_succ]
+                      field_simp
+    _ = 1 := by
+        simpa using (tsum_geometric_two' (a := (1 : ℝ)))
+/--
+Each direct dyadic embedding value is bounded above by the dyadic-weight sum.
+-/
+theorem openGapEmbedding_le_tsum_dyadicWeight
+    {T : Type} [LinearOrder T] [Countable T]
+    (x : T) :
+    openGapEmbedding x ≤ ∑' n : ℕ, (dyadicWeightNat n : ℝ) := by
+  have hnn :
+      (∑' n : ℕ, openGapSummand x n) ≤ ∑' n : ℕ, dyadicWeightNat n := by
+    exact (summable_openGapSummand x).tsum_le_tsum
+      (fun n => openGapSummand_le_weight x n)
+      summable_dyadicWeightNat
+  rw [openGapEmbedding, ← NNReal.coe_tsum, ← NNReal.coe_tsum]
+  exact_mod_cast hnn
+/--
+The direct dyadic embedding lands in the arctan interval.
+-/
+theorem mapsIntoArctanIntervalOn_openGapEmbedding
+    {T : Type} [LinearOrder T] [Countable T] :
+    MapsIntoArctanIntervalOn (openGapEmbedding : T → ℝ) := by
+  intro x
+  constructor
+  · have hx : 0 ≤ openGapEmbedding x := openGapEmbedding_nonneg x
+    have hpi : 0 < Real.pi / 2 := by positivity
+    linarith
+  · have hx :
+      openGapEmbedding x ≤ ∑' n : ℕ, (dyadicWeightNat n : ℝ) :=
+        openGapEmbedding_le_tsum_dyadicWeight x
+    have hsum : (∑' n : ℕ, (dyadicWeightNat n : ℝ)) = 1 :=
+      tsum_dyadicWeightNat_real
+    have hpi : (1 : ℝ) < Real.pi / 2 := by
+      nlinarith [Real.pi_gt_three]
+    rw [hsum] at hx
+    linarith
 
 /--
 Order-version open gap lemma.
