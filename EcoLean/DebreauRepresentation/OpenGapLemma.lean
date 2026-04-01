@@ -2,6 +2,8 @@ import EcoLean.DebreauRepresentation.OpenGapLemmaSubtypeReduction
 import EcoLean.DebreauRepresentation.OpenGapOrderVersion
 import Mathlib.Data.Set.Countable
 import Mathlib.Order.Monotone.Basic
+import Mathlib.Data.Set.Finite.Range
+import Mathlib.Topology.Separation.Basic
 
 /-!
 # Open gap lemma
@@ -112,6 +114,26 @@ theorem setGapPatternCompatible_range_of_domainGapCompatible
   have hNoMid' : NoMiddlePoint a0 b0 := by
     exact noMiddlePoint_domain_of_noMiddlePoint_range e he hNoMid
   simpa using hCompat hab' hNoMid'
+
+
+/--
+The range of a function on a finite type has only open gaps.
+-/
+theorem finite_range_has_only_openGaps
+    {T : Type} [Fintype T]
+    (g : T → ℝ) :
+    HasOnlyOpenGaps (Set.range g) := by
+  intro a b hGap
+  rcases hGap with ⟨hab, ha_cl, hb_cl, hNoMid⟩
+  have hfin : (Set.range g).Finite := Set.finite_range g
+  have hclosed : IsClosed (Set.range g) := hfin.isClosed
+  have hclosure : closure (Set.range g) = Set.range g := hclosed.closure_eq
+  have ha : a ∈ Set.range g := by
+    simpa [hclosure] using ha_cl
+  have hb : b ∈ Set.range g := by
+    simpa [hclosure] using hb_cl
+  exact ⟨⟨hab, ha_cl, hb_cl, hNoMid⟩, ha, hb⟩
+
 
 /--
 If the order-version open gap lemma holds, then the subtype-level patched open
