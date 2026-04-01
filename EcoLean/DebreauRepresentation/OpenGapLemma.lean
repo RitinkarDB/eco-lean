@@ -654,6 +654,20 @@ noncomputable def dyadicTail (N : ℕ) : ℝ :=
   ∑' n : ℕ, if N < n then (dyadicWeightNat n : ℝ) else 0
 
 /--
+The dyadic tail is nonnegative.
+-/
+theorem dyadicTail_nonneg (N : ℕ) :
+    0 ≤ dyadicTail N := by
+  unfold dyadicTail
+  positivity
+
+/--
+Expanding the dyadic tail as a series of nonnegative terms.
+-/
+theorem dyadicTail_def (N : ℕ) :
+    dyadicTail N = ∑' n : ℕ, if N < n then (dyadicWeightNat n : ℝ) else 0 := by
+  rfl
+/--
 The dyadic tail can be made arbitrarily small.
 -/
 theorem exists_dyadicTail_lt
