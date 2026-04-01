@@ -331,6 +331,70 @@ def coherentChainGlobalCandidate
   fun t => g (f t) ⟨t, le_rfl⟩
 
 /--
+The global candidate agrees with any later stage, via the canonical inclusion.
+-/
+theorem coherentChainGlobalCandidate_eq_stage
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ)
+    {g : ∀ n, codeTruncation f n → ℝ}
+    (hcoh : ∀ n (x : codeTruncation f n),
+      g (n + 1) (codeTruncationSuccInclusion f n x) = g n x)
+    {t : T} {n : ℕ}
+    (htn : f t ≤ n) :
+    coherentChainGlobalCandidate f g t =
+      g n (codeTruncationInclusion f htn ⟨t, le_rfl⟩) := by
+  unfold coherentChainGlobalCandidate
+  symm
+  exact coherent_on_all_inclusions f hcoh htn ⟨t, le_rfl⟩
+
+/--
+The global candidate extracted from a coherent chain is strictly increasing.
+-/
+theorem strictMono_coherentChainGlobalCandidate
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ)
+    {g : ∀ n, codeTruncation f n → ℝ}
+    (hgmono : ∀ n, StrictMono (g n))
+    (hcoh : ∀ n (x : codeTruncation f n),
+      g (n + 1) (codeTruncationSuccInclusion f n x) = g n x) :
+    StrictMono (coherentChainGlobalCandidate f g) := by
+  intro a b hab
+  let n := max (f a) (f b)
+  have ha : f a ≤ n := le_max_left _ _
+  have hb : f b ≤ n := le_max_right _ _
+  have hlt_stage :
+      g n (codeTruncationInclusion f ha ⟨a, le_rfl⟩) <
+        g n (codeTruncationInclusion f hb ⟨b, le_rfl⟩) := by
+    have hsub :
+        codeTruncationInclusion f ha ⟨a, le_rfl⟩ <
+          codeTruncationInclusion f hb ⟨b, le_rfl⟩ := by
+      exact hab
+    exact hgmono n hsub
+  have hGa :
+      coherentChainGlobalCandidate f g a =
+        g n (codeTruncationInclusion f ha ⟨a, le_rfl⟩) := by
+    exact coherentChainGlobalCandidate_eq_stage f hcoh ha
+  have hGb :
+      coherentChainGlobalCandidate f g b =
+        g n (codeTruncationInclusion f hb ⟨b, le_rfl⟩) := by
+    exact coherentChainGlobalCandidate_eq_stage f hcoh hb
+  simpa [hGa, hGb] using hlt_stage
+
+
+/--
+The global candidate lands in the arctan interval if each finite stage does.
+-/
+theorem mapsIntoArctanIntervalOn_coherentChainGlobalCandidate
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ)
+    {g : ∀ n, codeTruncation f n → ℝ}
+    (hgint : ∀ n, MapsIntoArctanIntervalOn (g n)) :
+    MapsIntoArctanIntervalOn (coherentChainGlobalCandidate f g) := by
+  intro t
+  simpa [coherentChainGlobalCandidate] using hgint (f t) ⟨t, le_rfl⟩
+
+
+/--
 Order-version open gap lemma.
 
 This is the main remaining theorem.
