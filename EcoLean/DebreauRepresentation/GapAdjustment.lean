@@ -1,7 +1,5 @@
 import EcoLean.DebreauRepresentation.DenseRestriction
 import Mathlib.Order.Monotone.Basic
-import Mathlib.Order.Interval.Basic
-
 
 /-!
 # Gap adjustment for restricted utilities
@@ -16,16 +14,16 @@ variable {α : Type u}
 
 /--
 A gap of a subset `S ⊆ ℝ` is a pair `a < b` such that no point of `S` lies
-strictly between them.
+strictly between `a` and `b`.
 -/
 def IsGap (S : Set ℝ) (a b : ℝ) : Prop :=
   a < b ∧ ∀ c : ℝ, a < c → c < b → c ∉ S
 
 /--
-A gap is open if both endpoints lie outside the set.
+A gap is open if both endpoints belong to the set.
 -/
 def IsOpenGap (S : Set ℝ) (a b : ℝ) : Prop :=
-  IsGap S a b ∧ a ∉ S ∧ b ∉ S
+  IsGap S a b ∧ a ∈ S ∧ b ∈ S
 
 /--
 A subset of `ℝ` has only open gaps if every gap is open.
@@ -41,12 +39,19 @@ def restrictedUtilityImage
     (u : Utility.UtilityFunction D) : Set ℝ :=
   Set.range u
 
+@[simp] theorem mem_restrictedUtilityImage
+    {D : Set α}
+    (u : Utility.UtilityFunction D) (r : ℝ) :
+    r ∈ restrictedUtilityImage u ↔ ∃ d : D, u d = r := by
+  rfl
+
 /--
-Postcompose a restricted utility by a real-valued map.
+Postcomposition of a restricted utility by a real-valued map.
 -/
 def postcomposeRestricted
     {D : Set α}
-    (u : Utility.UtilityFunction D) (φ : ℝ → ℝ) : Utility.UtilityFunction D :=
+    (u : Utility.UtilityFunction D) (φ : ℝ → ℝ) :
+    Utility.UtilityFunction D :=
   fun d => φ (u d)
 
 @[simp] theorem postcomposeRestricted_apply
@@ -55,26 +60,23 @@ def postcomposeRestricted
     postcomposeRestricted u φ d = φ (u d) := by
   rfl
 
-@[simp] theorem mem_restrictedUtilityImage
-    {D : Set α}
-    (u : Utility.UtilityFunction D) (r : ℝ) :
-    r ∈ restrictedUtilityImage u ↔ ∃ d : D, u d = r := by
-  rfl
-
 /--
-Image of a postcomposed restricted utility.
+The image of a postcomposed restricted utility is the image of the original
+restricted utility under the postcomposing map.
 -/
 theorem restrictedUtilityImage_postcompose
     {D : Set α}
-    (u : Utility.UtilityFunction D) (φ : ℝ → ℝ) :
-    restrictedUtilityImage (postcomposeRestricted u φ) =
-      φ '' restrictedUtilityImage u := by
+    (u : Utility.UtilityFunction D)
+    (φ : ℝ → ℝ) :
+    restrictedUtilityImage (postcomposeRestricted u φ) = φ '' restrictedUtilityImage u := by
   ext r
   constructor
-  · rintro ⟨d, rfl⟩
-    refine ⟨u d, ?_, rfl⟩
-    exact ⟨d, rfl⟩
-  · rintro ⟨s, ⟨d, rfl⟩, rfl⟩
+  · intro hr
+    rcases hr with ⟨d, rfl⟩
+    exact ⟨u d, ⟨d, rfl⟩, rfl⟩
+  · intro hr
+    rcases hr with ⟨s, hs, rfl⟩
+    rcases hs with ⟨d, rfl⟩
     exact ⟨d, rfl⟩
 
 /--
@@ -116,7 +118,24 @@ theorem represents_postcomposeRestricted_strictMono
     {φ : ℝ → ℝ}
     (hφ : StrictMono φ) :
     Represents (postcomposeRestricted u φ) (restrict P D) := by
-  exact represents_comp_strictMono (P := restrict P D) (u := u) hu hφ
+  intro x y
+  rw [hu x y]
+  simpa [postcomposeRestricted, ge_iff_le] using
+    (hφ.le_iff_le (a := u y) (b := u x)).symm
+
+/--
+A restricted utility with the same induced weak order represents the same
+restricted preference.
+-/
+theorem represents_of_sameOrderRestrictedUtility
+    {D : Set α}
+    (P : Preference α)
+    (u u' : Utility.UtilityFunction D)
+    (hu : Represents u (restrict P D))
+    (hSame : SameOrderRestrictedUtility u u') :
+    Represents u' (restrict P D) := by
+  intro x y
+  exact (hu x y).trans (hSame x y)
 
 end Preference
 end EcoLean

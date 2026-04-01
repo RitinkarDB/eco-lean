@@ -7,9 +7,8 @@ import Mathlib.Data.Set.Countable
 This file contains the basic countability and compatibility notions used in the
 open-gap reduction.
 
-The set-level open-gap adjustment is now phrased in terms of a new bounded
-open-gap embedding of the subtype `S`, rather than as a postcomposition of the
-identity on `S`.
+The set-level open-gap adjustment is phrased in terms of a bounded open-gap
+embedding of the subtype `S`.
 -/
 
 universe u

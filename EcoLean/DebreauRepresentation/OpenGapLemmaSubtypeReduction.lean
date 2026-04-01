@@ -8,8 +8,6 @@ subsets of `ℝ` to the corresponding statement for countable linear orders
 already realised as subtypes of `ℝ`.
 -/
 
-universe u
-
 namespace EcoLean
 namespace Preference
 
