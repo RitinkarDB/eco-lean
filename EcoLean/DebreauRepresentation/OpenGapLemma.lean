@@ -675,6 +675,15 @@ theorem dyadicTail_eq_tsum_from_succ (N : ℕ) :
     dyadicTail N = ∑' n : ℕ, (dyadicWeightNat (n + (N + 1)) : ℝ) := by
   unfold dyadicTail
   sorry
+
+/--
+The dyadic tail after `N` is exactly the next dyadic weight.
+-/
+theorem dyadicTail_eq_dyadicWeightNat_succ (N : ℕ) :
+    dyadicTail N = (dyadicWeightNat (N + 1) : ℝ) := by
+  sorry
+
+
 /--
 The dyadic tail can be made arbitrarily small.
 -/
