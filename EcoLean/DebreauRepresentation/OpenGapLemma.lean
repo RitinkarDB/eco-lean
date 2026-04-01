@@ -678,6 +678,70 @@ theorem domainGapCompatible_openGapEmbedding
   exact isOpenGap_range_openGapEmbedding_of_noMiddlePoint hxy hNoMid
 
 /--
+If `(a,b)` is a gap of `S`, then any sufficiently small neighbourhood of `a`
+contains a point of `S` lying on or to the left of `a`.
+-/
+theorem exists_mem_left_of_gap_closure
+    {S : Set ℝ} {a b ε : ℝ}
+    (hGap : IsGap S a b)
+    (hε0 : 0 < ε)
+    (hε : ε < b - a) :
+    ∃ s ∈ S, a - ε < s ∧ s ≤ a := by
+  rcases hGap with ⟨hab, ha_cl, hb_cl, hNoMid⟩
+  rcases Metric.mem_closure_iff.1 ha_cl ε hε0 with ⟨s, hsS, hdist⟩
+  have hAbs : |s - a| < ε := by
+    simpa [Real.dist_eq, abs_sub_comm] using hdist
+  have hs_left : a - ε < s := by
+    have h1 : -ε < s - a := (abs_lt.mp hAbs).1
+    linarith
+  have hs_right : s < a + ε := by
+    have h2 : s - a < ε := (abs_lt.mp hAbs).2
+    linarith
+  have hsle : s ≤ a := by
+    by_contra hsa
+    have hsa' : a < s := lt_of_not_ge hsa
+    have hsb : s < b := by
+      linarith
+    exact hNoMid s hsa' hsb hsS
+  exact ⟨s, hsS, hs_left, hsle⟩
+
+/--
+If `(a,b)` is a gap of `S`, then any sufficiently small neighbourhood of `b`
+contains a point of `S` lying on or to the right of `b`.
+-/
+theorem exists_mem_right_of_gap_closure
+    {S : Set ℝ} {a b ε : ℝ}
+    (hGap : IsGap S a b)
+    (hε0 : 0 < ε)
+    (hε : ε < b - a) :
+    ∃ s ∈ S, b ≤ s ∧ s < b + ε := by
+  rcases hGap with ⟨hab, ha_cl, hb_cl, hNoMid⟩
+  rcases Metric.mem_closure_iff.1 hb_cl ε hε0 with ⟨s, hsS, hdist⟩
+  have hAbs : |s - b| < ε := by
+    simpa [Real.dist_eq, abs_sub_comm] using hdist
+  have hs_left : b - ε < s := by
+    have h1 : -ε < s - b := (abs_lt.mp hAbs).1
+    linarith
+  have hs_right : s < b + ε := by
+    have h2 : s - b < ε := (abs_lt.mp hAbs).2
+    linarith
+  have hble : b ≤ s := by
+    by_contra hsb
+    have hsb' : s < b := lt_of_not_ge hsb
+    have has : a < s := by
+      linarith
+    exact hNoMid s has hsb' hsS
+  exact ⟨s, hsS, hble, hs_right⟩
+
+/--
+The range of the direct dyadic embedding has only open gaps.
+-/
+theorem hasOnlyOpenGaps_range_openGapEmbedding
+    {T : Type} [LinearOrder T] [Countable T] :
+    HasOnlyOpenGaps (Set.range (openGapEmbedding : T → ℝ)) := by
+  sorry
+
+/--
 Order-version open gap lemma.
 
 This is the main remaining theorem.
@@ -685,17 +749,10 @@ This is the main remaining theorem.
 theorem countableOpenGapLemmaOnOrders_proof :
     CountableOpenGapLemmaOnOrders := by
   intro T _ _
-  classical
-  rcases exists_injective_nat_of_countable T with ⟨f, hf⟩
-  rcases exists_coherent_boundedOpenGapEmbedding_chain f hf with
-    ⟨g, hgmono, hgint, hggap, hcoh⟩
-  let G : T → ℝ := coherentChainGlobalCandidate f g
-  have hGmono : StrictMono G := by
-    exact strictMono_coherentChainGlobalCandidate f hgmono hcoh
-  have hGint : MapsIntoArctanIntervalOn G := by
-    exact mapsIntoArctanIntervalOn_coherentChainGlobalCandidate f hgint
-  -- next: prove `HasOnlyOpenGaps (Set.range G)`
-  sorry
+  refine ⟨openGapEmbedding, ?_, ?_, ?_⟩
+  · exact strictMono_openGapEmbedding
+  · exact mapsIntoArctanIntervalOn_openGapEmbedding
+  · exact hasOnlyOpenGaps_range_openGapEmbedding
 /--
 Target theorem: the patched countable open gap lemma for countable linear
 orders already realised as subtypes of `ℝ`.
