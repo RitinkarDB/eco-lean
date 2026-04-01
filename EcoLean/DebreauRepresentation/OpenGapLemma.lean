@@ -795,6 +795,7 @@ theorem eq_endpoints_of_openGap_squeezing_gap
         linarith
       exact False.elim (hNoMid' s hus hsv hsS)
 
+
 /--
 If `(a,b)` is a gap in the range of the direct dyadic embedding, then for every
 small enough `ε` there are domain points whose images lie just to the left of
@@ -846,6 +847,40 @@ theorem exists_ordered_domain_points_near_gap_endpoints
     have : openGapEmbedding y ≤ openGapEmbedding x := hmono hyx
     exact not_le_of_gt hxy_img this
   exact ⟨x, y, hxy, hx_left, hx_le, hy_ge, hy_right⟩
+
+/--
+If a gap of the range can be squeezed by an adjacent domain pair, then it is
+already an open gap.
+-/
+theorem isOpenGap_of_exists_adjacent_domain_points_squeezing_gap
+    {T : Type} [LinearOrder T] [Countable T]
+    {a b ε : ℝ}
+    (hGap : IsGap (Set.range (openGapEmbedding : T → ℝ)) a b)
+    (hε0 : 0 < ε)
+    (hε : ε < b - a)
+    {x y : T}
+    (hxy : x < y)
+    (hNoMid : NoMiddlePoint x y)
+    (hx₁ : a - ε < openGapEmbedding x)
+    (hx₂ : openGapEmbedding x ≤ a)
+    (hy₁ : b ≤ openGapEmbedding y)
+    (hy₂ : openGapEmbedding y < b + ε) :
+    IsOpenGap (Set.range (openGapEmbedding : T → ℝ)) a b := by
+  have hOpenXY :
+      IsOpenGap (Set.range (openGapEmbedding : T → ℝ))
+        (openGapEmbedding x) (openGapEmbedding y) := by
+    exact isOpenGap_range_openGapEmbedding_of_noMiddlePoint hxy hNoMid
+  have hEq :
+      openGapEmbedding x = a ∧ openGapEmbedding y = b := by
+    exact eq_endpoints_of_openGap_squeezing_gap
+      (S := Set.range (openGapEmbedding : T → ℝ))
+      hGap hOpenXY hε0 hε ⟨hx₁, hx₂⟩ ⟨hy₁, hy₂⟩
+  rcases hEq with ⟨hx, hy⟩
+  symm at hx
+  symm at hy
+  subst a
+  subst b
+  simpa using hOpenXY
 
 /--
 The range of the direct dyadic embedding has only open gaps.
