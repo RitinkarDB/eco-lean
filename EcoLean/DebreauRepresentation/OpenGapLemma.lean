@@ -1,29 +1,17 @@
 import EcoLean.DebreauRepresentation.OpenGapLemmaSubtypeReduction
-import Mathlib.Analysis.SpecialFunctions.Trigonometric.Arctan
+import EcoLean.DebreauRepresentation.OpenGapOrderVersion
 import Mathlib.Data.Set.Countable
 import Mathlib.Order.Monotone.Basic
 
 /-!
 # Open gap lemma
 
-This file is intended to prove the patched countable open gap lemma in subtype
-form, and then recover the set-level version by reduction.
+This file reduces the subtype-level open gap lemma to the order-version theorem,
+and records a few basic compatibility lemmas for strictly increasing maps.
 -/
-
-universe u
 
 namespace EcoLean
 namespace Preference
-
-/--
-`Real.arctan` lands inside the arctan interval.
--/
-theorem mapsIntoArctanInterval_arctan :
-    MapsIntoArctanInterval Real.arctan := by
-  intro r
-  constructor
-  · exact Real.neg_pi_div_two_lt_arctan r
-  · exact Real.arctan_lt_pi_div_two r
 
 /--
 Set-level patched countable open gap lemma, once the subtype-level version is
@@ -126,63 +114,45 @@ theorem setGapPatternCompatible_range_of_domainGapCompatible
   simpa using hCompat hab' hNoMid'
 
 /--
-A bound-preserving open-gap adjustment constructed directly along the embedding
-`e`.
+If the order-version open gap lemma holds, then the subtype-level patched open
+gap lemma follows.
 -/
-def BoundPreservingOpenGapAdjustmentAlong
-    {T : Type} [LinearOrder T]
-    (e : T → ℝ) : Prop :=
-  ∃ φ : ℝ → ℝ,
-    StrictMono φ ∧
-    MapsIntoArctanInterval φ ∧
-    HasOnlyOpenGaps (Set.range (fun t => φ (e t)))
-
-/--
-Postcomposing the range of `e` by `φ` is the same as taking the range of the
-postcomposed map `t ↦ φ (e t)`.
--/
-theorem image_range_eq_range_postcompose
-    {T : Type} (e : T → ℝ) (φ : ℝ → ℝ) :
-    φ '' (Set.range e) = Set.range (fun t => φ (e t)) := by
-  ext y
-  constructor
-  · intro hy
-    rcases hy with ⟨x, hx, rfl⟩
-    rcases hx with ⟨t, rfl⟩
-    exact ⟨t, rfl⟩
-  · intro hy
-    rcases hy with ⟨t, rfl⟩
-    exact ⟨e t, ⟨t, rfl⟩, rfl⟩
-
-/--
-If one has a bound-preserving open-gap adjustment along `e`, then one obtains a
-bound-preserving open-gap adjustment of the range of `e`.
--/
-theorem boundPreservingOpenGapAdjustmentOn_of_along
-    {T : Type} [LinearOrder T]
-    (e : T → ℝ)
-    (h : BoundPreservingOpenGapAdjustmentAlong e) :
-    BoundPreservingOpenGapAdjustmentOn (Set.range e) := by
-  rcases h with ⟨φ, hφmono, hφbd, hφgap⟩
-  refine ⟨φ, hφmono, hφbd, ?_⟩
-  simpa [image_range_eq_range_postcompose] using hφgap
-
-/--
-If one can construct a bound-preserving open-gap adjustment along every
-countable strictly increasing embedding `e`, then the subtype-level patched
-open gap lemma follows.
--/
-theorem countableOpenGapLemmaOnSubtypes_of_along
-    (hAlong :
-      ∀ (T : Type) [LinearOrder T] [Countable T] (e : T → ℝ),
-        StrictMono e →
-        DomainGapCompatible e →
-        BoundPreservingOpenGapAdjustmentAlong e) :
+theorem countableOpenGapLemmaOnSubtypes_of_orderVersion
+    (hOrder : CountableOpenGapLemmaOnOrders) :
     CountableOpenGapLemmaOnSubtypes := by
   intro T _ _ e he hCompat
-  exact boundPreservingOpenGapAdjustmentOn_of_along e
-    (hAlong T e he hCompat)
+  letI : Countable ↥(Set.range e) := by
+    simpa using (Set.Countable.to_subtype (Set.countable_range e))
+  simpa [BoundPreservingOpenGapAdjustmentOn] using
+    (hOrder ↥(Set.range e))
 
+/--
+A bounded open-gap embedding of a finite linear order into `ℝ`.
+-/
+theorem boundedOpenGapEmbedding_of_finite
+    (T : Type) [LinearOrder T] [Fintype T] :
+    BoundedOpenGapEmbedding T := by
+  sorry
+
+/--
+A countable linear order admits a bounded open-gap embedding if every finite
+suborder does.
+-/
+theorem countableOpenGapLemmaOnOrders_of_finite
+    (hFinite :
+      ∀ (T : Type) [LinearOrder T] [Fintype T], BoundedOpenGapEmbedding T) :
+    CountableOpenGapLemmaOnOrders := by
+  intro T _ _
+  sorry
+
+/--
+Order-version open gap lemma.
+
+This is the main remaining theorem.
+-/
+theorem countableOpenGapLemmaOnOrders_proof :
+    CountableOpenGapLemmaOnOrders := by
+  exact countableOpenGapLemmaOnOrders_of_finite boundedOpenGapEmbedding_of_finite
 
 /--
 Target theorem: the patched countable open gap lemma for countable linear
@@ -190,9 +160,8 @@ orders already realised as subtypes of `ℝ`.
 -/
 theorem countableOpenGapLemmaOnSubtypes_proof :
     CountableOpenGapLemmaOnSubtypes := by
-  intro T _ _ e he hCompat
-  -- real proof starts here
-  sorry
+  exact countableOpenGapLemmaOnSubtypes_of_orderVersion
+    countableOpenGapLemmaOnOrders_proof
 
 end Preference
 end EcoLean
