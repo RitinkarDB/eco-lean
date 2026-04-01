@@ -407,9 +407,11 @@ theorem countableOpenGapLemmaOnOrders_proof :
   rcases exists_coherent_boundedOpenGapEmbedding_chain f hf with
     ⟨g, hgmono, hgint, hggap, hcoh⟩
   let G : T → ℝ := coherentChainGlobalCandidate f g
-  -- next: prove `StrictMono G`
-  -- then prove `MapsIntoArctanIntervalOn G`
-  -- then prove `HasOnlyOpenGaps (Set.range G)`
+  have hGmono : StrictMono G := by
+    exact strictMono_coherentChainGlobalCandidate f hgmono hcoh
+  have hGint : MapsIntoArctanIntervalOn G := by
+    exact mapsIntoArctanIntervalOn_coherentChainGlobalCandidate f hgint
+  -- next: prove `HasOnlyOpenGaps (Set.range G)`
   sorry
 /--
 Target theorem: the patched countable open gap lemma for countable linear
