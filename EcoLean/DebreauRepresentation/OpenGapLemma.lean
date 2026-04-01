@@ -548,34 +548,34 @@ theorem openGapSummand_encode_strict_of_lt
   rw [openGapSummand_encode_self_eq_zero x, openGapSummand_encode_of_lt hxy]
   exact dyadicWeightNat_pos _
 
-/--
-If `x < y`, then the direct dyadic embedding is strictly increasing at `x,y`.
--/
 theorem openGapEmbedding_lt_of_lt
     {T : Type} [LinearOrder T] [Countable T]
     {x y : T}
     (hxy : x < y) :
     openGapEmbedding x < openGapEmbedding y := by
   classical
-  -- pointwise monotonicity from `openGapSummand_mono`
-  have hle :
-      ∀ n : ℕ, (openGapSummand x n : ℝ) ≤ (openGapSummand y n : ℝ) := by
-    intro n
-    exact_mod_cast openGapSummand_mono (x := x) (y := y) (le_of_lt hxy) n
-  -- strict inequality at the code of `x`
-  have hlt :
-      (openGapSummand x (@Encodable.encode T (Encodable.ofCountable T) x) : ℝ) <
-      (openGapSummand y (@Encodable.encode T (Encodable.ofCountable T) x) : ℝ) := by
-    exact_mod_cast openGapSummand_encode_strict_of_lt (x := x) (y := y) hxy
-  -- now use the standard strict comparison theorem for nonnegative summable series
-  -- with witness `Encodable.encode x`
-  sorry
-
+  let i : ℕ := @Encodable.encode T (Encodable.ofCountable T) x
+  have hle : ∀ n : ℕ, openGapSummand x n ≤ openGapSummand y n := by
+    exact openGapSummand_mono (x := x) (y := y) (le_of_lt hxy)
+  have hi : openGapSummand x i < openGapSummand y i := by
+    simpa [i] using openGapSummand_encode_strict_of_lt (x := x) (y := y) hxy
+  have hsy : Summable (openGapSummand y) := summable_openGapSummand y
+  have hxy_tsum :
+      (∑' n : ℕ, openGapSummand x n) < ∑' n : ℕ, openGapSummand y n := by
+    exact NNReal.tsum_lt_tsum hle hi hsy
+  rw [openGapEmbedding, openGapEmbedding]
+  rw [← NNReal.coe_tsum, ← NNReal.coe_tsum]
+  exact_mod_cast hxy_tsum
+/--
+The direct dyadic embedding is strictly increasing.
+-/
 theorem strictMono_openGapEmbedding
     {T : Type} [LinearOrder T] [Countable T] :
     StrictMono (openGapEmbedding : T → ℝ) := by
   intro x y hxy
   exact openGapEmbedding_lt_of_lt hxy
+
+
 /--
 Order-version open gap lemma.
 
