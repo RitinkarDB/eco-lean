@@ -190,6 +190,40 @@ theorem exists_injective_nat_of_countable
   letI : Encodable T := Encodable.ofCountable T
   exact ⟨Encodable.encode, Encodable.encode_injective⟩
 
+
+/--
+The finite truncation of a countable order along a coding `f : T → ℕ`.
+-/
+def codeTruncation {T : Type} (f : T → ℕ) (n : ℕ) : Type :=
+  { t : T // f t ≤ n }
+
+/--
+A coding truncation inherits the linear order from the ambient type.
+-/
+instance {T : Type} [LinearOrder T] (f : T → ℕ) (n : ℕ) :
+    LinearOrder (codeTruncation f n) := by
+  dsimp [codeTruncation]
+  infer_instance
+
+/--
+Each finite coding truncation admits a bounded open-gap embedding.
+-/
+theorem boundedOpenGapEmbedding_codeTruncation
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ)
+    (hf : Function.Injective f)
+    (n : ℕ) :
+    BoundedOpenGapEmbedding (codeTruncation f n) := by
+  letI : Fintype (codeTruncation f n) := by
+    classical
+    let g : codeTruncation f n → Fin (n + 1) :=
+      fun t => ⟨f t.1, Nat.lt_succ_of_le t.2⟩
+    exact Fintype.ofInjective g (by
+      intro a b h
+      apply Subtype.ext
+      exact hf (Fin.mk.inj h))
+  exact boundedOpenGapEmbedding_of_finite (codeTruncation f n)
+
 /--
 Order-version open gap lemma.
 
