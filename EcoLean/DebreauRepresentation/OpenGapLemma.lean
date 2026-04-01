@@ -225,6 +225,22 @@ theorem boundedOpenGapEmbedding_codeTruncation
   exact boundedOpenGapEmbedding_of_finite (codeTruncation f n)
 
 /--
+There exists a coherent family of bounded open-gap embeddings on the finite
+truncations determined by an injective coding into `ℕ`.
+-/
+theorem exists_coherent_boundedOpenGapEmbedding_chain
+    {T : Type} [LinearOrder T]
+    (f : T → ℕ)
+    (hf : Function.Injective f) :
+    ∃ g : ∀ n, codeTruncation f n → ℝ,
+      (∀ n, StrictMono (g n)) ∧
+      (∀ n, MapsIntoArctanIntervalOn (g n)) ∧
+      (∀ n, HasOnlyOpenGaps (Set.range (g n))) ∧
+      (∀ n (x : T) (hx₁ : f x ≤ n) (hx₂ : f x ≤ n + 1),
+        g (n + 1) ⟨x, hx₂⟩ = g n ⟨x, hx₁⟩) := by
+        sorry 
+
+/--
 Order-version open gap lemma.
 
 This is the main remaining theorem.
@@ -232,8 +248,17 @@ This is the main remaining theorem.
 theorem countableOpenGapLemmaOnOrders_proof :
     CountableOpenGapLemmaOnOrders := by
   intro T _ _
+  classical
+  rcases exists_injective_nat_of_countable T with ⟨f, hf⟩
+  have hstage : ∀ n, BoundedOpenGapEmbedding (codeTruncation f n) := by
+    intro n
+    exact boundedOpenGapEmbedding_codeTruncation f hf n
+  choose g hgmono hgint hggap using hstage
+  -- `g n : codeTruncation f n → ℝ`
+  -- is a bounded open-gap embedding for each finite truncation.
+  -- The remaining task is to replace these arbitrary finite-stage embeddings
+  -- by a coherent family as `n` grows.
   sorry
-
 /--
 Target theorem: the patched countable open gap lemma for countable linear
 orders already realised as subtypes of `ℝ`.
