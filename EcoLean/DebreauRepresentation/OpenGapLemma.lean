@@ -4,6 +4,7 @@ import Mathlib.Data.Set.Countable
 import Mathlib.Order.Monotone.Basic
 import Mathlib.Data.Set.Finite.Range
 import Mathlib.Topology.Separation.Basic
+import Mathlib.Data.Finset.Sort
 
 /-!
 # Open gap lemma
@@ -133,6 +134,19 @@ theorem finite_range_has_only_openGaps
   have hb : b ∈ Set.range g := by
     simpa [hclosure] using hb_cl
   exact ⟨⟨hab, ha_cl, hb_cl, hNoMid⟩, ha, hb⟩
+
+/--
+A finite linear order admits a strictly increasing map into `ℕ`.
+-/
+theorem exists_strictMono_nat_of_finite
+    (T : Type) [LinearOrder T] [Fintype T] :
+    ∃ f : T → ℕ, StrictMono f := by
+  classical
+  let n := Fintype.card T
+  let e : Fin n ≃o T := Fintype.orderIsoFinOfCardEq T rfl
+  refine ⟨fun t => ((e.symm t : Fin n) : ℕ), ?_⟩
+  intro a b hab
+  exact_mod_cast (e.symm.strictMono hab)
 
 
 /--
