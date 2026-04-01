@@ -923,6 +923,65 @@ theorem isOpenGap_of_exists_adjacent_domain_points_squeezing_gap
   simpa using hOpenXY
 
 /--
+If `(a,b)` is a gap in the range of the direct dyadic embedding, then every
+domain point lies either on the left of `a` or on the right of `b`.
+-/
+theorem le_left_or_right_le_of_gap_range_openGapEmbedding
+    {T : Type} [LinearOrder T] [Countable T]
+    {a b : ℝ}
+    (hGap : IsGap (Set.range (openGapEmbedding : T → ℝ)) a b)
+    (z : T) :
+    openGapEmbedding z ≤ a ∨ b ≤ openGapEmbedding z := by
+  by_cases hz : openGapEmbedding z ≤ a
+  · exact Or.inl hz
+  · right
+    by_contra hzb
+    have h1 : a < openGapEmbedding z := lt_of_not_ge hz
+    have h2 : openGapEmbedding z < b := lt_of_not_ge hzb
+    exact hGap.2.2.2 (openGapEmbedding z) h1 h2 ⟨z, rfl⟩
+
+/--
+The left side of a gap in the range of the direct dyadic embedding is downward
+closed in the domain order.
+-/
+theorem gap_left_side_downward_closed
+    {T : Type} [LinearOrder T] [Countable T]
+    {a b : ℝ}
+    (hGap : IsGap (Set.range (openGapEmbedding : T → ℝ)) a b)
+    {x y : T}
+    (hxy : x ≤ y)
+    (hy : openGapEmbedding y ≤ a) :
+    openGapEmbedding x ≤ a := by
+  have hmono := (strictMono_openGapEmbedding : StrictMono (openGapEmbedding : T → ℝ)).monotone
+  exact le_trans (hmono hxy) hy
+
+/--
+The right side of a gap in the range of the direct dyadic embedding is upward
+closed in the domain order.
+-/
+theorem gap_right_side_upward_closed
+    {T : Type} [LinearOrder T] [Countable T]
+    {a b : ℝ}
+    (hGap : IsGap (Set.range (openGapEmbedding : T → ℝ)) a b)
+    {x y : T}
+    (hxy : x ≤ y)
+    (hx : b ≤ openGapEmbedding x) :
+    b ≤ openGapEmbedding y := by
+  have hmono := (strictMono_openGapEmbedding : StrictMono (openGapEmbedding : T → ℝ)).monotone
+  exact le_trans hx (hmono hxy)
+
+/--
+The left and right sides determined by a gap form a cut on the domain.
+-/
+theorem gap_range_openGapEmbedding_cut
+    {T : Type} [LinearOrder T] [Countable T]
+    {a b : ℝ}
+    (hGap : IsGap (Set.range (openGapEmbedding : T → ℝ)) a b) :
+    ∀ z : T, openGapEmbedding z ≤ a ∨ b ≤ openGapEmbedding z := by
+  intro z
+  exact le_left_or_right_le_of_gap_range_openGapEmbedding hGap z
+
+/--
 The range of the direct dyadic embedding has only open gaps.
 -/
 theorem hasOnlyOpenGaps_range_openGapEmbedding
