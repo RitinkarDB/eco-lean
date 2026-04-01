@@ -734,6 +734,58 @@ theorem exists_mem_right_of_gap_closure
   exact ⟨s, hsS, hble, hs_right⟩
 
 /--
+If `(a,b)` is a gap in the range of the direct dyadic embedding, then for every
+small enough `ε` there are domain points whose images lie just to the left of
+`a` and just to the right of `b`.
+-/
+theorem exists_domain_points_near_gap_endpoints
+    {T : Type} [LinearOrder T] [Countable T]
+    {a b ε : ℝ}
+    (hGap : IsGap (Set.range (openGapEmbedding : T → ℝ)) a b)
+    (hε0 : 0 < ε)
+    (hε : ε < b - a) :
+    ∃ x y : T,
+      a - ε < openGapEmbedding x ∧
+      openGapEmbedding x ≤ a ∧
+      b ≤ openGapEmbedding y ∧
+      openGapEmbedding y < b + ε := by
+  rcases exists_mem_left_of_gap_closure hGap hε0 hε with
+    ⟨s, hsS, hs_left, hs_le⟩
+  rcases exists_mem_right_of_gap_closure hGap hε0 hε with
+    ⟨t, htS, ht_ge, ht_right⟩
+  rcases hsS with ⟨x, rfl⟩
+  rcases htS with ⟨y, rfl⟩
+  exact ⟨x, y, hs_left, hs_le, ht_ge, ht_right⟩
+
+/--
+The approximating domain points near the endpoints of a gap are ordered.
+-/
+theorem exists_ordered_domain_points_near_gap_endpoints
+    {T : Type} [LinearOrder T] [Countable T]
+    {a b ε : ℝ}
+    (hGap : IsGap (Set.range (openGapEmbedding : T → ℝ)) a b)
+    (hε0 : 0 < ε)
+    (hε : ε < b - a) :
+    ∃ x y : T,
+      x < y ∧
+      a - ε < openGapEmbedding x ∧
+      openGapEmbedding x ≤ a ∧
+      b ≤ openGapEmbedding y ∧
+      openGapEmbedding y < b + ε := by
+  rcases exists_domain_points_near_gap_endpoints hGap hε0 hε with
+    ⟨x, y, hx_left, hx_le, hy_ge, hy_right⟩
+  have hGapAB : a < b := hGap.1
+  have hxy_img : openGapEmbedding x < openGapEmbedding y := by
+    linarith
+  have hxy : x < y := by
+    by_contra hnot
+    have hyx : y ≤ x := le_of_not_gt hnot
+    have hmono := (strictMono_openGapEmbedding : StrictMono (openGapEmbedding : T → ℝ)).monotone
+    have : openGapEmbedding y ≤ openGapEmbedding x := hmono hyx
+    exact not_le_of_gt hxy_img this
+  exact ⟨x, y, hxy, hx_left, hx_le, hy_ge, hy_right⟩
+
+/--
 The range of the direct dyadic embedding has only open gaps.
 -/
 theorem hasOnlyOpenGaps_range_openGapEmbedding
