@@ -734,6 +734,68 @@ theorem exists_mem_right_of_gap_closure
   exact ⟨s, hsS, hble, hs_right⟩
 
 /--
+If an open gap `(u,v)` lies sufficiently tightly around a gap `(a,b)`, then
+the endpoints must agree.
+-/
+theorem eq_endpoints_of_openGap_squeezing_gap
+    {S : Set ℝ} {a b u v ε : ℝ}
+    (hGap : IsGap S a b)
+    (hOpen : IsOpenGap S u v)
+    (hε0 : 0 < ε)
+    (hε : ε < b - a)
+    (hu : a - ε < u ∧ u ≤ a)
+    (hv : b ≤ v ∧ v < b + ε) :
+    u = a ∧ v = b := by
+  rcases hGap with ⟨hab, ha_cl, hb_cl, hNoMid⟩
+  rcases hOpen with ⟨⟨huv, hu_cl, hv_cl, hNoMid'⟩, huS, hvS⟩
+  constructor
+  · by_cases hEq : u = a
+    · exact hEq
+    · have hu_lt_a : u < a := lt_of_le_of_ne hu.2 hEq
+      let ε' : ℝ := a - u
+      have hε'0 : 0 < ε' := sub_pos.mpr hu_lt_a
+      have hε' : ε' < b - a := by
+        have : a - u < ε := by
+          linarith
+        linarith
+      rcases exists_mem_left_of_gap_closure
+          (S := S) (a := a) (b := b) (ε := ε')
+          ⟨hab, ha_cl, hb_cl, hNoMid⟩ hε'0 hε' with
+        ⟨s, hsS, hs_left, hs_le⟩
+      have hus : u < s := by
+        dsimp [ε'] at hs_left
+        linarith
+      have hsv : s < v := by
+        have : a < v := by
+          linarith [hab, hv.1]
+        linarith
+      exact False.elim (hNoMid' s hus hsv hsS)
+  · by_cases hEq : v = b
+    · exact hEq
+    · have hneq : b ≠ v := by
+        intro h
+        exact hEq h.symm
+      have hb_lt_v : b < v := lt_of_le_of_ne hv.1 hneq
+      let ε' : ℝ := v - b
+      have hε'0 : 0 < ε' := sub_pos.mpr hb_lt_v
+      have hε' : ε' < b - a := by
+        have : v - b < ε := by
+          linarith
+        linarith
+      rcases exists_mem_right_of_gap_closure
+          (S := S) (a := a) (b := b) (ε := ε')
+          ⟨hab, ha_cl, hb_cl, hNoMid⟩ hε'0 hε' with
+        ⟨s, hsS, hs_ge, hs_right⟩
+      have hus : u < s := by
+        have : u < b := by
+          linarith [hu.2, hab]
+        linarith
+      have hsv : s < v := by
+        dsimp [ε'] at hs_right
+        linarith
+      exact False.elim (hNoMid' s hus hsv hsS)
+
+/--
 If `(a,b)` is a gap in the range of the direct dyadic embedding, then for every
 small enough `ε` there are domain points whose images lie just to the left of
 `a` and just to the right of `b`.
