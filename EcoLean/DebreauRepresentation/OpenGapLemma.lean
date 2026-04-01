@@ -667,6 +667,14 @@ Expanding the dyadic tail as a series of nonnegative terms.
 theorem dyadicTail_def (N : ℕ) :
     dyadicTail N = ∑' n : ℕ, if N < n then (dyadicWeightNat n : ℝ) else 0 := by
   rfl
+
+/--
+The dyadic tail after `N` is the geometric tail starting at `N+1`.
+-/
+theorem dyadicTail_eq_tsum_from_succ (N : ℕ) :
+    dyadicTail N = ∑' n : ℕ, (dyadicWeightNat (n + (N + 1)) : ℝ) := by
+  unfold dyadicTail
+  sorry
 /--
 The dyadic tail can be made arbitrarily small.
 -/
