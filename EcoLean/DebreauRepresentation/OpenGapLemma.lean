@@ -570,6 +570,12 @@ theorem openGapEmbedding_lt_of_lt
   -- now use the standard strict comparison theorem for nonnegative summable series
   -- with witness `Encodable.encode x`
   sorry
+
+theorem strictMono_openGapEmbedding
+    {T : Type} [LinearOrder T] [Countable T] :
+    StrictMono (openGapEmbedding : T → ℝ) := by
+  intro x y hxy
+  exact openGapEmbedding_lt_of_lt hxy
 /--
 Order-version open gap lemma.
 
