@@ -1,5 +1,6 @@
-import EcoLean.DebreauRepresentation.GapCompatibleRestriction
 import EcoLean.DebreauRepresentation.GapAdjustment
+import EcoLean.DebreauRepresentation.GapCompatibleRestriction
+import EcoLean.DebreauRepresentation.BoundedAdjustment
 
 /-!
 # Gap-adjusted restriction packages
@@ -32,10 +33,11 @@ theorem exists_gapAdjusted_restriction
     ∃ u' : Utility.UtilityFunction D,
       Represents u' (restrict P D) ∧
       IsGapAdjustedRestrictedUtility u' := by
-  rcases hAdj with ⟨φ, hφ, hGap⟩
-  refine ⟨postcomposeRestricted u φ, ?_, ?_⟩
-  · exact represents_postcomposeRestricted_strictMono P u hu hφ
-  · exact hGap
+  rcases hAdj with ⟨u', hSame, hGap⟩
+  refine ⟨u', ?_, hGap⟩
+  intro x y
+  rw [hu x y]
+  exact hSame x y
 
 section SecondCountable
 
@@ -61,7 +63,8 @@ theorem exists_countable_gapCompatibleDense_restriction_with_gapAdjustedUtility
         Represents u (restrict P D) ∧
         IsGapAdjustedRestrictedUtility u := by
   rcases exists_countable_gapCompatibleDense_restriction_with_utility
-      P hC hT hCont with ⟨D, hDcount, hDgap, u, hu⟩
+      P hC hT hCont with
+    ⟨D, hDcount, hDgap, u, hu⟩
   rcases exists_gapAdjusted_restriction P u hu (hGapAdj u) with
     ⟨u', hu'Rep, hu'Gap⟩
   exact ⟨D, hDcount, hDgap, u', hu'Rep, hu'Gap⟩
@@ -69,10 +72,7 @@ theorem exists_countable_gapCompatibleDense_restriction_with_gapAdjustedUtility
 /--
 A bounded version of the previous package, retaining the arctan-bounded
 restricted utility but also recording the abstract availability of a gap
-adjustment for the unbounded restricted utility.
-
-This theorem is useful when one wants to keep the bounded cut machinery and the
-gap-adjustment step conceptually separate.
+adjustment for that bounded restricted utility.
 -/
 theorem exists_countable_gapCompatibleDense_restriction_with_boundedUtility_and_gapAdjustment
     (P : Preference α)
@@ -90,7 +90,8 @@ theorem exists_countable_gapCompatibleDense_restriction_with_boundedUtility_and_
         BddBelow (restrictedUtilityImage u) ∧
         GapAdjustmentExists u := by
   rcases exists_countable_gapCompatibleDense_restriction_with_boundedUtility
-      P hC hT hCont with ⟨D, hDcount, hDgap, u, hu, hAbove, hBelow⟩
+      P hC hT hCont with
+    ⟨D, hDcount, hDgap, u, hu, hAbove, hBelow⟩
   exact ⟨D, hDcount, hDgap, u, hu, hAbove, hBelow, hGapAdj u⟩
 
 end SecondCountable
