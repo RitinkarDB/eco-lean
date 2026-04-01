@@ -181,15 +181,14 @@ theorem boundedOpenGapEmbedding_of_finite
     · exact Real.arctan_lt_pi_div_two (f t)
   · exact finite_range_has_only_openGaps g
 /--
-A countable linear order admits a bounded open-gap embedding if every finite
-suborder does.
+A countable linear order admits an injective coding into `ℕ`.
 -/
-theorem countableOpenGapLemmaOnOrders_of_finite
-    (hFinite :
-      ∀ (T : Type) [LinearOrder T] [Fintype T], BoundedOpenGapEmbedding T) :
-    CountableOpenGapLemmaOnOrders := by
-  intro T _ _
-  sorry
+theorem exists_injective_nat_of_countable
+    (T : Type) [LinearOrder T] [Countable T] :
+    ∃ f : T → ℕ, Function.Injective f := by
+  classical
+  letI : Encodable T := Encodable.ofCountable T
+  exact ⟨Encodable.encode, Encodable.encode_injective⟩
 
 /--
 Order-version open gap lemma.
@@ -198,7 +197,8 @@ This is the main remaining theorem.
 -/
 theorem countableOpenGapLemmaOnOrders_proof :
     CountableOpenGapLemmaOnOrders := by
-  exact countableOpenGapLemmaOnOrders_of_finite boundedOpenGapEmbedding_of_finite
+  intro T _ _
+  sorry
 
 /--
 Target theorem: the patched countable open gap lemma for countable linear
