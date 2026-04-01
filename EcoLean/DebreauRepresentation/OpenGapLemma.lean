@@ -647,6 +647,37 @@ theorem mapsIntoArctanIntervalOn_openGapEmbedding
     linarith
 
 /--
+If `x < y` and there is no point strictly between them, then their images under
+the direct dyadic embedding form an open gap in the image set.
+-/
+theorem isOpenGap_range_openGapEmbedding_of_noMiddlePoint
+    {T : Type} [LinearOrder T] [Countable T]
+    {x y : T}
+    (hxy : x < y)
+    (hNoMid : NoMiddlePoint x y) :
+    IsOpenGap (Set.range (openGapEmbedding : T → ℝ))
+      (openGapEmbedding x) (openGapEmbedding y) := by
+  have hg : StrictMono (openGapEmbedding : T → ℝ) := strictMono_openGapEmbedding
+  have hxmem : openGapEmbedding x ∈ Set.range (openGapEmbedding : T → ℝ) := ⟨x, rfl⟩
+  have hymem : openGapEmbedding y ∈ Set.range (openGapEmbedding : T → ℝ) := ⟨y, rfl⟩
+  refine ⟨?_, hxmem, hymem⟩
+  refine ⟨hg hxy, subset_closure hxmem, subset_closure hymem, ?_⟩
+  intro c hxc hcy hc
+  rcases hc with ⟨z, rfl⟩
+  have hxz : x < z := (hg.lt_iff_lt).mp hxc
+  have hzy : z < y := (hg.lt_iff_lt).mp hcy
+  exact hNoMid ⟨z, hxz, hzy⟩
+
+/--
+The direct dyadic embedding is domain-gap-compatible.
+-/
+theorem domainGapCompatible_openGapEmbedding
+    {T : Type} [LinearOrder T] [Countable T] :
+    DomainGapCompatible (openGapEmbedding : T → ℝ) := by
+  intro x y hxy hNoMid
+  exact isOpenGap_range_openGapEmbedding_of_noMiddlePoint hxy hNoMid
+
+/--
 Order-version open gap lemma.
 
 This is the main remaining theorem.
