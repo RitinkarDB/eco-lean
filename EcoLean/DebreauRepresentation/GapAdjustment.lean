@@ -1,5 +1,6 @@
 import EcoLean.DebreauRepresentation.DenseRestriction
 import Mathlib.Order.Monotone.Basic
+import Mathlib.Topology.Basic
 
 /-!
 # Gap adjustment for restricted utilities
@@ -14,10 +15,13 @@ variable {α : Type u}
 
 /--
 A gap of a subset `S ⊆ ℝ` is a pair `a < b` such that no point of `S` lies
-strictly between `a` and `b`.
+strictly between `a` and `b`, and both endpoints lie in the closure of `S`.
 -/
 def IsGap (S : Set ℝ) (a b : ℝ) : Prop :=
-  a < b ∧ ∀ c : ℝ, a < c → c < b → c ∉ S
+  a < b ∧
+  a ∈ closure S ∧
+  b ∈ closure S ∧
+  ∀ c : ℝ, a < c → c < b → c ∉ S
 
 /--
 A gap is open if both endpoints belong to the set.
