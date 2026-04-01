@@ -533,6 +533,43 @@ theorem openGapSummand_encode_of_lt
   unfold openGapSummand
   rw [Encodable.encodek (self := Encodable.ofCountable T) (a := x)]
   simp [hxy]
+
+/--
+At the code of `x`, the summand for `x` is strictly smaller than the summand
+for any strict upper point `y`.
+-/
+theorem openGapSummand_encode_strict_of_lt
+    {T : Type} [LinearOrder T] [Countable T]
+    {x y : T}
+    (hxy : x < y) :
+    openGapSummand x (@Encodable.encode T (Encodable.ofCountable T) x) <
+      openGapSummand y (@Encodable.encode T (Encodable.ofCountable T) x) := by
+  classical
+  rw [openGapSummand_encode_self_eq_zero x, openGapSummand_encode_of_lt hxy]
+  exact dyadicWeightNat_pos _
+
+/--
+If `x < y`, then the direct dyadic embedding is strictly increasing at `x,y`.
+-/
+theorem openGapEmbedding_lt_of_lt
+    {T : Type} [LinearOrder T] [Countable T]
+    {x y : T}
+    (hxy : x < y) :
+    openGapEmbedding x < openGapEmbedding y := by
+  classical
+  -- pointwise monotonicity from `openGapSummand_mono`
+  have hle :
+      ∀ n : ℕ, (openGapSummand x n : ℝ) ≤ (openGapSummand y n : ℝ) := by
+    intro n
+    exact_mod_cast openGapSummand_mono (x := x) (y := y) (le_of_lt hxy) n
+  -- strict inequality at the code of `x`
+  have hlt :
+      (openGapSummand x (@Encodable.encode T (Encodable.ofCountable T) x) : ℝ) <
+      (openGapSummand y (@Encodable.encode T (Encodable.ofCountable T) x) : ℝ) := by
+    exact_mod_cast openGapSummand_encode_strict_of_lt (x := x) (y := y) hxy
+  -- now use the standard strict comparison theorem for nonnegative summable series
+  -- with witness `Encodable.encode x`
+  sorry
 /--
 Order-version open gap lemma.
 
