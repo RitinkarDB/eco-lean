@@ -647,6 +647,22 @@ theorem mapsIntoArctanIntervalOn_openGapEmbedding
     linarith
 
 /--
+The dyadic tail after `N` is the sum of all dyadic weights with index strictly
+greater than `N`.
+-/
+noncomputable def dyadicTail (N : ℕ) : ℝ :=
+  ∑' n : ℕ, if N < n then (dyadicWeightNat n : ℝ) else 0
+
+/--
+The dyadic tail can be made arbitrarily small.
+-/
+theorem exists_dyadicTail_lt
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ N : ℕ, dyadicTail N < ε := by
+  sorry
+
+/--
 If `x < y` and there is no point strictly between them, then their images under
 the direct dyadic embedding form an open gap in the image set.
 -/
