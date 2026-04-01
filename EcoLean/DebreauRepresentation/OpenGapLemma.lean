@@ -162,14 +162,24 @@ theorem countableOpenGapLemmaOnSubtypes_of_orderVersion
   simpa [BoundPreservingOpenGapAdjustmentOn] using
     (hOrder ↥(Set.range e))
 
+
 /--
 A bounded open-gap embedding of a finite linear order into `ℝ`.
 -/
 theorem boundedOpenGapEmbedding_of_finite
     (T : Type) [LinearOrder T] [Fintype T] :
     BoundedOpenGapEmbedding T := by
-  sorry
-
+  classical
+  rcases exists_strictMono_nat_of_finite T with ⟨f, hf⟩
+  let g : T → ℝ := fun t => Real.arctan (f t)
+  refine ⟨g, ?_, ?_, ?_⟩
+  · intro a b hab
+    exact Real.arctan_strictMono (by exact_mod_cast hf hab)
+  · intro t
+    constructor
+    · exact Real.neg_pi_div_two_lt_arctan (f t)
+    · exact Real.arctan_lt_pi_div_two (f t)
+  · exact finite_range_has_only_openGaps g
 /--
 A countable linear order admits a bounded open-gap embedding if every finite
 suborder does.
