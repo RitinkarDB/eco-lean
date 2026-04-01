@@ -849,6 +849,46 @@ theorem exists_ordered_domain_points_near_gap_endpoints
   exact ⟨x, y, hxy, hx_left, hx_le, hy_ge, hy_right⟩
 
 /--
+If a pair `x < y` squeezes a gap and there is a middle point `z`, then one can
+refine the squeezing pair to either `(z,y)` or `(x,z)`.
+-/
+theorem refine_squeezing_pair_at_middle
+    {T : Type} [LinearOrder T] [Countable T]
+    {a b ε : ℝ}
+    (hGap : IsGap (Set.range (openGapEmbedding : T → ℝ)) a b)
+    {x y z : T}
+    (hxy : x < y)
+    (hxz : x < z)
+    (hzy : z < y)
+    (hx₁ : a - ε < openGapEmbedding x)
+    (hx₂ : openGapEmbedding x ≤ a)
+    (hy₁ : b ≤ openGapEmbedding y)
+    (hy₂ : openGapEmbedding y < b + ε) :
+    (a - ε < openGapEmbedding z ∧
+      openGapEmbedding z ≤ a ∧
+      b ≤ openGapEmbedding y ∧
+      openGapEmbedding y < b + ε) ∨
+    (a - ε < openGapEmbedding x ∧
+      openGapEmbedding x ≤ a ∧
+      b ≤ openGapEmbedding z ∧
+      openGapEmbedding z < b + ε) := by
+  have hg : StrictMono (openGapEmbedding : T → ℝ) := strictMono_openGapEmbedding
+  have hxz_img : openGapEmbedding x < openGapEmbedding z := hg hxz
+  have hzy_img : openGapEmbedding z < openGapEmbedding y := hg hzy
+  by_cases hz_left : openGapEmbedding z ≤ a
+  · left
+    refine ⟨?_, hz_left, hy₁, hy₂⟩
+    linarith
+  · right
+    have hz_right : b ≤ openGapEmbedding z := by
+      by_contra hz_not
+      have hza : a < openGapEmbedding z := lt_of_not_ge hz_left
+      have hzb : openGapEmbedding z < b := lt_of_not_ge hz_not
+      exact hGap.2.2.2 (openGapEmbedding z) hza hzb ⟨z, rfl⟩
+    refine ⟨hx₁, hx₂, hz_right, ?_⟩
+    linarith
+
+/--
 If a gap of the range can be squeezed by an adjacent domain pair, then it is
 already an open gap.
 -/
