@@ -17,3 +17,10 @@ import EcoLean.SocialChoice.Theorems.Arrow.ProfileVariants
 import EcoLean.SocialChoice.Theorems.Arrow.ProfileConstructions
 import EcoLean.SocialChoice.Theorems.Arrow.SingleVoterVariants
 import EcoLean.SocialChoice.Theorems.Arrow.DecisiveFacts
+import EcoLean.SocialChoice.Theorems.Arrow.DecisiveTransfer
+import EcoLean.SocialChoice.Theorems.Arrow.MinimalDecisive
+import EcoLean.SocialChoice.Theorems.Arrow.FiniteCoalitions
+import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingCoalition
+import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingStep
+import EcoLean.SocialChoice.Theorems.Arrow.SingletonCoalitions
+import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingPairStep
