@@ -216,8 +216,6 @@ theorem singleton_transfer_left
     · intro hzx
       exact social_not_zx_in_threeway_profile hRat Q hQxy hQyz hzx
 
-
-
   exact social_strict_transfer_back hIIA hPair hQxz
 /--
 Symmetric transfer lemma scaffold.

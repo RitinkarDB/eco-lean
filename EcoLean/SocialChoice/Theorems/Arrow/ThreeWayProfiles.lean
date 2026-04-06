@@ -122,6 +122,54 @@ theorem prefXYZ_yz_weak
   left
   rfl
 
+/--
+A simple weak preference intended to encode the pattern `z ≻ x ≻ y`,
+with `z` at the top and `y` at the bottom.
+-/
+def prefZXY (x y z : A) : Preference A where
+  weakPref := fun a b => a = z ∨ b = y ∨ a = b
+
+theorem prefZXY_zy
+    {x y z : A} (hzy : z ≠ y) :
+    Preference.StrictPref (prefZXY x y z) z y := by
+  constructor
+  · left
+    rfl
+  · intro hyz
+    cases hyz with
+    | inl hy =>
+        exact hzy hy.symm
+    | inr hyz' =>
+        cases hyz' with
+        | inl hy =>
+            exact hzy hy.symm
+        | inr hyy =>
+            exact hzy hyy.symm
+
+theorem prefZXY_xy
+    {x y z : A} (hxy : x ≠ y) :
+    Preference.StrictPref (prefZXY x y z) x y := by
+  constructor
+  · right
+    left
+    rfl
+  · intro hyx
+    cases hyx with
+    | inl hyz =>
+        exact False.elim (hxy (by cases hyz))
+    | inr hyx' =>
+        cases hyx' with
+        | inl hy =>
+            exact hxy hy.symm
+        | inr hy =>
+            exact hxy hy.symm
+
+theorem prefZXY_zx_weak
+    {x y z : A} :
+    (prefZXY x y z).weakPref z x := by
+  left
+  rfl
+
 end ThreeWayProfiles
 
 end Arrow
