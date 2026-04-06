@@ -232,7 +232,145 @@ theorem singleton_transfer_right
     (hzx : z ≠ x)
     (hSingle : Decisive F ({i} : Set V) x y) :
     Decisive F ({i} : Set V) z y := by
+  intro P hIn hOut
+  let Q : Profile V A := fun k =>
+    if k = i then prefZXY x y z else prefYZX x y z
+
+  have hQ : ∀ k : V,
+      (k = i → Q k = prefZXY x y z) ∧
+      (k ≠ i → Q k = prefYZX x y z) := by
+    intro k
+    constructor
+    · intro hk
+      simp [Q, hk]
+    · intro hk
+      simp [Q, hk]
+
+  have hQxy : SocialWelfareFunction.StrictPref F Q x y := by
+    apply hSingle Q
+    · intro k hk
+      change Preference.StrictPref (Q k) x y
+      rw [(hQ k).1 hk]
+      exact prefZXY_xy hxy hzy.symm
+    · intro k hk
+      change Preference.StrictPref (Q k) y x
+      rw [(hQ k).2 hk]
+      exact prefYZX_yx hxy.symm
+
+
+  have hQzx : SocialWelfareFunction.WeakPref F Q z x := by
+    apply hPareto Q z x
+    intro k
+    change (Q k).weakPref z x
+    by_cases hk : k = i
+    · rw [(hQ k).1 hk]
+      exact prefZXY_zx_weak
+    · rw [(hQ k).2 hk]
+      exact prefYZX_zx_weak
+
+  have hPair : PairwiseAgreesOn P Q z y := by
+    let S : Set V := {j : V | j = i}
+    intro k
+    by_cases hk : k ∈ S
+    · have hki : k = i := by
+        simpa [S] using hk
+      constructor
+      · change (P k).weakPref z y ↔ (Q k).weakPref z y
+        rw [hki]
+        constructor
+        · intro _
+          simp [Q]
+          exact (prefZXY_zy hzy).1
+        · intro _
+          exact (hIn i (by simp [S])).1
+      · change (P k).weakPref y z ↔ (Q k).weakPref y z
+        rw [hki]
+        constructor
+        · intro hyzP
+          exact False.elim ((hIn i (by simp [S])).2 hyzP)
+        · intro hyzQ
+          simp [Q, prefZXY] at hyzQ
+          cases hyzQ with
+          | inl h =>
+              exact False.elim (hzy h.symm)
+          | inr h' =>
+              cases h' with
+              | inl h =>
+                  exact False.elim (hzy h)
+              | inr h =>
+                  exact False.elim (hzy h.symm)
+    · have hki : k ≠ i := by
+        intro hEq
+        apply hk
+        simp [S, hEq]
+      constructor
+      · change (P k).weakPref z y ↔ (Q k).weakPref z y
+        constructor
+        · intro hPzy
+          exact False.elim ((hOut k (by simpa [S] using hk)).2 hPzy)
+        · intro hQzy
+          simp [Q, hki, prefYZX] at hQzy
+          cases hQzy with
+          | inl h =>
+              exact False.elim (hzy h)
+          | inr h' =>
+              cases h' with
+              | inl h =>
+                  exact False.elim (hxy h.symm)
+              | inr h =>
+                  exact False.elim (hzy h)
+      · change (P k).weakPref y z ↔ (Q k).weakPref y z
+        constructor
+        · intro _
+          rw [(hQ k).2 hki]
+          exact prefYZX_yz_weak
+        · intro _
+          exact (hOut k (by simpa [S] using hk)).1
+
+
+  have hQzy : SocialWelfareFunction.StrictPref F Q z y := by
+    apply social_strict_of_weak_not_reverse Q
+    · exact social_weak_trans hRat Q hQzx hQxy.1
+    · intro hyz
+      have hyx : SocialWelfareFunction.WeakPref F Q y x := by
+        exact social_weak_trans hRat Q hyz hQzx
+      exact hQxy.2 hyx
+
+  exact social_strict_transfer_back hIIA hPair hQzy
+
+theorem singleton_decisive_all_pairs
+    {F : SocialWelfareFunction V A}
+    (hRat : RationalSWF F)
+    (hPareto : WeakPareto F)
+    (hIIA : IIA F)
+    {i : V}
+    {x y : A}
+    (hxy : x ≠ y)
+    (hSingle : Decisive F ({i} : Set V) x y) :
+    ∀ z : A,
+      z ≠ x →
+      z ≠ y →
+      Decisive F ({i} : Set V) x z ∧
+      Decisive F ({i} : Set V) z y := by
+  intro z hzx hzy
+  constructor
+  · exact singleton_transfer_left hRat hPareto hIIA hxy hzx.symm hzy.symm hSingle
+  · exact singleton_transfer_right hRat hPareto hIIA hxy hzy hzx hSingle
+
+theorem singleton_transfer_swap
+    {F : SocialWelfareFunction V A}
+    (hRat : RationalSWF F)
+    (hPareto : WeakPareto F)
+    (hIIA : IIA F)
+    {i : V}
+    {x y z : A}
+    (hxy : x ≠ y)
+    (hxz : x ≠ z)
+    (hyz : y ≠ z)
+    (hSingle : Decisive F ({i} : Set V) x y) :
+    Decisive F ({i} : Set V) y x := by
   sorry
+
 
 /--
 Universal singleton decisiveness scaffold.
@@ -247,8 +385,21 @@ theorem singleton_universallyDecisive_of_pair
     (hxy : x ≠ y)
     (hSingle : Decisive F ({i} : Set V) x y) :
     UniversallyDecisive F ({i} : Set V) := by
-  sorry
-
+  intro a b hab
+  by_cases hax : a = x
+  · subst hax
+    by_cases hby : b = y
+    · subst hby
+      exact hSingle
+    · exact singleton_transfer_left hRat hPareto hIIA
+        (x := a) (y := y) (z := b)
+        hxy hab (fun h => hby h.symm) hSingle
+  · by_cases hby : b = y
+    · subst hby
+      exact singleton_transfer_right hRat hPareto hIIA
+        (x := x) (y := b) (z := a)
+        hxy hab (fun h => hax h) hSingle
+    · sorry
 end SingletonTransfer
 
 end Arrow
