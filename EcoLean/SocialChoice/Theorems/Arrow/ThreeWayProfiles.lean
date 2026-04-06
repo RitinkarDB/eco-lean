@@ -171,6 +171,45 @@ theorem prefZXY_zx_weak
   left
   rfl
 
+theorem prefYZX_yz
+    {x y z : A} (hyz : y ≠ z) (hyx : y ≠ x) :
+    Preference.StrictPref (prefYZX x y z) y z := by
+  constructor
+  · left
+    rfl
+  · intro hzy
+    cases hzy with
+    | inl hy =>
+        exact hyz hy.symm
+    | inr hzy' =>
+        cases hzy' with
+        | inl hx =>
+            exact hyx hx
+        | inr hz =>
+            exact hyz hz.symm
+
+
+theorem prefZXY_zx
+    {x y z : A} (hzx : z ≠ x) (hzy : z ≠ y) :
+    Preference.StrictPref (prefZXY x y z) z x := by
+  constructor
+  · left
+    rfl
+  · intro hxz
+    cases hxz with
+    | inl hx =>
+        exact hzx hx.symm
+    | inr hxz' =>
+        cases hxz' with
+        | inl hy =>
+            exact hzy hy
+        | inr hx =>
+            exact hzx hx.symm
+
+
+
+
+
 
 end ThreeWayProfiles
 

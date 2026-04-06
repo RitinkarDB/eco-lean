@@ -26,3 +26,5 @@ import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingPairStep
 import EcoLean.SocialChoice.Theorems.Arrow.PivotalVoter
 import EcoLean.SocialChoice.Theorems.Arrow.SingletonTransfer
 import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingStep
+import EcoLean.SocialChoice.Theorems.Arrow.SingletonSwap
+import EcoLean.SocialChoice.Theorems.Arrow.SwapProfiles

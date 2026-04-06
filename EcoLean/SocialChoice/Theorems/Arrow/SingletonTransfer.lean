@@ -357,19 +357,7 @@ theorem singleton_decisive_all_pairs
   · exact singleton_transfer_left hRat hPareto hIIA hxy hzx.symm hzy.symm hSingle
   · exact singleton_transfer_right hRat hPareto hIIA hxy hzy hzx hSingle
 
-theorem singleton_transfer_swap
-    {F : SocialWelfareFunction V A}
-    (hRat : RationalSWF F)
-    (hPareto : WeakPareto F)
-    (hIIA : IIA F)
-    {i : V}
-    {x y z : A}
-    (hxy : x ≠ y)
-    (hxz : x ≠ z)
-    (hyz : y ≠ z)
-    (hSingle : Decisive F ({i} : Set V) x y) :
-    Decisive F ({i} : Set V) y x := by
-  sorry
+
 
 
 /--
