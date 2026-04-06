@@ -401,8 +401,6 @@ theorem mapsIntoArctanIntervalOn_coherentChainGlobalCandidate
   intro t
   simpa [coherentChainGlobalCandidate] using hgint (f t) ⟨t, le_rfl⟩
 
-
-
 /--
 The `n`-th dyadic summand in the direct countable open-gap embedding.
 -/
@@ -410,48 +408,33 @@ noncomputable def openGapSummand
     {T : Type} [LinearOrder T] [Countable T]
     (x : T) (n : ℕ) : NNReal := by
   classical
-  letI : Encodable T := Encodable.ofCountable T
-  exact match Encodable.decode (α := T) n with
-  | none => 0
-  | some t => if t < x then dyadicWeightNat n else 0
+  exact if ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < x
+    then dyadicWeightNat n
+    else 0
 
 /--
-If `n` does not decode to an element of `T`, then the corresponding summand is
-zero.
+If there is no coded point below `x` at index `n`, then the corresponding
+summand is zero.
 -/
-theorem openGapSummand_eq_zero_of_decode_none
+theorem openGapSummand_eq_zero_of_not_exists
     {T : Type} [LinearOrder T] [Countable T]
     (x : T) (n : ℕ)
-    (h : @Encodable.decode T (Encodable.ofCountable T) n = none) :
+    (h : ¬ ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < x) :
     openGapSummand x n = 0 := by
   classical
   simp [openGapSummand, h]
 
 /--
-If `n` decodes to `t < x`, then the corresponding summand is the full dyadic
-weight at `n`.
+If there is a coded point below `x` at index `n`, then the corresponding
+summand is the full dyadic weight.
 -/
-theorem openGapSummand_eq_weight_of_decode_some_of_lt
+theorem openGapSummand_eq_weight_of_exists
     {T : Type} [LinearOrder T] [Countable T]
-    (x t : T) (n : ℕ)
-    (hDec : @Encodable.decode T (Encodable.ofCountable T) n = some t)
-    (ht : t < x) :
+    (x : T) (n : ℕ)
+    (h : ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < x) :
     openGapSummand x n = dyadicWeightNat n := by
   classical
-  simp [openGapSummand, hDec, ht]
-
-/--
-If `n` decodes to `t` but `t < x` fails, then the corresponding summand is
-zero.
--/
-theorem openGapSummand_eq_zero_of_decode_some_of_not_lt
-    {T : Type} [LinearOrder T] [Countable T]
-    (x t : T) (n : ℕ)
-    (hDec : @Encodable.decode T (Encodable.ofCountable T) n = some t)
-    (ht : ¬ t < x) :
-    openGapSummand x n = 0 := by
-  classical
-  simp [openGapSummand, hDec, ht]
+  simp [openGapSummand, h]
 
 /--
 Each dyadic summand is bounded above by the corresponding dyadic weight.
@@ -461,14 +444,9 @@ theorem openGapSummand_le_weight
     (x : T) (n : ℕ) :
     openGapSummand x n ≤ dyadicWeightNat n := by
   classical
-  letI : Encodable T := Encodable.ofCountable T
-  cases hDec : Encodable.decode (α := T) n with
-  | none =>
-      simp [openGapSummand, hDec]
-  | some t =>
-      by_cases hlt : t < x
-      · simp [openGapSummand, hDec, hlt]
-      · simp [openGapSummand, hDec, hlt]
+  by_cases h : ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < x
+  · simp [openGapSummand, h]
+  · simp [openGapSummand, h]
 
 /--
 The summand family defining the direct countable open-gap embedding is
@@ -501,17 +479,14 @@ theorem openGapSummand_mono
     ∀ n : ℕ, openGapSummand x n ≤ openGapSummand y n := by
   intro n
   classical
-  letI : Encodable T := Encodable.ofCountable T
-  cases hDec : Encodable.decode (α := T) n with
-  | none =>
-      simp [openGapSummand, hDec]
-  | some t =>
-      by_cases htx : t < x
-      · have hty : t < y := lt_of_lt_of_le htx hxy
-        simp [openGapSummand, hDec, htx, hty]
-      · by_cases hty : t < y
-        · simp [openGapSummand, hDec, htx, hty]
-        · simp [openGapSummand, hDec, htx, hty]
+  by_cases hx : ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < x
+  · rcases hx with ⟨t, htcode, htx⟩
+    have hy : ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < y := by
+      exact ⟨t, htcode, lt_of_lt_of_le htx hxy⟩
+    simp [openGapSummand, hx, hy]
+  · by_cases hy : ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < y
+    · simp [openGapSummand, hx, hy]
+    · simp [openGapSummand, hx, hy]
 
 /--
 At the code of `x`, the summand for `x` itself is zero.
@@ -521,9 +496,17 @@ theorem openGapSummand_encode_self_eq_zero
     (x : T) :
     openGapSummand x (@Encodable.encode T (Encodable.ofCountable T) x) = 0 := by
   classical
-  unfold openGapSummand
-  rw [Encodable.encodek (self := Encodable.ofCountable T) (a := x)]
-  simp
+  have h :
+      ¬ ∃ t : T,
+        @Encodable.encode T (Encodable.ofCountable T) t =
+          @Encodable.encode T (Encodable.ofCountable T) x ∧ t < x := by
+    intro hEx
+    rcases hEx with ⟨t, htcode, htx⟩
+    have : t = x := by
+      exact @Encodable.encode_injective T (Encodable.ofCountable T) _ _ htcode
+    subst t
+    exact lt_irrefl x htx
+  simp [openGapSummand, h]
 
 /--
 At the code of `x`, the summand for any strict upper point `y` is the full
@@ -536,9 +519,12 @@ theorem openGapSummand_encode_of_lt
     openGapSummand y (@Encodable.encode T (Encodable.ofCountable T) x) =
       dyadicWeightNat (@Encodable.encode T (Encodable.ofCountable T) x) := by
   classical
-  unfold openGapSummand
-  rw [Encodable.encodek (self := Encodable.ofCountable T) (a := x)]
-  simp [hxy]
+  have h :
+      ∃ t : T,
+        @Encodable.encode T (Encodable.ofCountable T) t =
+          @Encodable.encode T (Encodable.ofCountable T) x ∧ t < y := by
+    exact ⟨x, rfl, hxy⟩
+  simp [openGapSummand, h]
 
 /--
 At the code of `x`, the summand for `x` is strictly smaller than the summand
@@ -553,6 +539,36 @@ theorem openGapSummand_encode_strict_of_lt
   classical
   rw [openGapSummand_encode_self_eq_zero x, openGapSummand_encode_of_lt hxy]
   exact dyadicWeightNat_pos _
+
+/--
+At indices at most `N`, the dyadic summands for `x < y` agree, provided every
+point between `x` and `y` has code greater than `N`.
+-/
+theorem openGapSummand_eq_of_no_small_code_between
+    {T : Type} [LinearOrder T] [Countable T]
+    {x y : T} {N n : ℕ}
+    (hxy : x < y)
+    (hn : n ≤ N)
+    (hNoSmall :
+      ∀ z : T, x ≤ z → z < y →
+        @Encodable.encode T (Encodable.ofCountable T) z > N) :
+    openGapSummand x n = openGapSummand y n := by
+  classical
+  by_cases hx : ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < x
+  · rcases hx with ⟨t, htcode, htx⟩
+    have hy : ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < y := by
+      exact ⟨t, htcode, lt_trans htx hxy⟩
+    simp [openGapSummand, hx, hy]
+  · have hy_not : ¬ ∃ t : T, @Encodable.encode T (Encodable.ofCountable T) t = n ∧ t < y := by
+      intro hy
+      rcases hy with ⟨t, htcode, hty⟩
+      by_cases htx : t < x
+      · exact hx ⟨t, htcode, htx⟩
+      · have hxt : x ≤ t := le_of_not_gt htx
+        have hbig : @Encodable.encode T (Encodable.ofCountable T) t > N := hNoSmall t hxt hty
+        have : n > N := by simpa [htcode] using hbig
+        exact False.elim (not_lt_of_ge hn this)
+    simp [openGapSummand, hx, hy_not]
 
 theorem openGapEmbedding_lt_of_lt
     {T : Type} [LinearOrder T] [Countable T]
@@ -691,6 +707,20 @@ theorem exists_dyadicTail_lt
     {ε : ℝ}
     (hε : 0 < ε) :
     ∃ N : ℕ, dyadicTail N < ε := by
+  sorry
+
+/--
+If all points between `x` and `y` have code larger than `N`, then the difference
+between the embeddings is bounded by the dyadic tail after `N`.
+-/
+theorem openGapEmbedding_sub_le_tail_of_no_small_code_between
+    {T : Type} [LinearOrder T] [Countable T]
+    (x y : T) (N : ℕ)
+    (hxy : x < y)
+    (hNoSmall :
+      ∀ z : T, x ≤ z → z < y →
+        @Encodable.encode T (Encodable.ofCountable T) z > N) :
+    openGapEmbedding y - openGapEmbedding x ≤ dyadicTail N := by
   sorry
 
 /--
