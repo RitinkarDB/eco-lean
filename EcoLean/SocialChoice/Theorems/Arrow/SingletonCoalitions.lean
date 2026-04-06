@@ -1,4 +1,4 @@
-import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingStep
+import EcoLean.SocialChoice.Theorems.Arrow.FiniteCoalitions
 
 universe u v
 

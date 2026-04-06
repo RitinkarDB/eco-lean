@@ -21,6 +21,8 @@ import EcoLean.SocialChoice.Theorems.Arrow.DecisiveTransfer
 import EcoLean.SocialChoice.Theorems.Arrow.MinimalDecisive
 import EcoLean.SocialChoice.Theorems.Arrow.FiniteCoalitions
 import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingCoalition
-import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingStep
 import EcoLean.SocialChoice.Theorems.Arrow.SingletonCoalitions
 import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingPairStep
+import EcoLean.SocialChoice.Theorems.Arrow.PivotalVoter
+import EcoLean.SocialChoice.Theorems.Arrow.SingletonTransfer
+import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingStep

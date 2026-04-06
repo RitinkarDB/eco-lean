@@ -1,4 +1,7 @@
 import EcoLean.SocialChoice.Theorems.Arrow.SingletonCoalitions
+import EcoLean.SocialChoice.Theorems.Arrow.ShrinkingCoalition
+import Mathlib.Data.Finset.Basic
+import Mathlib.Data.Fintype.Basic
 
 universe u v
 
@@ -19,7 +22,8 @@ If a finite coalition `S` is decisive for `x` over `y` and `i ∈ S`, then the
 intended Arrow argument will show that either `S.erase i` is still decisive for
 `x` over `y`, or the singleton coalition `{i}` has decisive power for that pair.
 
-This is the pairwise version of the shrinking dichotomy
+This is the pairwise version of the shrinking dichotomy, and it is the right
+place to attack first before trying to prove the universal version.
 -/
 theorem erase_or_singleton_decisive
     {F : SocialWelfareFunction V A}
@@ -44,12 +48,9 @@ theorem smaller_of_erase_decisive
     (hi : i ∈ S)
     (hErase : Decisive F (↑(S.erase i) : Set V) x y) :
     ∃ T : Finset V, T ⊂ S ∧ Decisive F (↑T : Set V) x y := by
-  refine ⟨S.erase i, erase_ssubset S hi, hErase⟩
+  refine ⟨S.erase i, Finset.erase_ssubset hi, hErase⟩
 
-/--
-If the singleton set coalition is decisive for a pair, then the corresponding
-singleton finset coalition is decisive for that pair.
--/
+omit [Fintype V] [DecidableEq V] in
 theorem finset_decisive_singleton_of_set
     {F : SocialWelfareFunction V A}
     {i : V} {x y : A}
