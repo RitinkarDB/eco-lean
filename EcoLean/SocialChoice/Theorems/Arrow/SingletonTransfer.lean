@@ -156,6 +156,19 @@ theorem pairwiseAgreesOn_xz_with_threeway_profile
       · intro _
         exact (hOut k (by simpa [S] using hk)).1
 
+theorem social_not_zx_in_threeway_profile
+    {F : SocialWelfareFunction V A}
+    (hRat : RationalSWF F)
+    {x y z : A}
+    (Q : Profile V A)
+    (hQxy : SocialWelfareFunction.StrictPref F Q x y)
+    (hQyz : SocialWelfareFunction.WeakPref F Q y z)
+    (hxz_rev : SocialWelfareFunction.WeakPref F Q z x) :
+    False := by
+  have hyx : SocialWelfareFunction.WeakPref F Q y x := by
+    exact social_weak_trans hRat Q hQyz hxz_rev
+  exact hQxy.2 hyx
+
 /--
 Main transfer lemma scaffold.
 
@@ -174,8 +187,38 @@ theorem singleton_transfer_left
     (hyz : y ≠ z)
     (hSingle : Decisive F ({i} : Set V) x y) :
     Decisive F ({i} : Set V) x z := by
-  sorry
+  intro P hIn hOut
+  let Q : Profile V A := fun k =>
+    if k = i then prefXYZ x y z else prefYZX x y z
 
+  have hQ : ∀ k : V,
+      (k = i → Q k = prefXYZ x y z) ∧
+      (k ≠ i → Q k = prefYZX x y z) := by
+    intro k
+    constructor
+    · intro hk
+      simp [Q, hk]
+    · intro hk
+      simp [Q, hk]
+
+  have hQxy : SocialWelfareFunction.StrictPref F Q x y := by
+    exact social_strict_xy_in_threeway_profile hSingle hxy hxz Q hQ
+
+  have hQyz : SocialWelfareFunction.WeakPref F Q y z := by
+    exact social_weak_yz_in_threeway_profile hPareto Q hQ
+
+  have hPair : PairwiseAgreesOn P Q x z := by
+    exact pairwiseAgreesOn_xz_with_threeway_profile i hxy hxz P hIn hOut
+
+  have hQxz : SocialWelfareFunction.StrictPref F Q x z := by
+    apply social_strict_of_weak_not_reverse Q
+    · exact social_weak_trans hRat Q hQxy.1 hQyz
+    · intro hzx
+      exact social_not_zx_in_threeway_profile hRat Q hQxy hQyz hzx
+
+
+
+  exact social_strict_transfer_back hIIA hPair hQxz
 /--
 Symmetric transfer lemma scaffold.
 -/
