@@ -510,7 +510,7 @@ theorem openGapSummand_encode_self_eq_zero
 
 /--
 At the code of `x`, the summand for any strict upper point `y` is the full
-dyadic weight.
+dyadic weight. m
 -/
 theorem openGapSummand_encode_of_lt
     {T : Type} [LinearOrder T] [Countable T]
