@@ -2,4 +2,4 @@ import EcoLean.ChoicePreferenceUtility.Choice
 import EcoLean.ChoicePreferenceUtility.Preference
 import EcoLean.ChoicePreferenceUtility.Utility
 import EcoLean.ChoicePreferenceUtility.NoBetterThan
-import EcoLean.SocialChoice.SocialChoice
+import EcoLean.SocialChoiceTheory
