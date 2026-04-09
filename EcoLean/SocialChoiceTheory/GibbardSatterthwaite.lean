@@ -54,8 +54,8 @@ EcoLean-style preference associated to a strict ballot.
 This is the forward-facing translation that should be used for interoperability:
 `x ≽ y` means that `x` is weakly preferred to `y`.
 -/
-def toPreference (L : LinBallot σ) : Preference σ where
-  toPrefOrder :=
+def toPreference (L : LinBallot σ) : Preference σ :=
+  Preference.ofPrefOrder
     { rel := L.weakPref
       refl := by
         intro x

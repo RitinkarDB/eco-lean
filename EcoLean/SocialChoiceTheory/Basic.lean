@@ -1,3 +1,4 @@
+import EcoLean.ChoicePreferenceUtility.Preference
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Card
 import Mathlib.Order.Basic
@@ -877,68 +878,112 @@ Arrow development stable while giving downstream files a shared language.
 -/
 
 /--
-`Preference A` is the eco-lean-aligned name for a complete weak preference on `A`.
+`RationalPreference A` is a complete and transitive weak preference on `A`,
+built directly on top of `EcoLean.Preference A`.
 
-It is a thin wrapper around `PrefOrder A`, with coercions in both directions so
-existing proofs using `PrefOrder` continue to work unchanged while downstream
-files can use the `Preference` vocabulary directly.
+This keeps the social-choice development aligned with eco-lean's primitive
+weak-preference layer while still bundling the rationality properties that the
+Arrow and Gibbard-Satterthwaite proofs use pervasively.
 -/
-structure Preference (A : Type u) where
-  toPrefOrder : PrefOrder A
+structure RationalPreference (A : Type u) extends _root_.EcoLean.Preference A where
+  isComplete : _root_.EcoLean.Preference.Complete toPreference
+  isTransitive : _root_.EcoLean.Preference.Transitive toPreference
+
+/--
+`Preference A` is the bundled rational preference type used in the
+social-choice-theory development.
+
+It is a thin rational wrapper over `EcoLean.Preference A`, with a compatibility
+projection `toPrefOrder` back to the older `PrefOrder` infrastructure.
+-/
+abbrev Preference := RationalPreference
 
 namespace Preference
 
 variable {A : Type u} (P : Preference A)
 
+instance : Coe (Preference A) (_root_.EcoLean.Preference A) where
+  coe P := P.toPreference
+
+instance : CoeFun (Preference A) (fun _ => A → A → Prop) where
+  coe P := P.weakPref
+
+/-- Compatibility projection back to the older bundled `PrefOrder` structure. -/
+def toPrefOrder : PrefOrder A where
+  rel := P.weakPref
+  refl := by
+    intro x
+    exact _root_.EcoLean.Preference.weakPref_refl_of_complete
+      (P := P.toPreference) P.isComplete x
+  total := P.isComplete
+  trans := P.isTransitive
+
+/-- Build a bundled social-choice preference from a complete transitive weak order. -/
+def ofPrefOrder (r : PrefOrder A) : Preference A where
+  toPreference := { weakPref := r.rel }
+  isComplete := r.total
+  isTransitive := r.trans
+
 instance : Coe (Preference A) (PrefOrder A) where
   coe P := P.toPrefOrder
 
-instance : Coe (PrefOrder A) (Preference A) where
-  coe r := ⟨r⟩
+@[simp] theorem toPrefOrder_apply
+    (x y : A) :
+    P.toPrefOrder x y ↔ P x y := by
+  rfl
 
-instance : CoeFun (Preference A) (fun _ => A → A → Prop) where
-  coe P := P.toPrefOrder.rel
+@[simp] theorem ofPrefOrder_apply
+    (r : PrefOrder A) (x y : A) :
+    Preference.ofPrefOrder r x y ↔ r x y := by
+  rfl
+
+@[simp] theorem ofPrefOrder_weakPref
+    (r : PrefOrder A) (x y : A) :
+    (Preference.ofPrefOrder r).weakPref x y ↔ r x y := by
+  rfl
 
 theorem refl : Reflexive P :=
-  P.toPrefOrder.refl
+  by
+    intro x
+    exact _root_.EcoLean.Preference.weakPref_refl_of_complete
+      (P := P.toPreference) P.isComplete x
 
 theorem total : _root_.Total P :=
-  P.toPrefOrder.total
+  P.isComplete
 
 theorem trans : _root_.Transitive P :=
-  P.toPrefOrder.trans
+  P.isTransitive
 
 /-- Primitive weak preference relation. -/
-@[simp] abbrev weakPref : A → A → Prop := P.toPrefOrder.rel
+@[simp] abbrev weakPref : A → A → Prop := P.toPreference.weakPref
 
 /-- Strict preference derived from weak preference. -/
 def StrictPref (x y : A) : Prop :=
-  EcoLean.SocialChoiceTheory.StrictPref P x y
+  P.toPreference.StrictPref x y
 
 /-- Indifference derived from weak preference. -/
 def Indiff (x y : A) : Prop :=
-  EcoLean.SocialChoiceTheory.Indiff P x y
+  P.toPreference.Indiff x y
 
 /-- Completeness of weak preference. -/
 def Complete : Prop :=
-  _root_.Total P.weakPref
+  P.toPreference.Complete
 
 /-- Transitivity of weak preference. -/
 def Transitive : Prop :=
-  _root_.Transitive P.weakPref
+  P.toPreference.Transitive
 
 theorem complete : P.Complete :=
-  P.total
+  P.isComplete
 
 theorem transitive : P.Transitive :=
-  P.trans
+  P.isTransitive
 
 theorem weakPref_refl_of_complete
     (hC : P.Complete) (x : A) :
     P.weakPref x x := by
-  cases hC x x with
-  | inl hxx => exact hxx
-  | inr hxx => exact hxx
+  exact _root_.EcoLean.Preference.weakPref_refl_of_complete
+    (P := P.toPreference) hC x
 
 @[simp] theorem strictPref_def
     (x y : A) :

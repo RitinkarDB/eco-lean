@@ -178,12 +178,11 @@ alternative, the old and new orders agree pairwise.
 
 noncomputable def maketop (r : Preference σ) (b : σ) : Preference σ := by
   classical
-  refine
-    { toPrefOrder := {
-        rel := fun x y => if x = b then True else if y = b then False else r x y
-        refl := ?_
-        total := ?_
-        trans := ?_ } }
+  refine Preference.ofPrefOrder {
+    rel := fun x y => if x = b then True else if y = b then False else r x y
+    refl := ?_
+    total := ?_
+    trans := ?_ }
   · intro x
     by_cases hx : x = b
     · simp [hx]
@@ -201,12 +200,11 @@ noncomputable def maketop (r : Preference σ) (b : σ) : Preference σ := by
 
 noncomputable def makebot (r : Preference σ) (b : σ) : Preference σ := by
   classical
-  refine
-    { toPrefOrder := {
-        rel := fun x y => if y = b then True else if x = b then False else r x y
-        refl := ?_
-        total := ?_
-        trans := ?_ } }
+  refine Preference.ofPrefOrder {
+    rel := fun x y => if y = b then True else if x = b then False else r x y
+    refl := ?_
+    total := ?_
+    trans := ?_ }
   · intro x
     by_cases hx : x = b
     · simp [hx]
@@ -231,12 +229,11 @@ noncomputable def makeabove (r : Preference σ) (a b : σ) : Preference σ := by
       if r a x then False else True
   else
       r x y
-  refine
-    { toPrefOrder := {
-        rel := s
-        refl := ?_
-        total := ?_
-        trans := ?_ } }
+  refine Preference.ofPrefOrder {
+    rel := s
+    refl := ?_
+    total := ?_
+    trans := ?_ }
   · intro x
     dsimp [s]
     by_cases hx : x = b
@@ -552,12 +549,11 @@ argument.
 -/
 noncomputable def r₂ (b : σ) : Preference σ := by
   classical
-  refine
-    { toPrefOrder := {
-        rel := fun x y => if y = b then True else if x = b then False else True
-        refl := ?_
-        total := ?_
-        trans := ?_ } }
+  refine Preference.ofPrefOrder {
+    rel := fun x y => if y = b then True else if x = b then False else True
+    refl := ?_
+    total := ?_
+    trans := ?_ }
   · intro x
     by_cases hx : x = b <;> simp [hx]
   · intro x y
