@@ -125,6 +125,7 @@ theorem generatedChoice_choiceCoherent
     (hC : P.Complete)
     (hT : P.Transitive) :
     (P.generatedChoice).ChoiceCoherent := by
+  let _ := hC
   intro A B x y hxA hyA hxB hyB hxChooseA hyNotChooseA
   have hxy : P.weakPref x y := hxChooseA.2 y hyA
 
@@ -392,6 +393,7 @@ theorem subset_of_generatedChoiceFromGeneratedPref_if_nonempty
     (hNE : (c.choose A).Nonempty)
     {x : α} :
     x ∈ (generatedChoiceFromGeneratedPref c).choose A → x ∈ c.choose A := by
+  let _ := hFN
   intro hxGen
   rcases hNE with ⟨x₀, hx₀A⟩
   have hxPair : x ∈ c.choose ({x, x₀} : Set α) := by

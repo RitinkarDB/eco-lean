@@ -42,7 +42,7 @@ The later Arrow file uses all of this as its "algebra of pairwise comparisons".
 
 section FinsetLemmas
 
-variable {α : Type*} [DecidableEq α]
+variable {α : Type*}
 variable {s : Finset α} {a b : α}
 
 namespace Finset
@@ -54,6 +54,7 @@ This is the most primitive finite-set separation lemma in the file. It says that
 finite agenda is not collapsed to a singleton, one can find a genuine second option.
 -/
 lemma existsDistinctMemOfNeSingleton
+    [DecidableEq α]
     (hs₁ : s.Nonempty) (hs₂ : s ≠ {a}) :
     ∃ b ∈ s, b ≠ a := by
   classical
@@ -64,7 +65,7 @@ lemma existsDistinctMemOfNeSingleton
   constructor
   · intro hx
     have hx' := h x hx
-    simpa [hx']
+    simp [hx']
   · intro hx
     rcases hs₁ with ⟨y, hy⟩
     have hy' : y = a := h y hy
@@ -82,6 +83,7 @@ social-choice arguments because hypotheses naturally come as lower bounds on the
 of alternatives.
 -/
 lemma existsSecondDistinctMem
+    [DecidableEq α]
     (hs : 2 ≤ s.card) (ha : a ∈ s) :
     ∃ b ∈ s, b ≠ a := by
   classical
@@ -103,6 +105,7 @@ of size at least three, one can always pick a "third alternative" used to mediat
 pivotality and dictatorship arguments.
 -/
 lemma existsThirdDistinctMem
+    [DecidableEq α]
     (hs : 2 < s.card) (ha : a ∈ s) (hb : b ∈ s) (h : a ≠ b) :
     ∃ c ∈ s, c ≠ a ∧ c ≠ b := by
   classical
@@ -208,7 +211,7 @@ This is the familiar fact that if `x ~ y` and `y ~ z` under a transitive weak or
 then `x ~ z`.
 -/
 lemma indiff_trans
-    (htrans : Transitive R)
+    (htrans : ∀ ⦃a b c : σ⦄, R a b → R b c → R a c)
     (h1 : Indiff R x y) (h2 : Indiff R y z) :
     Indiff R x z := by
   exact ⟨htrans h1.1 h2.1, htrans h2.2 h1.2⟩
@@ -224,7 +227,7 @@ This is the standard fact that the asymmetric part of a transitive weak order is
 transitive.
 -/
 lemma strictPref_trans_indiff
-    (htrans : Transitive R)
+    (htrans : ∀ ⦃a b c : σ⦄, R a b → R b c → R a c)
     (h1 : StrictPref R x y) (h2 : Indiff R y z) :
     StrictPref R x z := by
   refine ⟨htrans h1.1 h2.1, ?_⟩
@@ -242,7 +245,7 @@ Indifference composed with strict preference remains strict preference.
 If `x I y` and `y P z`, then `x P z`, under transitivity.
 -/
 lemma indiff_trans_strictPref
-    (htrans : Transitive R)
+    (htrans : ∀ ⦃a b c : σ⦄, R a b → R b c → R a c)
     (h1 : Indiff R x y) (h2 : StrictPref R y z) :
     StrictPref R x z := by
   refine ⟨htrans h1.1 h2.1, ?_⟩
@@ -256,7 +259,7 @@ This is the standard fact that the asymmetric part of a transitive weak order is
 transitive.
 -/
 lemma strictPref_trans
-    (htrans : Transitive R)
+    (htrans : ∀ ⦃a b c : σ⦄, R a b → R b c → R a c)
     (h1 : StrictPref R x y) (h2 : StrictPref R y z) :
     StrictPref R x z := by
   refine ⟨htrans h1.1 h2.1, ?_⟩
@@ -270,7 +273,7 @@ Concretely, if the relation is total and it is *not* the case that `y P x`, then
 necessarily `x R y`. This is one of the characteristic ways totality is used later.
 -/
 lemma rel_of_not_strictPref_total
-    (htot : Total R) (h : ¬ StrictPref R y x) :
+    (htot : ∀ a b : σ, R a b ∨ R b a) (h : ¬ StrictPref R y x) :
     R x y := by
   rcases htot x y with hxy | hyx
   · exact hxy
@@ -501,8 +504,7 @@ lemma choiceSet_subset_maximalSet
   rcases Finset.mem_filter.mp ha with ⟨haS, haBest⟩
   apply Finset.mem_filter.mpr
   refine ⟨haS, ?_⟩
-  intro y hy
-  intro hya
+  intro y hy hya
   exact hya.2 (haBest y hy)
 
 end BasicDefs
@@ -528,7 +530,7 @@ This is the correct generality for several finite maximality arguments.
 structure QuasiOrder (α : Type*) where
   rel : α → α → Prop
   refl : Reflexive rel
-  trans : Transitive rel
+  trans : ∀ ⦃a b c : α⦄, rel a b → rel b c → rel a c
 
 instance : CoeFun (QuasiOrder σ) (fun _ => σ → σ → Prop) where
   coe r := r.rel
@@ -598,7 +600,7 @@ lemma choiceSet_of_singleton
     simpa using hyx
   · intro hy
     apply Finset.mem_filter.mpr
-    refine ⟨by simpa [hy] using Finset.mem_singleton_self x, ?_⟩
+    refine ⟨by simp [hy], ?_⟩
     intro z hz
     have hz' : z = x := by
       simpa using hz
@@ -627,7 +629,7 @@ lemma singleton_choiceSet
       have hz' : z = x := by
         simpa using hz
       apply Finset.mem_filter.mpr
-      refine ⟨by simpa [hz'], ?_⟩
+      refine ⟨by simp [hz'], ?_⟩
       intro w hw
       have hw' : w = x ∨ w = y := by
         simpa using hw
@@ -639,7 +641,7 @@ lemma singleton_choiceSet
     · intro hz
       rcases Finset.mem_filter.mp hz with ⟨hzS, hzBest⟩
       by_cases hzx : z = x
-      · simpa [hzx]
+      · simp [hzx]
       · have hzy : z = y := by
           have : z = x ∨ z = y := by
             simpa using hzS
@@ -823,8 +825,8 @@ This is the standard formal model of a complete weak preference ordering.
 structure PrefOrder (α : Type*) where
   rel : α → α → Prop
   refl : Reflexive rel
-  total : Total rel
-  trans : Transitive rel
+  total : ∀ a b : α, rel a b ∨ rel b a
+  trans : ∀ ⦃a b c : α⦄, rel a b → rel b c → rel a c
 
 instance : CoeFun (PrefOrder σ) (fun _ => σ → σ → Prop) where
   coe r := r.rel
@@ -948,10 +950,10 @@ theorem refl : Reflexive P :=
     exact _root_.EcoLean.Preference.weakPref_refl_of_complete
       (P := P.toPreference) P.isComplete x
 
-theorem total : _root_.Total P :=
+theorem total : ∀ x y : A, P x y ∨ P y x :=
   P.isComplete
 
-theorem trans : _root_.Transitive P :=
+theorem trans : ∀ ⦃x y z : A⦄, P x y → P y z → P x z :=
   P.isTransitive
 
 /-- Primitive weak preference relation. -/

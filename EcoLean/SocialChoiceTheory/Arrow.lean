@@ -80,16 +80,19 @@ These witnesses are the raw material for producing a nontrivial chain
 `a ≽ b ≽ c` in `exists_of_not_extremal`.
 -/
 
+omit [DecidableEq σ] in
 lemma not_strictlyWorst_iff :
     ¬ IsStrictlyWorst b r X ↔ ∃ a, a ∈ X ∧ a ≠ b ∧ ¬ StrictPref r a b := by
   classical
   simp [IsStrictlyWorst]
 
+omit [DecidableEq σ] in
 lemma not_strictlyBest_iff :
     ¬ IsStrictlyBest b r X ↔ ∃ a, a ∈ X ∧ a ≠ b ∧ ¬ StrictPref r b a := by
   classical
   simp [IsStrictlyBest]
 
+omit [DecidableEq σ] in
 lemma not_extremal_iff :
     ¬ IsExtremal b r X ↔
       (∃ a, a ∈ X ∧ a ≠ b ∧ ¬ StrictPref r a b) ∧
@@ -104,6 +107,7 @@ comparisons. If `a` is not strictly above `b`, totality forces `b ≽ a`; and if
 
 So non-extremality yields a weak "sandwich" `c ≽ b ≽ a`.
 -/
+omit [DecidableEq σ] in
 lemma not_extremal'
     (r : Preference σ) (h : ¬ IsExtremal b r X) :
     ∃ a c, a ∈ X ∧ c ∈ X ∧ a ≠ b ∧ c ≠ b ∧ r b a ∧ r c b := by
@@ -117,6 +121,7 @@ The next block records that "strictly best" and "strictly worst" are mutually
 exclusive whenever there is at least one distinct alternative in the agenda.
 The primed forms package the distinct witness using cardinality assumptions.
 -/
+omit [DecidableEq σ] in
 lemma IsStrictlyBest.not_strictlyWorst
     (htop : IsStrictlyBest b r X) (h : ∃ a, a ∈ X ∧ a ≠ b) :
     ¬ IsStrictlyWorst b r X := by
@@ -129,6 +134,7 @@ lemma IsStrictlyBest.not_strictlyWorst'
     ¬ IsStrictlyWorst b r X := by
   exact htop.not_strictlyWorst (Finset.existsSecondDistinctMem hX hb)
 
+omit [DecidableEq σ] in
 lemma IsStrictlyWorst.not_strictlyBest
     (hbot : IsStrictlyWorst b r X) (h : ∃ a, a ∈ X ∧ a ≠ b) :
     ¬ IsStrictlyBest b r X := by
@@ -141,6 +147,7 @@ lemma IsStrictlyWorst.not_strictlyBest'
     ¬ IsStrictlyBest b r X := by
   exact hbot.not_strictlyBest (Finset.existsSecondDistinctMem hX hb)
 
+omit [DecidableEq σ] in
 lemma IsExtremal.isStrictlyBest
     (hextr : IsExtremal b r X) (hnw : ¬ IsStrictlyWorst b r X) :
     IsStrictlyBest b r X := by
@@ -148,6 +155,7 @@ lemma IsExtremal.isStrictlyBest
   · exact False.elim (hnw hW)
   · exact hB
 
+omit [DecidableEq σ] in
 lemma IsExtremal.isStrictlyWorst
     (hextr : IsExtremal b r X) (hnb : ¬ IsStrictlyBest b r X) :
     IsStrictlyWorst b r X := by
@@ -155,9 +163,11 @@ lemma IsExtremal.isStrictlyWorst
   · exact hW
   · exact False.elim (hnb hB)
 
+omit [DecidableEq σ] in
 lemma IsStrictlyWorst.isExtremal
     (hbot : IsStrictlyWorst b r X) : IsExtremal b r X := Or.inl hbot
 
+omit [DecidableEq σ] in
 lemma IsStrictlyBest.isExtremal
     (htop : IsStrictlyBest b r X) : IsExtremal b r X := Or.inr htop
 
@@ -193,10 +203,9 @@ noncomputable def maketop (r : Preference σ) (b : σ) : Preference σ := by
     by_cases hx : x = b <;>
     by_cases hy : y = b <;>
     by_cases hz : z = b <;>
-    simp [hx, hy, hz] <;>
-    intro hxy hyz <;>
-    try trivial
-    exact r.trans hxy hyz
+    all_goals simp [hx, hy, hz]
+    · intro hxy hyz
+      exact r.trans hxy hyz
 
 noncomputable def makebot (r : Preference σ) (b : σ) : Preference σ := by
   classical
@@ -215,10 +224,9 @@ noncomputable def makebot (r : Preference σ) (b : σ) : Preference σ := by
     by_cases hx : x = b <;>
     by_cases hy : y = b <;>
     by_cases hz : z = b <;>
-    simp [hx, hy, hz] <;>
-    intro hxy hyz <;>
-    try trivial
-    exact r.trans hxy hyz
+    all_goals simp [hx, hy, hz]
+    · intro hxy hyz
+      exact r.trans hxy hyz
 
 noncomputable def makeabove (r : Preference σ) (a b : σ) : Preference σ := by
   classical
@@ -316,12 +324,12 @@ lemma makeabove_noteq'
 lemma is_strictlyBest_maketop (b : σ) (r : Preference σ) (X : Finset σ) :
     IsStrictlyBest b (maketop r b) X := by
   intro a ha hab
-  simp [IsStrictlyBest, StrictPref, maketop, hab]
+  simp [StrictPref, maketop, hab]
 
 lemma is_strictlyWorst_makebot (b : σ) (r : Preference σ) (X : Finset σ) :
     IsStrictlyWorst b (makebot r b) X := by
   intro a ha hab
-  simp [IsStrictlyWorst, StrictPref, makebot, hab]
+  simp [StrictPref, makebot, hab]
 
 lemma makeabove_above {a b : σ} (r : Preference σ) (ha : a ≠ b) :
     StrictPref (makeabove r a b) b a := by
@@ -329,11 +337,11 @@ lemma makeabove_above {a b : σ} (r : Preference σ) (ha : a ≠ b) :
 
 lemma makeabove_above' {a b c : σ} {r : Preference σ} (hc : c ≠ b) (hr : r a c) :
     StrictPref (makeabove r a b) b c := by
-  simpa [StrictPref, makeabove, hc, hr]
+  simp [StrictPref, makeabove, hc, hr]
 
 lemma makeabove_below {a b c : σ} {r : Preference σ} (hc : c ≠ b) (hr : ¬ r a c) :
     StrictPref (makeabove r a b) c b := by
-  simpa [StrictPref, makeabove, hc, hr]
+  simp [StrictPref, makeabove, hc, hr]
 
 /-! ## Profiles, social welfare functions, and Arrow-style properties
 
@@ -361,6 +369,7 @@ abbrev IsDictatorship (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialOn f 
 
 namespace WeakPareto
 
+omit [DecidableEq σ] in
 theorem apply
     {f : SWF ι σ} {X : Finset σ}
     (h : WeakPareto f X)
@@ -374,6 +383,7 @@ end WeakPareto
 
 namespace IndOfIrrAlts
 
+omit [DecidableEq σ] in
 theorem apply
     {f : SWF ι σ} {X : Finset σ}
     (h : IndOfIrrAlts f X)
@@ -383,6 +393,7 @@ theorem apply
     SameOrder (f P) (f Q) x y x y :=
   IIAOn.apply h P Q x y hx hy hxy
 
+omit [DecidableEq σ] in
 theorem weak
     {f : SWF ι σ} {X : Finset σ}
     (h : IndOfIrrAlts f X)
@@ -393,6 +404,7 @@ theorem weak
      (f P y x ↔ f Q y x)) :=
   (h.apply P Q x y hx hy hxy).1
 
+omit [DecidableEq σ] in
 theorem strict
     {f : SWF ι σ} {X : Finset σ}
     (h : IndOfIrrAlts f X)
@@ -407,6 +419,7 @@ end IndOfIrrAlts
 
 namespace DictatorialSWFOn
 
+omit [DecidableEq σ] in
 theorem witness
     {f : SWF ι σ} {X : Finset σ}
     (h : DictatorialSWFOn f X) :
@@ -417,6 +430,7 @@ end DictatorialSWFOn
 
 namespace IsDictatorship
 
+omit [DecidableEq σ] in
 theorem witness
     {f : SWF ι σ} {X : Finset σ}
     (h : IsDictatorship f X) :
@@ -450,6 +464,7 @@ These lemmas lift individual extremality to social extremality using weak Pareto
 and extract a useful weak chain from a social order in which `b` is not extremal.
 -/
 
+omit [DecidableEq σ] in
 theorem is_strictlyBest_of_forall_is_strictlyBest
     (b_in : b ∈ X) (hPareto : ParetoOn f X)
     (htop : ∀ i, IsStrictlyBest b (R i) X) :
@@ -457,6 +472,7 @@ theorem is_strictlyBest_of_forall_is_strictlyBest
   intro a ha hab
   exact hPareto b a b_in ha R (fun i => htop i a ha hab)
 
+omit [DecidableEq σ] in
 theorem is_strictlyWorst_of_forall_is_strictlyWorst
     (b_in : b ∈ X) (hPareto : ParetoOn f X)
     (hbot : ∀ i, IsStrictlyWorst b (R i) X) :

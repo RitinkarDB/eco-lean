@@ -319,8 +319,8 @@ theorem indiff_iff_eq_of_represents
     exact le_antisymm hyx' hxy'
   · intro hEq
     constructor
-    · exact (hRep x y).mpr (by simpa [hEq])
-    · exact (hRep y x).mpr (by simpa [hEq])
+    · exact (hRep x y).mpr (by simp [hEq])
+    · exact (hRep y x).mpr (by simp [hEq])
 
 /--
 Theorem: if a utility function represents a preference relation, then the
@@ -565,7 +565,7 @@ theorem exists_utility_rationalizing_choice
             classical
             exact Set.toFinite A
           have hNEA : (c.choose A).Nonempty := hFN hFinA ⟨x, hxA⟩
-          simpa [hEmpty] using hNEA
+          simp [hEmpty] at hNEA
       | inr hEq =>
           simpa [hEq] using hx
 
@@ -1028,7 +1028,7 @@ theorem choose_eq_generatedChoiceFromGeneratedPref_of_finite
     cases hCase with
     | inl hEmpty =>
         have hNE : (c.choose A).Nonempty := hFN hAFin ⟨x, hxA⟩
-        simpa [hEmpty] using hNE
+        simp [hEmpty] at hNE
     | inr hEq =>
         simpa [hEq] using hx
 
@@ -1066,7 +1066,7 @@ theorem exists_utility_rationalizing_choice_on_finite_sets
   calc
     c.choose A = (generatedChoiceFromGeneratedPref c).choose A := hA
     _ = P.generatedChoice.choose A := rfl
-    _ = (Utility.generatedChoice u).choose A := by simpa [hChoice]
+    _ = (Utility.generatedChoice u).choose A := by simp [hChoice]
 
 /-!
 # Chapter 1 summary theorems for choice

@@ -110,7 +110,7 @@ theorem singleton_choice_nonempty
     (hFN : c.FiniteNonempty) (x : α) :
     (c.choose ({x} : Set α)).Nonempty := by
   apply hFN
-  · simpa using (Set.finite_singleton x)
+  · exact Set.finite_singleton x
   · exact ⟨x, by simp⟩
 
 /--
@@ -176,8 +176,8 @@ theorem pair_choice_nonempty
   apply hFN
   ·
     have hsingle : ({y} : Set α).Finite := by
-      simpa using (Set.finite_singleton y)
-    simpa [Set.singleton_union] using hsingle.insert x
+      exact Set.finite_singleton y
+    exact hsingle.insert x
   · exact ⟨x, by simp⟩
 
 /--

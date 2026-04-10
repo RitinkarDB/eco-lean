@@ -34,8 +34,8 @@ For interoperability with `eco-lean`, prefer the derived forward relation
 -/
 structure LinBallot (σ : Type*) where
   lt : σ → σ → Prop
-  irrefl : Irreflexive lt
-  trans : Transitive lt
+  irrefl : ∀ x : σ, ¬ lt x x
+  trans : ∀ ⦃x y z : σ⦄, lt x y → lt y z → lt x z
   total : ∀ ⦃x y : σ⦄, x ≠ y → lt x y ∨ lt y x
 
 namespace LinBallot
@@ -208,11 +208,13 @@ namespace PairwiseAgreesOn
 
 variable {P Q : StrictProfile ι σ} {x y : σ}
 
+omit [Fintype ι] [DecidableEq ι] in
 theorem apply
     (h : PairwiseAgreesOn P Q x y) (i : ι) :
     SameOrder ((P i).toPreference) ((Q i).toPreference) x y x y :=
   h i
 
+omit [Fintype ι] [DecidableEq ι] in
 theorem swap
     (h : PairwiseAgreesOn P Q x y) :
     PairwiseAgreesOn P Q y x := by
@@ -321,6 +323,7 @@ section NonManipAndMonotonicity
 variable {ι σ : Type*}
 variable [Fintype ι] [DecidableEq ι] [DecidableEq σ]
 
+omit [Fintype ι] [DecidableEq σ] in
 lemma nonManipulable_iff
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) :
     NonManipulable g X ↔
@@ -370,6 +373,7 @@ noncomputable def switchProfile
   fun i =>
     if (e i : ℕ) < k then P' i else P i
 
+set_option linter.unusedSectionVars false in
 lemma switchProfile_zero
     [Fintype ι] [DecidableEq ι]
     (P P' : StrictProfile ι σ) :
@@ -378,6 +382,7 @@ lemma switchProfile_zero
   funext i
   simp [switchProfile]
 
+set_option linter.unusedSectionVars false in
 lemma switchProfile_all
     [Fintype ι] [DecidableEq ι]
     (P P' : StrictProfile ι σ) :
@@ -386,8 +391,9 @@ lemma switchProfile_all
   funext i
   have hi : (Fintype.equivFin ι i : ℕ) < Fintype.card ι := by
     exact (Fintype.equivFin ι i).is_lt
-  simp [switchProfile, hi]
+  simp [switchProfile]
 
+set_option linter.unusedSectionVars false in
 lemma switchProfile_succ
     [Fintype ι] [DecidableEq ι]
     (P P' : StrictProfile ι σ) (k : ℕ)
@@ -523,6 +529,7 @@ section PairTopHelpers
 variable {ι σ : Type*}
 variable [Fintype ι] [DecidableEq ι] [DecidableEq σ]
 
+omit [Fintype ι] [DecidableEq ι] in
 lemma topProfile_pair_eq_swap
     (P : SProfile ι σ) (a b : σ) :
     topProfile ({a, b} : Finset σ) P = topProfile ({b, a} : Finset σ) P := by
@@ -544,6 +551,7 @@ section TopUnanimityAndStrictRoute
 variable {ι σ : Type*}
 variable [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι]
 
+omit [Nonempty ι] in
 lemma top_unanimity
     (g : StrictSocialChoiceFunction ι σ) (X S : Finset σ)
     (hchoose : ChoosesFrom g X)
@@ -622,6 +630,7 @@ lemma top_unanimity
   have hfinal : g (R (Fintype.card ι)) ∈ S := hmem (Fintype.card ι) le_rfl
   simpa [T, hRall] using hfinal
 
+set_option linter.unusedSectionVars false in
 lemma swf_binary_choice_mem_pair
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
@@ -659,7 +668,7 @@ def SIIAStrict (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) 
     (f P a b ↔ f P' a b)
 
 /--
-Compatibility predicate for legacy Nipkow-oriented dictatorship on strict relations.
+Compatibility predicate
 
 New code should prefer `StrictSocialRelation.DictatorialOn`.
 -/
@@ -737,6 +746,7 @@ abbrev StrictParetoOn
 
 namespace ParetoOn
 
+omit [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι] in
 theorem apply
     {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ}
     (h : ParetoOn f X)
@@ -750,6 +760,7 @@ end ParetoOn
 
 namespace IIAOn
 
+omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
 theorem apply
     {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ}
     (h : IIAOn f X)
@@ -764,6 +775,7 @@ end IIAOn
 
 namespace IsDictatorOn
 
+omit [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι] in
 theorem apply
     {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ} {i : ι}
     (h : IsDictatorOn f X i)
@@ -776,6 +788,7 @@ end IsDictatorOn
 
 namespace DictatorialOn
 
+omit [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι] in
 theorem witness
     {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ}
     (h : DictatorialOn f X) :
@@ -786,6 +799,7 @@ end DictatorialOn
 
 end StrictSocialRelation
 
+omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
 lemma topProfile_pair_strict_iff'
     (P : SProfile ι σ) (a b : σ) (i : ι)
     (hab : a ≠ b) :
@@ -796,6 +810,7 @@ lemma topProfile_pair_strict_iff'
       (x := a) (y := b)
       (by simp [hab]) (by simp))
 
+set_option linter.unusedSectionVars false in
 lemma topProfile_pair_sameOrder'
     (P P' : SProfile ι σ) (a b : σ)
     (hab : a ≠ b)
@@ -923,12 +938,14 @@ namespace StrictProfile.PairwiseAgreesOn
 
 variable {P Q : StrictProfile ι σ} {x y : σ}
 
+omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
 theorem toLegacy
     (h : StrictProfile.PairwiseAgreesOn P Q x y) :
     ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) y x y x := by
   intro i
   exact (sameOrder_toPreference_iff_toPrefOrder_rev (P i) (Q i) x y).1 (h i)
 
+omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
 theorem ofLegacy
     (h : ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) y x y x) :
     StrictProfile.PairwiseAgreesOn P Q x y := by
@@ -939,6 +956,7 @@ end StrictProfile.PairwiseAgreesOn
 
 namespace StrictSocialRelation
 
+omit [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι] in
 lemma paretoOn_iff_legacy
     {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ} :
     ParetoOn f X ↔ SWeakParetoStrict (legacyRel f) X := by
@@ -952,6 +970,7 @@ lemma paretoOn_iff_legacy
       intro i
       simpa [LinBallot.prefers] using hall i)
 
+set_option linter.unusedSectionVars false in
 lemma iiaOn_iff_legacy
     {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ} :
     IIAOn f X ↔ SIIAStrict (legacyRel f) X := by
@@ -971,6 +990,7 @@ lemma iiaOn_iff_legacy
         StrictProfile.PairwiseAgreesOn.toLegacy (StrictProfile.PairwiseAgreesOn.swap hxy)
       exact h P Q x y hx hy hlegacy
 
+omit [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι] in
 lemma dictatorialOn_iff_legacy
     {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ} :
     DictatorialOn f X ↔ SIsDictatorshipStrict (legacyRel f) X := by
@@ -986,6 +1006,7 @@ lemma dictatorialOn_iff_legacy
     intro P x y hx hy
     simpa [legacyRel, LinBallot.prefers] using hi P y x hy hx
 
+omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
 @[simp] theorem legacyRel_socialPrefers
     (g : StrictSocialChoiceFunction ι σ) :
     legacyRel (socialPrefers g) = swfStrict g :=
@@ -993,13 +1014,14 @@ lemma dictatorialOn_iff_legacy
 
 end StrictSocialRelation
 
+set_option linter.unusedSectionVars false in
 lemma binary_top_choice_eq_left
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
     (hnm : NonManipulable g X)
     (P : StrictProfile ι σ) (a b : σ)
-    (ha : a ∈ X) (hb : b ∈ X)
+    (ha : a ∈ X) (_hb : b ∈ X)
     (hall : ∀ i : ι, (P i).lt b a) :
     g (topProfile ({a, b} : Finset σ) P) = a := by
   classical
@@ -1070,7 +1092,7 @@ lemma swfStrict_weakPareto
 lemma swfStrict_iia
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
-    (honto : OntoOn g X)
+    (_honto : OntoOn g X)
     (hnm : NonManipulable g X) :
     SIIAStrict (swfStrict g) X := by
   classical
@@ -1167,10 +1189,11 @@ lemma swfStrict_iia
 
 
 
+omit [Nonempty ι] in
 lemma swfStrict_dictator_implies_choice_dictator
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
-    (honto : OntoOn g X)
+    (_honto : OntoOn g X)
     (hnm : NonManipulable g X)
     (hdict : SIsDictatorshipStrict (swfStrict g) X) :
     IsChoiceDictatorship g X := by
@@ -1270,6 +1293,7 @@ lemma socialPrefers_iia
       (f := socialPrefers g) (X := X)).2 <|
     by simpa using swfStrict_iia g X hchoose honto hnm
 
+set_option linter.unusedSectionVars false in
 lemma socialPrefers_dictatorial_implies_choice_dictator
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
@@ -1303,7 +1327,7 @@ theorem gibbardSatterthwaite
   exact socialPrefers_dictatorial_implies_choice_dictator g X hchoose honto hnm hDict
 
 /--
-Compatibility wrapper for the legacy Nipkow-oriented theorem statement.
+Compatibility wrapper 
 
 New code should prefer `gibbardSatterthwaite`, whose assumptions and conclusion
 are phrased in the same forward-facing terminology as the rest of the library.
