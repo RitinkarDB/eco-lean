@@ -1,4 +1,4 @@
-# EcoLean
+# eco-lean: A Lean 4 Library for Formal Economic Theory
 
 EcoLean is a Lean 4 and mathlib project for formalizing parts of microeconomic theory, social choice theory, and game theory.
 
