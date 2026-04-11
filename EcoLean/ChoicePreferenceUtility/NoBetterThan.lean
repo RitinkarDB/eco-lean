@@ -9,7 +9,7 @@ namespace Preference
 variable {α : Type u} (P : Preference α)
 
 /-!
-# No-better-than sets and contour sets
+### No-better-than sets and contour sets
 
 This file formalises the set-based language Kreps uses in Chapter 1.
 For each object `x`, the no-better-than set of `x` is the set of objects
@@ -32,9 +32,7 @@ An object `y` belongs to `P.AtLeastAsGoodAs x` iff `y ≽ x`.
 def AtLeastAsGoodAs (x : α) : Set α :=
   {y : α | P.weakPref y x}
 
-/-!
-# Basic membership lemmas
--/
+/-! ### Basic membership lemmas -/
 
 /-- Membership in the no-better-than set is just weak preference. -/
 theorem mem_noBetterThan_iff {x y : α} :
@@ -58,9 +56,7 @@ theorem self_mem_atLeastAsGoodAs_of_complete
     x ∈ P.AtLeastAsGoodAs x := by
   exact weakPref_refl_of_complete P hC x
 
-/-!
-# Monotonicity of no-better-than sets under weak preference
--/
+/-! ### Monotonicity of no-better-than sets under weak preference -/
 
 /--
 If `x ≽ y`, then everything no better than `y` is also no better than `x`.
@@ -112,9 +108,7 @@ theorem weakPref_iff_noBetterThan_subset
   · intro hSub
     exact weakPref_of_noBetterThan_subset P hC hSub
 
-/-!
-# Strict containment results
--/
+/-! ### Strict containment results -/
 
 /--
 If `¬ x ≽ y`, then `NoBetterThan x` is a strict subset of `NoBetterThan y`.
@@ -162,9 +156,7 @@ theorem strictPref_iff_noBetterThan_ssubset
       have hxySub : P.NoBetterThan x ⊆ P.NoBetterThan y :=
         noBetterThan_subset_of_weakPref P hT hyx
       exact hSub.2 hxySub
-/-!
-# Equality of no-better-than sets under indifference
--/
+/-! ### Equality of no-better-than sets under indifference -/
 
 /--
 If `x ∼ y`, then `x` and `y` have the same no-better-than set.

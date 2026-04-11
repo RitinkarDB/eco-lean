@@ -45,7 +45,7 @@ variable [DecidableEq σ]
 
 variable {x y x' y' a b c : σ} {r r' : Preference σ} {X : Finset σ}
 
-/-! ## Extremal alternatives
+/-! ### Extremal alternatives
 
 For a fixed finite agenda `X`, an alternative `b` is:
 
@@ -171,7 +171,7 @@ omit [DecidableEq σ] in
 lemma IsStrictlyBest.isExtremal
     (htop : IsStrictlyBest b r X) : IsExtremal b r X := Or.inr htop
 
-/-! ## Order-modification gadgets
+/-! ### Order-modification gadgets
 
 The functions `maketop`, `makebot`, and `makeabove` are the standard tools in
 Arrow proofs for modifying one individual's ranking while leaving other pairwise
@@ -343,7 +343,7 @@ lemma makeabove_below {a b c : σ} {r : Preference σ} (hc : c ≠ b) (hr : ¬ r
     StrictPref (makeabove r a b) c b := by
   simp [StrictPref, makeabove, hc, hr]
 
-/-! ## Profiles, social welfare functions, and Arrow-style properties
+/-! ### Profiles, social welfare functions, and Arrow-style properties
 
 A profile is a function assigning each voter a preference.
 A social welfare function sends profiles to a social preference.
@@ -359,87 +359,7 @@ The axioms are encoded through the shared vocabulary from `Basic.lean`.
 * `IsDictatorExcept f X i b`: voter `i` dictates every pair not involving `b`.
 -/
 
-abbrev WeakPareto (f : SWF ι σ) (X : Finset σ) : Prop := ParetoOn f X
-
-abbrev IndOfIrrAlts (f : SWF ι σ) (X : Finset σ) : Prop := IIAOn f X
-
-abbrev DictatorialSWFOn (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialOn f X
-
-abbrev IsDictatorship (f : SWF ι σ) (X : Finset σ) : Prop := DictatorialOn f X
-
-namespace WeakPareto
-
-omit [DecidableEq σ] in
-theorem apply
-    {f : SWF ι σ} {X : Finset σ}
-    (h : WeakPareto f X)
-    (P : Profile ι σ) {x y : σ}
-    (hx : x ∈ X) (hy : y ∈ X)
-    (hxy : ∀ i : ι, Profile.StrictPref P i x y) :
-    SocialWelfareFunction.StrictPref f P x y :=
-  ParetoOn.apply h P hx hy hxy
-
-end WeakPareto
-
-namespace IndOfIrrAlts
-
-omit [DecidableEq σ] in
-theorem apply
-    {f : SWF ι σ} {X : Finset σ}
-    (h : IndOfIrrAlts f X)
-    (P Q : Profile ι σ) (x y : σ)
-    (hx : x ∈ X) (hy : y ∈ X)
-    (hxy : PairwiseAgreesOn P Q x y) :
-    SameOrder (f P) (f Q) x y x y :=
-  IIAOn.apply h P Q x y hx hy hxy
-
-omit [DecidableEq σ] in
-theorem weak
-    {f : SWF ι σ} {X : Finset σ}
-    (h : IndOfIrrAlts f X)
-    (P Q : Profile ι σ) (x y : σ)
-    (hx : x ∈ X) (hy : y ∈ X)
-    (hxy : PairwiseAgreesOn P Q x y) :
-    ((f P x y ↔ f Q x y) ∧
-     (f P y x ↔ f Q y x)) :=
-  (h.apply P Q x y hx hy hxy).1
-
-omit [DecidableEq σ] in
-theorem strict
-    {f : SWF ι σ} {X : Finset σ}
-    (h : IndOfIrrAlts f X)
-    (P Q : Profile ι σ) (x y : σ)
-    (hx : x ∈ X) (hy : y ∈ X)
-    (hxy : PairwiseAgreesOn P Q x y) :
-    (StrictPref (f P) x y ↔ StrictPref (f Q) x y) ∧
-    (StrictPref (f P) y x ↔ StrictPref (f Q) y x) :=
-  ⟨(h.apply P Q x y hx hy hxy).2.1, (h.apply P Q x y hx hy hxy).2.2⟩
-
-end IndOfIrrAlts
-
-namespace DictatorialSWFOn
-
-omit [DecidableEq σ] in
-theorem witness
-    {f : SWF ι σ} {X : Finset σ}
-    (h : DictatorialSWFOn f X) :
-    ∃ i : ι, IsDictatorOn f X i :=
-  DictatorialOn.witness h
-
-end DictatorialSWFOn
-
-namespace IsDictatorship
-
-omit [DecidableEq σ] in
-theorem witness
-    {f : SWF ι σ} {X : Finset σ}
-    (h : IsDictatorship f X) :
-    ∃ i : ι, IsDictatorOn f X i :=
-  DictatorialOn.witness h
-
-end IsDictatorship
-
-def IsPivotal (f : SWF ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop :=
+def IsPivotal (f : SocialWelfareFunction ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop :=
   ∃ (R R' : Profile ι σ),
     (∀ j : ι, j ≠ i → ∀ x y, x ∈ X → y ∈ X → R j = R' j) ∧
     (∀ j : ι, IsExtremal b (R j) X) ∧
@@ -449,16 +369,16 @@ def IsPivotal (f : SWF ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop :=
     IsStrictlyWorst b (f R) X ∧
     IsStrictlyBest b (f R') X
 
-def HasPivot (f : SWF ι σ) (X : Finset σ) (b : σ) : Prop :=
+def HasPivot (f : SocialWelfareFunction ι σ) (X : Finset σ) (b : σ) : Prop :=
   ∃ i, IsPivotal f X i b
 
-def IsDictatorExcept (f : SWF ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop :=
+def IsDictatorExcept (f : SocialWelfareFunction ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop :=
   ∀ a c, a ∈ X → c ∈ X → a ≠ b → c ≠ b → ∀ R : Profile ι σ,
     StrictPref (R i) c a → StrictPref (f R) c a
 
-variable {R : Profile ι σ} {f : SWF ι σ}
+variable {R : Profile ι σ} {f : SocialWelfareFunction ι σ}
 
-/-! ## Auxiliary lemmas
+/-! ### Auxiliary lemmas
 
 These lemmas lift individual extremality to social extremality using weak Pareto,
 and extract a useful weak chain from a social order in which `b` is not extremal.
@@ -502,7 +422,7 @@ noncomputable def worstSet [Fintype ι] [DecidableEq ι]
   classical
   exact Finset.univ.filter (fun i => IsStrictlyWorst b (R i) X)
 
-/-! ## Step 1: if everyone places `b` at an extreme, so does society
+/-! ### Step 1: if everyone places `b` at an extreme, so does society
 
 The idea is standard.
 Assume every individual makes `b` extremal but society does not.
@@ -580,7 +500,7 @@ noncomputable def r₂ (b : σ) : Preference σ := by
     by_cases hz : z = b <;>
     simp [hx, hy, hz]
 
-/-! ## Step 2: existence of a pivot for each alternative `b`
+/-! ### Step 2: existence of a pivot for each alternative `b`
 
 Induct on the set of voters who rank `b` strictly worst. Starting from the
 profile `R0` where everyone ranks `b` worst, we flip voters one by one from
@@ -680,7 +600,7 @@ lemma second_step [Fintype ι] [DecidableEq ι]
       hextr
       hbot
 
-/-! ## Step 3: a pivot voter for `b` dictates all pairs away from `b`
+/-! ### Step 3: a pivot voter for `b` dictates all pairs away from `b`
 
 Fix a pivot voter `i` for `b`, and fix two alternatives `a,c ≠ b`.
 We build a hybrid profile `Q'`:
@@ -786,7 +706,7 @@ lemma third_step
     exact strictPref_trans (f Q').trans hcb' hba'
   exact (hIIA Q Q' c a c_in a_in hQ').2.1.mpr hca'
 
-/-! ## Step 4: from one excluded alternative to full dictatorship
+/-! ### Step 4: from one excluded alternative to full dictatorship
 
 Pick any `b ∈ X` and a pivot voter `i` for `b`. Step 3 shows that `i` dictates
 all pairs not involving `b`. To bring `b` itself back in, we compare with the
@@ -850,14 +770,14 @@ theorem arrow [Fintype ι] [DecidableEq ι]
   exact fourth_step hIIA hX (second_step hPareto hIIA hX)
 
 /--
-Compatibility wrapper for the legacy Arrow-style axiom names.
+Wrapper around `arrow` using the legacy Arrow-style axiom names.
 
 New code should prefer `arrow`, whose statement is phrased directly in the
 shared `Basic.lean` vocabulary.
 -/
 theorem arrow_legacy [Fintype ι] [DecidableEq ι]
-    (hPareto : WeakPareto f X) (hIIA : IndOfIrrAlts f X) (hX : 3 ≤ X.card) :
-    IsDictatorship f X := by
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X) (hX : 3 ≤ X.card) :
+    DictatorialOn f X := by
   exact arrow hPareto hIIA hX
 
 end EcoLean.SocialChoiceTheory

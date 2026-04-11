@@ -1,8 +1,8 @@
-# eco-lean: A Lean 4 Library for Formal Economic Theory
+# EcoLean: A Lean 4 Library for Formal Economic Theory
 
 EcoLean is a Lean 4 and mathlib project for formalizing parts of microeconomic theory, social choice theory, and game theory.
 
-The current development has three main threads:
+The current development has three main areas:
 
 - preference, choice, and utility theory in the style of early graduate microeconomics;
 - finite social choice, including Arrow's impossibility theorem and a Gibbard-Satterthwaite derivation;
@@ -10,7 +10,7 @@ The current development has three main threads:
 
 This repository is a proof-oriented Lean library rather than an executable application.
 
-## Highlights
+## Main Definitions and Theorems
 
 ### Choice, Preference, and Utility
 
@@ -53,7 +53,7 @@ The `EcoLean/GameTheory` tree is currently a foundations layer, including:
 - static games in strategic form;
 - small probability and expectation helper modules.
 
-## Repository Layout
+## File Layout
 
 - `EcoLean.lean`
   - top-level entrypoint for the currently re-exported library surface
@@ -118,7 +118,13 @@ import EcoLean.GameTheory.StaticGames.FormalRepresentation
 
 ## Contributions
 
-Contributions are welcome. Not sure how much interest this will generate, but feel free to reach out via email. 
+Contributions are welcome.
+
+When possible, keep additions aligned with mathlib conventions:
+
+- prefer small, reusable definitions and theorems;
+- add docstrings for major definitions and theorems;
+- keep naming and documentation style close to the existing Lean and mathlib ecosystem.
 
 ## License
 

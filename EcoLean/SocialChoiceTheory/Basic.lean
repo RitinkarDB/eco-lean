@@ -33,7 +33,7 @@ Arrow-specific.
 
 Fourth, it introduces bundled structures for quasi-orders and preference orders.
 A `QuasiOrder` is reflexive and transitive. A `PrefOrder` is reflexive,
-transitive, and total; later in the file we also expose the eco-lean-aligned
+transitive, and total; later in the file we also expose the EcoLean-aligned
 alias `Preference` for the same structure. This bundled formulation is
 convenient later because social welfare functions return preferences.
 
@@ -160,7 +160,7 @@ open Finset
 section BasicDefs
 
 /-!
-## Basic relational definitions
+### Basic relational definitions
 
 We now fix a type `σ` of alternatives and work with binary relations on `σ`.
 The philosophy throughout the file is that weak preference is primitive, while strict
@@ -512,7 +512,7 @@ end BasicDefs
 section QuasiOrders
 
 /-!
-## Quasi-orders and their finite maximal elements
+### Quasi-orders and their finite maximal elements
 
 A quasi-order is only reflexive and transitive, so totality is *not* assumed here.
 The main theorem of this section is the finite analogue of a standard order-theoretic
@@ -808,7 +808,7 @@ lemma maximal_indiff_iff_choiceEq_maximal
 section PrefOrders
 
 /-!
-## Preference orders and compatibility notions
+### Preference orders and compatibility notions
 
 We now strengthen quasi-orders to preference orders by adding totality.
 This is the structure used for individual preferences and social rankings later on.
@@ -866,10 +866,10 @@ section SocialChoiceVocabulary
 universe u v
 
 /-!
-## EcoLean-style social-choice vocabulary
+### EcoLean social-choice vocabulary
 
 The original development in this repository is phrased in terms of `PrefOrder`,
-an explicit bundled complete weak order.  The `eco-lean` project instead uses
+an explicit bundled complete weak order. The `EcoLean` project instead uses
 the terminology `Preference`, `Profile`, `SocialChoiceFunction`, and
 `SocialWelfareFunction`, with weak preference as the primitive notion and strict
 preference and indifference derived from it.
@@ -883,7 +883,7 @@ Arrow development stable while giving downstream files a shared language.
 `RationalPreference A` is a complete and transitive weak preference on `A`,
 built directly on top of `EcoLean.Preference A`.
 
-This keeps the social-choice development aligned with eco-lean's primitive
+This keeps the social-choice development aligned with `EcoLean`'s primitive
 weak-preference layer while still bundling the rationality properties that the
 Arrow and Gibbard-Satterthwaite proofs use pervasively.
 -/
@@ -1064,9 +1064,6 @@ A social welfare function assigns a social preference relation to each profile.
 -/
 abbrev SocialWelfareFunction (V : Type u) (A : Type v) : Type (max u v) :=
   Profile V A → Preference A
-
-/-- Compatibility alias for the older Arrow development. -/
-abbrev SWF (V : Type u) (A : Type v) := SocialWelfareFunction V A
 
 namespace SocialWelfareFunction
 
@@ -1292,26 +1289,6 @@ def ParetoOn
   ∀ x y, x ∈ X → y ∈ X → ∀ P : Profile V A,
     (∀ i : V, Profile.StrictPref P i x y) →
       SocialWelfareFunction.StrictPref F P x y
-
-/-- Compatibility alias emphasising that Pareto is phrased via strict preference. -/
-abbrev StrictParetoOn
-    {V : Type u} {A : Type v}
-    (F : SocialWelfareFunction V A) (X : Finset A) : Prop :=
-  ParetoOn F X
-
-namespace StrictParetoOn
-
-variable {V : Type u} {A : Type v} {F : SocialWelfareFunction V A} {X : Finset A}
-
-theorem apply
-    (h : StrictParetoOn F X)
-    (P : Profile V A) {x y : A}
-    (hx : x ∈ X) (hy : y ∈ X)
-    (hxy : ∀ i : V, Profile.StrictPref P i x y) :
-    SocialWelfareFunction.StrictPref F P x y :=
-  h x y hx hy P hxy
-
-end StrictParetoOn
 
 /--
 IIA on an agenda `X`: pairwise agreement on `x` versus `y` across all voters

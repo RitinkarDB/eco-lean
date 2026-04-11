@@ -10,10 +10,9 @@ namespace EcoLean.SocialChoiceTheory
 /-!
 # Gibbard-Satterthwaite from Arrow
 
-This file derives a strict-ballot version of Gibbard-Satterthwaite following
-Nipkow's pair-top construction.
+This file derives a strict-ballot version of Gibbard-Satterthwaite 
 
-For interoperability with `eco-lean`, it also exposes forward-facing operations
+For interoperability with `EcoLean`, it also exposes forward-facing operations
 `prefers`, `weakPref`, and `toPreference` on top of the legacy internal ballot
 orientation.
 -/
@@ -29,7 +28,7 @@ Strict linear ballots for the Gibbard-Satterthwaite side.
 `lt x y` means "`y` is strictly preferred to `x`".
 This matches Nipkow's orientation.
 
-For interoperability with `eco-lean`, prefer the derived forward relation
+For interoperability with `EcoLean`, prefer the derived forward relation
 `LinBallot.prefers x y`.
 -/
 structure LinBallot (σ : Type*) where
@@ -49,7 +48,7 @@ def weakPref (L : LinBallot σ) (x y : σ) : Prop :=
   x = y ∨ L.prefers x y
 
 /--
-EcoLean-style preference associated to a strict ballot.
+Preferred forward-facing preference associated to a strict ballot.
 
 This is the forward-facing translation that should be used for interoperability:
 `x ≽ y` means that `x` is weakly preferred to `y`.
@@ -79,7 +78,7 @@ def toPreference (L : LinBallot σ) : Preference σ :=
 Legacy weak-order translation matching the internal `lt` orientation.
 
 Prefer `toPreference` for new code that wants the same forward weak-preference
-semantics as `eco-lean`.
+semantics as `EcoLean`.
 -/
 def toPrefOrder (L : LinBallot σ) : PrefOrder σ where
   rel x y := x = y ∨ L.lt x y
@@ -146,17 +145,11 @@ lemma toPrefOrder_eq_or_lt (L : LinBallot σ) (x y : σ) :
 
 end LinBallot
 
-/-- EcoLean-style name for profiles of strict ballots. -/
+/-- Preferred name for profiles of strict ballots. -/
 abbrev StrictProfile (ι σ : Type*) := ι → LinBallot σ
 
-/-- Compatibility alias for the older Nipkow-style development. -/
-abbrev SProfile (ι σ : Type*) := StrictProfile ι σ
-
-/-- EcoLean-style name for strict-ballot social choice functions. -/
+/-- Preferred name for strict-ballot social choice functions. -/
 abbrev StrictSocialChoiceFunction (ι σ : Type*) := StrictProfile ι σ → σ
-
-/-- Compatibility alias for the older strict-ballot development. -/
-abbrev SCF (ι σ : Type*) := StrictSocialChoiceFunction ι σ
 
 def ChoosesFrom (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) : Prop :=
   ∀ P : StrictProfile ι σ, g P ∈ X
@@ -168,9 +161,6 @@ def OntoOn (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) : Prop :=
 def strictProfileUpdate
     (P : StrictProfile ι σ) (i : ι) (L : LinBallot σ) : StrictProfile ι σ :=
   fun j => if j = i then L else P j
-
-/-- Compatibility alias for the older strict-profile update name. -/
-abbrev sProfileUpdate := @strictProfileUpdate
 
 def Manipulable (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) : Prop :=
   ∃ P : StrictProfile ι σ, ∃ i : ι, ∃ L : LinBallot σ,
@@ -190,7 +180,7 @@ def IsChoiceDictatorship (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) 
   ∃ i : ι, ∀ P : StrictProfile ι σ, ∀ a : σ,
     a ∈ X → a ≠ g P → (P i).lt a (g P)
 
-/-- Coerce a strict-ballot profile to the weak-order profile used by `SWF`. -/
+/-- Coerce a strict-ballot profile to the weak-order profile used by `SocialWelfareFunction`. -/
 def weakProfileOf (P : StrictProfile ι σ) : Profile ι σ :=
   fun i => (P i).toPreference
 
@@ -278,25 +268,25 @@ noncomputable def topifyLin (S : Finset σ) (L : LinBallot σ) : LinBallot σ wh
       · simp [hx, hy]
         exact L.total hxy
 
-lemma topifyLin_mem_mem
+private lemma topifyLin_mem_mem
     {S : Finset σ} {L : LinBallot σ} {x y : σ}
     (hx : x ∈ S) (hy : y ∈ S) :
     (topifyLin S L).lt x y ↔ L.lt x y := by
   simp [topifyLin, hx, hy]
 
-lemma topifyLin_not_mem_not_mem
+private lemma topifyLin_not_mem_not_mem
     {S : Finset σ} {L : LinBallot σ} {x y : σ}
     (hx : x ∉ S) (hy : y ∉ S) :
     (topifyLin S L).lt x y ↔ L.lt x y := by
   simp [topifyLin, hx, hy]
 
-lemma topifyLin_not_mem_mem
+private lemma topifyLin_not_mem_mem
     {S : Finset σ} {L : LinBallot σ} {x y : σ}
     (hx : x ∉ S) (hy : y ∈ S) :
     (topifyLin S L).lt x y := by
   simp [topifyLin, hx, hy]
 
-lemma not_topifyLin_mem_not_mem
+private lemma not_topifyLin_mem_not_mem
     {S : Finset σ} {L : LinBallot σ} {x y : σ}
     (hx : x ∈ S) (hy : y ∉ S) :
     ¬ (topifyLin S L).lt x y := by
@@ -312,7 +302,7 @@ noncomputable def topProfile
     (S : Finset σ) (P : StrictProfile ι σ) : StrictProfile ι σ :=
   fun i => topifyLin S (P i)
 
-lemma topProfile_apply
+private lemma topProfile_apply
     (S : Finset σ) (P : StrictProfile ι σ) (i : ι) :
     topProfile S P i = topifyLin S (P i) := rfl
 
@@ -324,7 +314,7 @@ variable {ι σ : Type*}
 variable [Fintype ι] [DecidableEq ι] [DecidableEq σ]
 
 omit [Fintype ι] [DecidableEq σ] in
-lemma nonManipulable_iff
+private lemma nonManipulable_iff
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) :
     NonManipulable g X ↔
       ∀ P : StrictProfile ι σ, ∀ i : ι, ∀ L : LinBallot σ,
@@ -374,7 +364,7 @@ noncomputable def switchProfile
     if (e i : ℕ) < k then P' i else P i
 
 set_option linter.unusedSectionVars false in
-lemma switchProfile_zero
+private lemma switchProfile_zero
     [Fintype ι] [DecidableEq ι]
     (P P' : StrictProfile ι σ) :
     switchProfile P P' 0 = P := by
@@ -383,7 +373,7 @@ lemma switchProfile_zero
   simp [switchProfile]
 
 set_option linter.unusedSectionVars false in
-lemma switchProfile_all
+private lemma switchProfile_all
     [Fintype ι] [DecidableEq ι]
     (P P' : StrictProfile ι σ) :
     switchProfile P P' (Fintype.card ι) = P' := by
@@ -394,7 +384,7 @@ lemma switchProfile_all
   simp [switchProfile]
 
 set_option linter.unusedSectionVars false in
-lemma switchProfile_succ
+private lemma switchProfile_succ
     [Fintype ι] [DecidableEq ι]
     (P P' : StrictProfile ι σ) (k : ℕ)
     (hk : k < Fintype.card ι) :
@@ -453,7 +443,7 @@ lemma switchProfile_succ
       rw [hleft1, hright, hleft2]
 
 /-- If nobody demotes the current winner, the winner stays the winner. -/
-lemma monotonicity
+private lemma monotonicity
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (hnm : NonManipulable g X)
@@ -481,22 +471,22 @@ lemma monotonicity
     · simp [Q, hQ0]
     · have hk' : k < Fintype.card ι := Nat.lt_of_succ_le hk
       rcases switchProfile_succ (P := P) (P' := P') k hk' with ⟨i, hi⟩
-      have hi' : Q (k + 1) = sProfileUpdate (Q k) i (P' i) := by
+      have hi' : Q (k + 1) = strictProfileUpdate (Q k) i (P' i) := by
         simpa [Q] using hi
       rw [hi']
-      by_cases hEq : g (Q k) = g (sProfileUpdate (Q k) i (P' i))
+      by_cases hEq : g (Q k) = g (strictProfileUpdate (Q k) i (P' i))
       · rw [hEq.symm, ih (Nat.le_of_lt hk')]
       · have hkEq : g (Q k) = g P := ih (Nat.le_of_lt hk')
         have hmem1 : g (Q k) ∈ X := hchoose (Q k)
-        have hmem2 : g (sProfileUpdate (Q k) i (P' i)) ∈ X := by
-          exact hchoose (sProfileUpdate (Q k) i (P' i))
+        have hmem2 : g (strictProfileUpdate (Q k) i (P' i)) ∈ X := by
+          exact hchoose (strictProfileUpdate (Q k) i (P' i))
         have hstrict := hnm' (Q k) i (P' i) hmem1 hmem2 hEq
         have hstrict1 :
-            (Q k i).lt (g (sProfileUpdate (Q k) i (P' i))) (g P) := by
+            (Q k i).lt (g (strictProfileUpdate (Q k) i (P' i))) (g P) := by
           rw [← hkEq]
           exact hstrict.1
         have hstrict2 :
-            (P' i).lt (g P) (g (sProfileUpdate (Q k) i (P' i))) := by
+            (P' i).lt (g P) (g (strictProfileUpdate (Q k) i (P' i))) := by
           rw [← hkEq]
           exact hstrict.2
         have hPi_or_P'i : Q k i = P i ∨ Q k i = P' i := by
@@ -507,15 +497,15 @@ lemma monotonicity
             simp [Q, switchProfile, hklt]
         rcases hPi_or_P'i with hOld | hNew
         · have hPi :
-              (P i).lt (g (sProfileUpdate (Q k) i (P' i))) (g P) := by
+              (P i).lt (g (strictProfileUpdate (Q k) i (P' i))) (g P) := by
             simpa [hOld] using hstrict1
           have hPi' :
-              (P' i).lt (g (sProfileUpdate (Q k) i (P' i))) (g P) := by
-            exact hmono i (g (sProfileUpdate (Q k) i (P' i))) hPi
+              (P' i).lt (g (strictProfileUpdate (Q k) i (P' i))) (g P) := by
+            exact hmono i (g (strictProfileUpdate (Q k) i (P' i))) hPi
           exfalso
           exact (P' i).irrefl _ ((P' i).trans hstrict2 hPi')
         · have hP'i :
-              (P' i).lt (g (sProfileUpdate (Q k) i (P' i))) (g P) := by
+              (P' i).lt (g (strictProfileUpdate (Q k) i (P' i))) (g P) := by
             simpa [hNew] using hstrict1
           exfalso
           exact (P' i).irrefl _ ((P' i).trans hstrict2 hP'i)
@@ -530,19 +520,14 @@ variable {ι σ : Type*}
 variable [Fintype ι] [DecidableEq ι] [DecidableEq σ]
 
 omit [Fintype ι] [DecidableEq ι] in
-lemma topProfile_pair_eq_swap
-    (P : SProfile ι σ) (a b : σ) :
+private lemma topProfile_pair_eq_swap
+    (P : StrictProfile ι σ) (a b : σ) :
     topProfile ({a, b} : Finset σ) P = topProfile ({b, a} : Finset σ) P := by
   funext i
   have hswap : ({a, b} : Finset σ) = ({b, a} : Finset σ) := by
     ext x
     simp [or_comm]
   simp [topProfile, hswap]
-
-abbrev StrictSocialWelfareFunction (ι σ : Type*) := StrictProfile ι σ → Preference σ
-
-/-- Compatibility alias for the older strict-ballot development. -/
-abbrev SSWF (ι σ : Type*) := StrictSocialWelfareFunction ι σ
 
 end PairTopHelpers
 
@@ -552,7 +537,7 @@ variable {ι σ : Type*}
 variable [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι]
 
 omit [Nonempty ι] in
-lemma top_unanimity
+private lemma top_unanimity
     (g : StrictSocialChoiceFunction ι σ) (X S : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
@@ -602,27 +587,27 @@ lemma top_unanimity
     · simpa [hR0, hQ₀a] using haS
     · have hk' : k < Fintype.card ι := Nat.lt_of_succ_le hk
       rcases switchProfile_succ (P := Q₀) (P' := T) k hk' with ⟨i, hi⟩
-      have hi' : R (k + 1) = sProfileUpdate (R k) i (T i) := by
+      have hi' : R (k + 1) = strictProfileUpdate (R k) i (T i) := by
         simpa [R] using hi
       rw [hi']
-      by_cases hEq : g (R k) = g (sProfileUpdate (R k) i (T i))
+      by_cases hEq : g (R k) = g (strictProfileUpdate (R k) i (T i))
       · rw [hEq.symm]
         exact ih (Nat.le_of_lt hk')
       · have holdS : g (R k) ∈ S := ih (Nat.le_of_lt hk')
-        by_cases hnewS : g (sProfileUpdate (R k) i (T i)) ∈ S
+        by_cases hnewS : g (strictProfileUpdate (R k) i (T i)) ∈ S
         · exact hnewS
         · have hmem1 : g (R k) ∈ X := hchoose (R k)
-          have hmem2 : g (sProfileUpdate (R k) i (T i)) ∈ X := by
-            exact hchoose (sProfileUpdate (R k) i (T i))
+          have hmem2 : g (strictProfileUpdate (R k) i (T i)) ∈ X := by
+            exact hchoose (strictProfileUpdate (R k) i (T i))
           have hstrict :=
             ((nonManipulable_iff (g := g) (X := X)).mp hnm)
               (R k) i (T i) hmem1 hmem2 hEq
           have htop :
-              (T i).lt (g (sProfileUpdate (R k) i (T i))) (g (R k)) := by
+              (T i).lt (g (strictProfileUpdate (R k) i (T i))) (g (R k)) := by
             simpa [T, topProfile] using
               (topifyLin_not_mem_mem
                 (S := S) (L := P i)
-                (x := g (sProfileUpdate (R k) i (T i)))
+                (x := g (strictProfileUpdate (R k) i (T i)))
                 (y := g (R k))
                 hnewS holdS)
           exfalso
@@ -631,7 +616,7 @@ lemma top_unanimity
   simpa [T, hRall] using hfinal
 
 set_option linter.unusedSectionVars false in
-lemma swf_binary_choice_mem_pair
+private lemma swf_binary_choice_mem_pair
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
@@ -731,18 +716,13 @@ def DictatorialOn
 /--
 Read a forward-facing strict social relation in the legacy Nipkow argument order.
 
-This is the compatibility bridge between the eco-lean-facing conventions and
+This is the compatibility bridge between the `EcoLean`-facing conventions and
 the older `swfStrict` / `S*` vocabulary.
 -/
 def legacyRel
     (f : StrictProfile ι σ → σ → σ → Prop) :
     StrictProfile ι σ → σ → σ → Prop :=
   fun P a b => f P b a
-
-/-- Compatibility alias emphasising that Pareto is phrased via strict preference. -/
-abbrev StrictParetoOn
-    (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
-  ParetoOn f X
 
 namespace ParetoOn
 
@@ -800,8 +780,8 @@ end DictatorialOn
 end StrictSocialRelation
 
 omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
-lemma topProfile_pair_strict_iff'
-    (P : SProfile ι σ) (a b : σ) (i : ι)
+private lemma topProfile_pair_strict_iff'
+    (P : StrictProfile ι σ) (a b : σ) (i : ι)
     (hab : a ≠ b) :
     (topProfile ({a, b} : Finset σ) P i).lt a b ↔ (P i).lt a b := by
   simpa [topProfile] using
@@ -811,8 +791,8 @@ lemma topProfile_pair_strict_iff'
       (by simp [hab]) (by simp))
 
 set_option linter.unusedSectionVars false in
-lemma topProfile_pair_sameOrder'
-    (P P' : SProfile ι σ) (a b : σ)
+private lemma topProfile_pair_sameOrder'
+    (P P' : StrictProfile ι σ) (a b : σ)
     (hab : a ≠ b)
     (hsame : ∀ i : ι, SameOrder ((P i).toPrefOrder).rel ((P' i).toPrefOrder).rel a b a b) :
     ∀ i : ι,
@@ -842,7 +822,7 @@ lemma topProfile_pair_sameOrder'
     exact ((topProfile_pair_strict_iff' P' a b i hab).1 h |> h1.mpr
       |> (topProfile_pair_strict_iff' P a b i hab).2)
 
-lemma sameOrder_toPreference_iff_toPrefOrder_rev
+private lemma sameOrder_toPreference_iff_toPrefOrder_rev
     (L L' : LinBallot σ) (x y : σ) :
     SameOrder (L.toPreference) (L'.toPreference) x y x y ↔
       SameOrder (L.toPrefOrder) (L'.toPrefOrder) y x y x := by
@@ -1015,7 +995,7 @@ omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
 end StrictSocialRelation
 
 set_option linter.unusedSectionVars false in
-lemma binary_top_choice_eq_left
+private lemma binary_top_choice_eq_left
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
@@ -1069,7 +1049,7 @@ lemma binary_top_choice_eq_left
   rw [hPa_eq] at hEq
   simpa [Pab] using hEq
 
-lemma swfStrict_weakPareto
+private lemma swfStrict_weakPareto
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
@@ -1089,7 +1069,7 @@ lemma swfStrict_weakPareto
     exact topProfile_pair_eq_swap P b a
   simpa [hswap] using hchoice_ba
 
-lemma swfStrict_iia
+private lemma swfStrict_iia
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (_honto : OntoOn g X)
@@ -1190,7 +1170,7 @@ lemma swfStrict_iia
 
 
 omit [Nonempty ι] in
-lemma swfStrict_dictator_implies_choice_dictator
+private lemma swfStrict_dictator_implies_choice_dictator
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (_honto : OntoOn g X)
@@ -1273,7 +1253,7 @@ lemma swfStrict_dictator_implies_choice_dictator
 
   exact hdict_qw.mp hqw
 
-lemma socialPrefers_pareto
+private lemma socialPrefers_pareto
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
@@ -1283,7 +1263,7 @@ lemma socialPrefers_pareto
       (f := socialPrefers g) (X := X)).2 <|
     by simpa using swfStrict_weakPareto g X hchoose honto hnm
 
-lemma socialPrefers_iia
+private lemma socialPrefers_iia
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
@@ -1294,7 +1274,7 @@ lemma socialPrefers_iia
     by simpa using swfStrict_iia g X hchoose honto hnm
 
 set_option linter.unusedSectionVars false in
-lemma socialPrefers_dictatorial_implies_choice_dictator
+private lemma socialPrefers_dictatorial_implies_choice_dictator
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
@@ -1327,13 +1307,13 @@ theorem gibbardSatterthwaite
   exact socialPrefers_dictatorial_implies_choice_dictator g X hchoose honto hnm hDict
 
 /--
-Compatibility wrapper 
+Wrapper around `gibbardSatterthwaite` using the legacy strict-ballot names.
 
 New code should prefer `gibbardSatterthwaite`, whose assumptions and conclusion
 are phrased in the same forward-facing terminology as the rest of the library.
 -/
 theorem gibbard_satterthwaite
-    (g : SCF ι σ) (X : Finset σ)
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
     (hnm : NonManipulable g X)
