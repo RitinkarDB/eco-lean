@@ -633,53 +633,15 @@ private lemma swf_binary_choice_mem_pair
     · exact hb
 
 /--
-Compatibility predicate for legacy Nipkow-oriented strict social relations.
-
-New code should prefer `StrictSocialRelation.ParetoOn`.
--/
-def SWeakParetoStrict (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
-  ∀ a b, a ∈ X → b ∈ X → ∀ P : StrictProfile ι σ,
-    (∀ i : ι, (P i).lt a b) → f P a b
-
-/--
-Compatibility predicate for legacy Nipkow-oriented IIA on strict social relations.
-
-New code should prefer `StrictSocialRelation.IIAOn`.
--/
-def SIIAStrict (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
-  ∀ P P' : StrictProfile ι σ, ∀ a b,
-    a ∈ X → b ∈ X →
-    (∀ i : ι, SameOrder ((P i).toPrefOrder).rel ((P' i).toPrefOrder).rel a b a b) →
-    (f P a b ↔ f P' a b)
-
-/--
-Compatibility predicate
-
-New code should prefer `StrictSocialRelation.DictatorialOn`.
--/
-def SIsDictatorshipStrict (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
-  ∃ i : ι, ∀ P : StrictProfile ι σ, ∀ a b : σ,
-    a ∈ X → b ∈ X →
-    (f P a b ↔ (P i).lt a b)
-
-/-- Legacy Nipkow-style induced strict social relation:
-`swfStrict g P a b` means that after moving `{a,b}` to the top,
-the choice function picks `b`. So `b` is socially above `a`. -/
-def swfStrict
-    (g : StrictSocialChoiceFunction ι σ)
-    (P : StrictProfile ι σ) : σ → σ → Prop :=
-  fun a b => a ≠ b ∧ g (topProfile ({a, b} : Finset σ) P) = b
-
-/--
 Forward strict social comparison induced by the pair-top construction.
 
-`socialPrefers g P x y` means that after moving `{x,y}` to the top, the choice
+`socialPrefers g P x y` means that after moving `{x, y}` to the top, the choice
 function picks `x`, so `x` is socially ranked above `y`.
 -/
 def socialPrefers
     (g : StrictSocialChoiceFunction ι σ)
     (P : StrictProfile ι σ) : σ → σ → Prop :=
-  fun x y => swfStrict g P y x
+  fun x y => x ≠ y ∧ g (topProfile ({x, y} : Finset σ) P) = x
 
 namespace StrictSocialRelation
 
@@ -712,17 +674,6 @@ def IsDictatorOn
 def DictatorialOn
     (f : StrictProfile ι σ → σ → σ → Prop) (X : Finset σ) : Prop :=
   ∃ i : ι, IsDictatorOn f X i
-
-/--
-Read a forward-facing strict social relation in the legacy Nipkow argument order.
-
-This is the compatibility bridge between the `EcoLean`-facing conventions and
-the older `swfStrict` / `S*` vocabulary.
--/
-def legacyRel
-    (f : StrictProfile ι σ → σ → σ → Prop) :
-    StrictProfile ι σ → σ → σ → Prop :=
-  fun P a b => f P b a
 
 namespace ParetoOn
 
@@ -791,208 +742,42 @@ private lemma topProfile_pair_strict_iff'
       (by simp [hab]) (by simp))
 
 set_option linter.unusedSectionVars false in
-private lemma topProfile_pair_sameOrder'
-    (P P' : StrictProfile ι σ) (a b : σ)
-    (hab : a ≠ b)
-    (hsame : ∀ i : ι, SameOrder ((P i).toPrefOrder).rel ((P' i).toPrefOrder).rel a b a b) :
+private lemma topProfile_pair_prefers_iff
+    (P Q : StrictProfile ι σ) (x y : σ)
+    (hxy : StrictProfile.PairwiseAgreesOn P Q x y)
+    (hxy_ne : x ≠ y) :
     ∀ i : ι,
-      (topProfile ({a, b} : Finset σ) P i).lt a b ↔
-      (topProfile ({a, b} : Finset σ) P' i).lt a b := by
+      (topProfile ({x, y} : Finset σ) P i).lt y x ↔
+      (topProfile ({x, y} : Finset σ) Q i).lt y x := by
   intro i
-  have h1 : (P i).lt a b ↔ (P' i).lt a b := by
-    have hs := hsame i
+  have hpref : (P i).lt y x ↔ (Q i).lt y x := by
+    have hs := hxy i
     constructor
     · intro h
-      have hstrict : StrictPref ((P i).toPrefOrder) a b := by
-        exact (LinBallot.toPrefOrder_strict_iff (P i) (x := a) (y := b)).2 h
-      have hstrict' : StrictPref ((P' i).toPrefOrder) a b := by
-        exact hs.2.1.mp hstrict
-      exact (LinBallot.toPrefOrder_strict_iff (P' i) (x := a) (y := b)).1 hstrict'
+      have hstrict : Preference.StrictPref ((P i).toPreference) x y := by
+        exact (LinBallot.toPreference_strictPref_iff (L := P i) (x := x) (y := y)).2 h
+      have hstrict' : Preference.StrictPref ((Q i).toPreference) x y := hs.2.1.mp hstrict
+      exact (LinBallot.toPreference_strictPref_iff (L := Q i) (x := x) (y := y)).1 hstrict'
     · intro h
-      have hstrict : StrictPref ((P' i).toPrefOrder) a b := by
-        exact (LinBallot.toPrefOrder_strict_iff (P' i) (x := a) (y := b)).2 h
-      have hstrict' : StrictPref ((P i).toPrefOrder) a b := by
-        exact hs.2.1.mpr hstrict
-      exact (LinBallot.toPrefOrder_strict_iff (P i) (x := a) (y := b)).1 hstrict'
+      have hstrict : Preference.StrictPref ((Q i).toPreference) x y := by
+        exact (LinBallot.toPreference_strictPref_iff (L := Q i) (x := x) (y := y)).2 h
+      have hstrict' : Preference.StrictPref ((P i).toPreference) x y := hs.2.1.mpr hstrict
+      exact (LinBallot.toPreference_strictPref_iff (L := P i) (x := x) (y := y)).1 hstrict'
+  have htopP :
+      (topProfile ({x, y} : Finset σ) P i).lt y x ↔
+      (P i).lt y x := by
+    simpa [topProfile_pair_eq_swap P y x] using
+      (topProfile_pair_strict_iff' P y x i hxy_ne.symm)
+  have htopQ :
+      (topProfile ({x, y} : Finset σ) Q i).lt y x ↔
+      (Q i).lt y x := by
+    simpa [topProfile_pair_eq_swap Q y x] using
+      (topProfile_pair_strict_iff' Q y x i hxy_ne.symm)
   constructor
   · intro h
-    exact ((topProfile_pair_strict_iff' P a b i hab).1 h |> h1.mp
-      |> (topProfile_pair_strict_iff' P' a b i hab).2)
+    exact htopQ.2 (hpref.mp (htopP.1 h))
   · intro h
-    exact ((topProfile_pair_strict_iff' P' a b i hab).1 h |> h1.mpr
-      |> (topProfile_pair_strict_iff' P a b i hab).2)
-
-private lemma sameOrder_toPreference_iff_toPrefOrder_rev
-    (L L' : LinBallot σ) (x y : σ) :
-    SameOrder (L.toPreference) (L'.toPreference) x y x y ↔
-      SameOrder (L.toPrefOrder) (L'.toPrefOrder) y x y x := by
-  constructor
-  · intro h
-    rcases h with ⟨⟨hxy, hyx⟩, hstrictxy, hstrictyx⟩
-    refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
-    · simpa [LinBallot.toPrefOrder_eq_or_lt, LinBallot.toPreference_eq_or_prefers,
-        LinBallot.prefers, eq_comm] using hxy
-    · simpa [LinBallot.toPrefOrder_eq_or_lt, LinBallot.toPreference_eq_or_prefers,
-        LinBallot.prefers, eq_comm] using hyx
-    · constructor
-      · intro hL
-        have hlt : L.lt y x :=
-          (LinBallot.toPrefOrder_strict_iff (L := L) (x := y) (y := x)).1 hL
-        have hpref : Preference.StrictPref (L.toPreference) x y :=
-          (LinBallot.toPreference_strictPref_iff (L := L) (x := x) (y := y)).2 hlt
-        have hpref' : Preference.StrictPref (L'.toPreference) x y := hstrictxy.mp hpref
-        have hlt' : L'.lt y x :=
-          (LinBallot.toPreference_strictPref_iff (L := L') (x := x) (y := y)).1 hpref'
-        exact (LinBallot.toPrefOrder_strict_iff (L := L') (x := y) (y := x)).2 hlt'
-      · intro hL'
-        have hlt' : L'.lt y x :=
-          (LinBallot.toPrefOrder_strict_iff (L := L') (x := y) (y := x)).1 hL'
-        have hpref' : Preference.StrictPref (L'.toPreference) x y :=
-          (LinBallot.toPreference_strictPref_iff (L := L') (x := x) (y := y)).2 hlt'
-        have hpref : Preference.StrictPref (L.toPreference) x y := hstrictxy.mpr hpref'
-        have hlt : L.lt y x :=
-          (LinBallot.toPreference_strictPref_iff (L := L) (x := x) (y := y)).1 hpref
-        exact (LinBallot.toPrefOrder_strict_iff (L := L) (x := y) (y := x)).2 hlt
-    · constructor
-      · intro hL
-        have hlt : L.lt x y :=
-          (LinBallot.toPrefOrder_strict_iff (L := L) (x := x) (y := y)).1 hL
-        have hpref : Preference.StrictPref (L.toPreference) y x :=
-          (LinBallot.toPreference_strictPref_iff (L := L) (x := y) (y := x)).2 hlt
-        have hpref' : Preference.StrictPref (L'.toPreference) y x := hstrictyx.mp hpref
-        have hlt' : L'.lt x y :=
-          (LinBallot.toPreference_strictPref_iff (L := L') (x := y) (y := x)).1 hpref'
-        exact (LinBallot.toPrefOrder_strict_iff (L := L') (x := x) (y := y)).2 hlt'
-      · intro hL'
-        have hlt' : L'.lt x y :=
-          (LinBallot.toPrefOrder_strict_iff (L := L') (x := x) (y := y)).1 hL'
-        have hpref' : Preference.StrictPref (L'.toPreference) y x :=
-          (LinBallot.toPreference_strictPref_iff (L := L') (x := y) (y := x)).2 hlt'
-        have hpref : Preference.StrictPref (L.toPreference) y x := hstrictyx.mpr hpref'
-        have hlt : L.lt x y :=
-          (LinBallot.toPreference_strictPref_iff (L := L) (x := y) (y := x)).1 hpref
-        exact (LinBallot.toPrefOrder_strict_iff (L := L) (x := x) (y := y)).2 hlt
-  · intro h
-    rcases h with ⟨⟨hyx, hxy⟩, hstrictyx, hstrictxy⟩
-    refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
-    · simpa [LinBallot.toPrefOrder_eq_or_lt, LinBallot.toPreference_eq_or_prefers,
-        LinBallot.prefers, eq_comm] using hyx
-    · simpa [LinBallot.toPrefOrder_eq_or_lt, LinBallot.toPreference_eq_or_prefers,
-        LinBallot.prefers, eq_comm] using hxy
-    · constructor
-      · intro hL
-        have hlt : L.lt y x :=
-          (LinBallot.toPreference_strictPref_iff (L := L) (x := x) (y := y)).1 hL
-        have hstrict : StrictPref (L.toPrefOrder) y x :=
-          (LinBallot.toPrefOrder_strict_iff (L := L) (x := y) (y := x)).2 hlt
-        have hstrict' : StrictPref (L'.toPrefOrder) y x := hstrictyx.mp hstrict
-        exact (LinBallot.toPreference_strictPref_iff (L := L') (x := x) (y := y)).2
-          ((LinBallot.toPrefOrder_strict_iff (L := L') (x := y) (y := x)).1 hstrict')
-      · intro hL'
-        have hlt' : L'.lt y x :=
-          (LinBallot.toPreference_strictPref_iff (L := L') (x := x) (y := y)).1 hL'
-        have hstrict' : StrictPref (L'.toPrefOrder) y x :=
-          (LinBallot.toPrefOrder_strict_iff (L := L') (x := y) (y := x)).2 hlt'
-        have hstrict : StrictPref (L.toPrefOrder) y x := hstrictyx.mpr hstrict'
-        exact (LinBallot.toPreference_strictPref_iff (L := L) (x := x) (y := y)).2
-          ((LinBallot.toPrefOrder_strict_iff (L := L) (x := y) (y := x)).1 hstrict)
-    · constructor
-      · intro hL
-        have hlt : L.lt x y :=
-          (LinBallot.toPreference_strictPref_iff (L := L) (x := y) (y := x)).1 hL
-        have hstrict : StrictPref (L.toPrefOrder) x y :=
-          (LinBallot.toPrefOrder_strict_iff (L := L) (x := x) (y := y)).2 hlt
-        have hstrict' : StrictPref (L'.toPrefOrder) x y := hstrictxy.mp hstrict
-        exact (LinBallot.toPreference_strictPref_iff (L := L') (x := y) (y := x)).2
-          ((LinBallot.toPrefOrder_strict_iff (L := L') (x := x) (y := y)).1 hstrict')
-      · intro hL'
-        have hlt' : L'.lt x y :=
-          (LinBallot.toPreference_strictPref_iff (L := L') (x := y) (y := x)).1 hL'
-        have hstrict' : StrictPref (L'.toPrefOrder) x y :=
-          (LinBallot.toPrefOrder_strict_iff (L := L') (x := x) (y := y)).2 hlt'
-        have hstrict : StrictPref (L.toPrefOrder) x y := hstrictxy.mpr hstrict'
-        exact (LinBallot.toPreference_strictPref_iff (L := L) (x := y) (y := x)).2
-          ((LinBallot.toPrefOrder_strict_iff (L := L) (x := x) (y := y)).1 hstrict)
-
-namespace StrictProfile.PairwiseAgreesOn
-
-variable {P Q : StrictProfile ι σ} {x y : σ}
-
-omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
-theorem toLegacy
-    (h : StrictProfile.PairwiseAgreesOn P Q x y) :
-    ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) y x y x := by
-  intro i
-  exact (sameOrder_toPreference_iff_toPrefOrder_rev (P i) (Q i) x y).1 (h i)
-
-omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
-theorem ofLegacy
-    (h : ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) y x y x) :
-    StrictProfile.PairwiseAgreesOn P Q x y := by
-  intro i
-  exact (sameOrder_toPreference_iff_toPrefOrder_rev (P i) (Q i) x y).2 (h i)
-
-end StrictProfile.PairwiseAgreesOn
-
-namespace StrictSocialRelation
-
-omit [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι] in
-lemma paretoOn_iff_legacy
-    {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ} :
-    ParetoOn f X ↔ SWeakParetoStrict (legacyRel f) X := by
-  constructor
-  · intro h a b ha hb P hall
-    exact h b a hb ha P (by
-      intro i
-      simpa [LinBallot.prefers] using hall i)
-  · intro h x y hx hy P hall
-    exact h y x hy hx P (by
-      intro i
-      simpa [LinBallot.prefers] using hall i)
-
-set_option linter.unusedSectionVars false in
-lemma iiaOn_iff_legacy
-    {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ} :
-    IIAOn f X ↔ SIIAStrict (legacyRel f) X := by
-  constructor
-  · intro h P Q a b ha hb hsame
-    have hnew : StrictProfile.PairwiseAgreesOn P Q b a :=
-      StrictProfile.PairwiseAgreesOn.ofLegacy hsame
-    exact (h P Q b a hb ha hnew).1
-  · intro h P Q x y hx hy hxy
-    constructor
-    · have hlegacy :
-          ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) y x y x :=
-        StrictProfile.PairwiseAgreesOn.toLegacy hxy
-      exact h P Q y x hy hx hlegacy
-    · have hlegacy :
-          ∀ i : ι, SameOrder ((P i).toPrefOrder) ((Q i).toPrefOrder) x y x y :=
-        StrictProfile.PairwiseAgreesOn.toLegacy (StrictProfile.PairwiseAgreesOn.swap hxy)
-      exact h P Q x y hx hy hlegacy
-
-omit [Fintype ι] [DecidableEq ι] [DecidableEq σ] [Nonempty ι] in
-lemma dictatorialOn_iff_legacy
-    {f : StrictProfile ι σ → σ → σ → Prop} {X : Finset σ} :
-    DictatorialOn f X ↔ SIsDictatorshipStrict (legacyRel f) X := by
-  constructor
-  · intro h
-    rcases h with ⟨i, hi⟩
-    refine ⟨i, ?_⟩
-    intro P a b ha hb
-    simpa [legacyRel, LinBallot.prefers] using hi P b a hb ha
-  · intro h
-    rcases h with ⟨i, hi⟩
-    refine ⟨i, ?_⟩
-    intro P x y hx hy
-    simpa [legacyRel, LinBallot.prefers] using hi P y x hy hx
-
-omit [Fintype ι] [DecidableEq ι] [Nonempty ι] in
-@[simp] theorem legacyRel_socialPrefers
-    (g : StrictSocialChoiceFunction ι σ) :
-    legacyRel (socialPrefers g) = swfStrict g :=
-  rfl
-
-end StrictSocialRelation
+    exact htopP.2 (hpref.mpr (htopQ.1 h))
 
 set_option linter.unusedSectionVars false in
 private lemma binary_top_choice_eq_left
@@ -1049,133 +834,132 @@ private lemma binary_top_choice_eq_left
   rw [hPa_eq] at hEq
   simpa [Pab] using hEq
 
-private lemma swfStrict_weakPareto
+private lemma socialPrefers_pareto
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (honto : OntoOn g X)
     (hnm : NonManipulable g X) :
-    SWeakParetoStrict (swfStrict g) X := by
+    StrictSocialRelation.ParetoOn (socialPrefers g) X := by
   classical
-  intro a b ha hb P hall
+  intro x y hx hy P hall
   have i0 : ι := Classical.choice ‹Nonempty ι›
-  have hab : a ≠ b := by
+  have hxy_ne : x ≠ y := by
     intro hEq
     subst hEq
-    exact (P i0).irrefl _ (hall i0)
-  refine ⟨hab, ?_⟩
-  have hchoice_ba : g (topProfile ({b, a} : Finset σ) P) = b := by
-    exact binary_top_choice_eq_left g X hchoose honto hnm P b a hb ha hall
-  have hswap : topProfile ({b, a} : Finset σ) P = topProfile ({a, b} : Finset σ) P := by
-    exact topProfile_pair_eq_swap P b a
-  simpa [hswap] using hchoice_ba
+    exact (P i0).irrefl _ (by simpa [LinBallot.prefers] using hall i0)
+  refine ⟨hxy_ne, ?_⟩
+  exact binary_top_choice_eq_left g X hchoose honto hnm P x y hx hy <| by
+    intro i
+    simpa [LinBallot.prefers] using hall i
 
-private lemma swfStrict_iia
+private lemma socialPrefers_iia
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (_honto : OntoOn g X)
     (hnm : NonManipulable g X) :
-    SIIAStrict (swfStrict g) X := by
+    StrictSocialRelation.IIAOn (socialPrefers g) X := by
   classical
-  intro P P' a b ha hb hsame
-  by_cases hab : a = b
-  · subst hab
-    constructor
-    · intro h
-      exact False.elim (h.1 rfl)
-    · intro h
-      exact False.elim (h.1 rfl)
-  · let S : Finset σ := ({a, b} : Finset σ)
-    constructor
-    · intro habP
-      rcases habP with ⟨hab_ne, hchoiceP⟩
-      refine ⟨hab_ne, ?_⟩
-      have hpair :
-          ∀ i : ι,
-            (topProfile S P i).lt a b ↔
-            (topProfile S P' i).lt a b := by
-        intro i
-        simpa [S] using topProfile_pair_sameOrder' P P' a b hab hsame i
-      have hmono :
-          ∀ i : ι, ∀ x : σ,
-            (topProfile S P i).lt x (g (topProfile S P)) →
-            (topProfile S P' i).lt x (g (topProfile S P)) := by
-        intro i x hx
-        rw [hchoiceP] at hx ⊢
-        by_cases hxb : x = b
-        · subst hxb
-          exact False.elim ((topProfile S P i).irrefl _ hx)
-        · by_cases hxa : x = a
-          · subst hxa
-            exact (hpair i).mp hx
-          · have hx_not_S : x ∉ S := by
-              simp [S, hxa, hxb]
-            have : (topProfile S P' i).lt x b := by
-              have hb_in_S : b ∈ S := by
-                simp [S]
-              simpa [S, topProfile] using
-                (topifyLin_not_mem_mem
-                  (S := S) (L := P' i)
-                  (x := x) (y := b)
-                  hx_not_S hb_in_S)
-            exact this
-      have hEq : g (topProfile S P') = g (topProfile S P) := by
-        exact monotonicity g X hchoose hnm
-          (P := topProfile S P)
-          (P' := topProfile S P') hmono
-      rw [hchoiceP] at hEq
-      simpa [S] using hEq
-    · intro habP'
-      rcases habP' with ⟨hab_ne, hchoiceP'⟩
-      refine ⟨hab_ne, ?_⟩
-      have hpair :
-          ∀ i : ι,
-            (topProfile S P' i).lt a b ↔
-            (topProfile S P i).lt a b := by
-        intro i
-        have htmp :
-            (topProfile S P i).lt a b ↔
-            (topProfile S P' i).lt a b := by
-          simpa [S] using topProfile_pair_sameOrder' P P' a b hab hsame i
-        exact htmp.symm
-      have hmono :
-          ∀ i : ι, ∀ x : σ,
-            (topProfile S P' i).lt x (g (topProfile S P')) →
-            (topProfile S P i).lt x (g (topProfile S P')) := by
-        intro i x hx
-        rw [hchoiceP'] at hx ⊢
-        by_cases hxb : x = b
-        · subst hxb
-          exact False.elim ((topProfile S P' i).irrefl _ hx)
-        · by_cases hxa : x = a
-          · subst hxa
-            exact (hpair i).mp hx
-          · have hx_not_S : x ∉ S := by
-              simp [S, hxa, hxb]
-            have : (topProfile S P i).lt x b := by
-              have hb_in_S : b ∈ S := by
-                simp [S]
-              simpa [S, topProfile] using
-                (topifyLin_not_mem_mem
-                  (S := S) (L := P i)
-                  (x := x) (y := b)
-                  hx_not_S hb_in_S)
-            exact this
-      have hEq : g (topProfile S P) = g (topProfile S P') := by
-        exact monotonicity g X hchoose hnm
-          (P := topProfile S P')
-          (P' := topProfile S P) hmono
-      rw [hchoiceP'] at hEq
-      simpa [S] using hEq
+  intro P Q x y hx hy hxy
+  have hiff :
+      ∀ a b : σ,
+        a ∈ X → b ∈ X →
+        StrictProfile.PairwiseAgreesOn P Q a b →
+        (socialPrefers g P a b ↔ socialPrefers g Q a b) := by
+    intro a b ha hb hab
+    by_cases hEq : a = b
+    · subst hEq
+      constructor <;> intro h <;> exact False.elim (h.1 rfl)
+    · let S : Finset σ := ({a, b} : Finset σ)
+      constructor
+      · intro habP
+        rcases habP with ⟨hab_ne, hchoiceP⟩
+        refine ⟨hab_ne, ?_⟩
+        have hpair :
+            ∀ i : ι,
+              (topProfile S P i).lt b a ↔
+              (topProfile S Q i).lt b a := by
+          intro i
+          simpa [S] using topProfile_pair_prefers_iff P Q a b hab hEq i
+        have hmono :
+            ∀ i : ι, ∀ t : σ,
+              (topProfile S P i).lt t (g (topProfile S P)) →
+              (topProfile S Q i).lt t (g (topProfile S P)) := by
+          intro i t ht
+          rw [hchoiceP] at ht ⊢
+          by_cases hta : t = a
+          · subst hta
+            exact False.elim ((topProfile S P i).irrefl _ ht)
+          · by_cases htb : t = b
+            · subst htb
+              exact (hpair i).mp ht
+            · have ht_not_S : t ∉ S := by
+                simp [S, hta, htb]
+              have : (topProfile S Q i).lt t a := by
+                have ha_in_S : a ∈ S := by
+                  simp [S]
+                simpa [S, topProfile] using
+                  (topifyLin_not_mem_mem
+                    (S := S) (L := Q i)
+                    (x := t) (y := a)
+                    ht_not_S ha_in_S)
+              exact this
+        have hchoiceEq : g (topProfile S Q) = g (topProfile S P) := by
+          exact monotonicity g X hchoose hnm
+            (P := topProfile S P)
+            (P' := topProfile S Q) hmono
+        rw [hchoiceP] at hchoiceEq
+        simpa [S] using hchoiceEq
+      · intro habQ
+        rcases habQ with ⟨hab_ne, hchoiceQ⟩
+        refine ⟨hab_ne, ?_⟩
+        have hpair :
+            ∀ i : ι,
+              (topProfile S Q i).lt b a ↔
+              (topProfile S P i).lt b a := by
+          intro i
+          have htmp :
+              (topProfile S P i).lt b a ↔
+              (topProfile S Q i).lt b a := by
+            simpa [S] using topProfile_pair_prefers_iff P Q a b hab hEq i
+          exact htmp.symm
+        have hmono :
+            ∀ i : ι, ∀ t : σ,
+              (topProfile S Q i).lt t (g (topProfile S Q)) →
+              (topProfile S P i).lt t (g (topProfile S Q)) := by
+          intro i t ht
+          rw [hchoiceQ] at ht ⊢
+          by_cases hta : t = a
+          · subst hta
+            exact False.elim ((topProfile S Q i).irrefl _ ht)
+          · by_cases htb : t = b
+            · subst htb
+              exact (hpair i).mp ht
+            · have ht_not_S : t ∉ S := by
+                simp [S, hta, htb]
+              have : (topProfile S P i).lt t a := by
+                have ha_in_S : a ∈ S := by
+                  simp [S]
+                simpa [S, topProfile] using
+                  (topifyLin_not_mem_mem
+                    (S := S) (L := P i)
+                    (x := t) (y := a)
+                    ht_not_S ha_in_S)
+              exact this
+        have hchoiceEq : g (topProfile S P) = g (topProfile S Q) := by
+          exact monotonicity g X hchoose hnm
+            (P := topProfile S Q)
+            (P' := topProfile S P) hmono
+        rw [hchoiceQ] at hchoiceEq
+        simpa [S] using hchoiceEq
+  exact ⟨hiff x y hx hy hxy, hiff y x hy hx (StrictProfile.PairwiseAgreesOn.swap hxy)⟩
 
-
-
-omit [Nonempty ι] in
-private lemma swfStrict_dictator_implies_choice_dictator
+set_option linter.unusedSectionVars false in
+private lemma socialPrefers_dictatorial_implies_choice_dictator
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
     (hchoose : ChoosesFrom g X)
     (_honto : OntoOn g X)
     (hnm : NonManipulable g X)
-    (hdict : SIsDictatorshipStrict (swfStrict g) X) :
+    (hdict : StrictSocialRelation.DictatorialOn (socialPrefers g) X) :
     IsChoiceDictatorship g X := by
   classical
   rcases hdict with ⟨i, hdict_i⟩
@@ -1244,48 +1028,16 @@ private lemma swfStrict_dictator_implies_choice_dictator
   have hqw_choice : g (topProfile T P) = w := by
     simpa [hT_eq_S] using htopchoice
 
-  have hqw : swfStrict g P q w := by
-    refine ⟨hwq_ne.symm, ?_⟩
-    simpa [swfStrict, T] using hqw_choice
+  have hqw_choice' : g (topProfile ({w, q} : Finset σ) P) = w := by
+    simpa [T, topProfile_pair_eq_swap P q w] using hqw_choice
 
-  have hdict_qw : (swfStrict g P q w ↔ (P i).lt q w) := by
-    exact hdict_i P q w hqX hwX
+  have hsocial : socialPrefers g P w q := by
+    simpa [socialPrefers] using And.intro hwq_ne hqw_choice'
 
-  exact hdict_qw.mp hqw
+  have hdict_wq : (socialPrefers g P w q ↔ (P i).prefers w q) := by
+    exact hdict_i P w q hwX hqX
 
-private lemma socialPrefers_pareto
-    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
-    (hchoose : ChoosesFrom g X)
-    (honto : OntoOn g X)
-    (hnm : NonManipulable g X) :
-    StrictSocialRelation.ParetoOn (socialPrefers g) X := by
-  exact (StrictSocialRelation.paretoOn_iff_legacy
-      (f := socialPrefers g) (X := X)).2 <|
-    by simpa using swfStrict_weakPareto g X hchoose honto hnm
-
-private lemma socialPrefers_iia
-    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
-    (hchoose : ChoosesFrom g X)
-    (honto : OntoOn g X)
-    (hnm : NonManipulable g X) :
-    StrictSocialRelation.IIAOn (socialPrefers g) X := by
-  exact (StrictSocialRelation.iiaOn_iff_legacy
-      (f := socialPrefers g) (X := X)).2 <|
-    by simpa using swfStrict_iia g X hchoose honto hnm
-
-set_option linter.unusedSectionVars false in
-private lemma socialPrefers_dictatorial_implies_choice_dictator
-    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
-    (hchoose : ChoosesFrom g X)
-    (honto : OntoOn g X)
-    (hnm : NonManipulable g X)
-    (hdict : StrictSocialRelation.DictatorialOn (socialPrefers g) X) :
-    IsChoiceDictatorship g X := by
-  have hlegacy : SIsDictatorshipStrict (swfStrict g) X := by
-    simpa using
-      (StrictSocialRelation.dictatorialOn_iff_legacy
-        (f := socialPrefers g) (X := X)).1 hdict
-  exact swfStrict_dictator_implies_choice_dictator g X hchoose honto hnm hlegacy
+  simpa [LinBallot.prefers, q, w] using hdict_wq.mp hsocial
 
 theorem gibbardSatterthwaite
     (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
@@ -1305,38 +1057,6 @@ theorem gibbardSatterthwaite
   have hDict : StrictSocialRelation.DictatorialOn (socialPrefers g) X :=
     harrow hPareto hIIA
   exact socialPrefers_dictatorial_implies_choice_dictator g X hchoose honto hnm hDict
-
-/--
-Wrapper around `gibbardSatterthwaite` using the legacy strict-ballot names.
-
-New code should prefer `gibbardSatterthwaite`, whose assumptions and conclusion
-are phrased in the same forward-facing terminology as the rest of the library.
--/
-theorem gibbard_satterthwaite
-    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
-    (hchoose : ChoosesFrom g X)
-    (honto : OntoOn g X)
-    (hnm : NonManipulable g X)
-    (hX : 3 ≤ X.card)
-    (harrow :
-      SWeakParetoStrict (swfStrict g) X →
-      SIIAStrict (swfStrict g) X →
-      SIsDictatorshipStrict (swfStrict g) X) :
-    IsChoiceDictatorship g X := by
-  refine gibbardSatterthwaite g X hchoose honto hnm hX ?_
-  intro hPareto hIIA
-  have hwp : SWeakParetoStrict (swfStrict g) X := by
-    simpa using
-      (StrictSocialRelation.paretoOn_iff_legacy
-        (f := socialPrefers g) (X := X)).1 hPareto
-  have hiia : SIIAStrict (swfStrict g) X := by
-    simpa using
-      (StrictSocialRelation.iiaOn_iff_legacy
-        (f := socialPrefers g) (X := X)).1 hIIA
-  have hdict : SIsDictatorshipStrict (swfStrict g) X := harrow hwp hiia
-  exact (StrictSocialRelation.dictatorialOn_iff_legacy
-      (f := socialPrefers g) (X := X)).2 <|
-    by simpa using hdict
 
 end TopUnanimityAndStrictRoute
 

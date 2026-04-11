@@ -769,15 +769,4 @@ theorem arrow [Fintype ι] [DecidableEq ι]
     DictatorialOn f X := by
   exact fourth_step hIIA hX (second_step hPareto hIIA hX)
 
-/--
-Wrapper around `arrow` using the legacy Arrow-style axiom names.
-
-New code should prefer `arrow`, whose statement is phrased directly in the
-shared `Basic.lean` vocabulary.
--/
-theorem arrow_legacy [Fintype ι] [DecidableEq ι]
-    (hPareto : ParetoOn f X) (hIIA : IIAOn f X) (hX : 3 ≤ X.card) :
-    DictatorialOn f X := by
-  exact arrow hPareto hIIA hX
-
 end EcoLean.SocialChoiceTheory
