@@ -1,0 +1,1605 @@
+#set page(paper: "a4", margin: 1in, numbering: "1", number-align: center + bottom)
+#set text(lang: "en", region: "GB", size: 12pt)
+#set par(justify: true, leading: 0.95em)
+#set heading(numbering: "1.1")
+#let abstract(body) = [
+  *Abstract*
+
+  #body
+]
+
+#align(center)[
+  #text(size: 18pt, weight: "bold")[The Formal Verification Paper]
+  #linebreak()
+  Ritinkar Das Bhaumik
+  #linebreak()
+  #text(size: 10pt)[CBESS, UEA]
+  #linebreak()
+  #datetime.today().display("[day] [month repr:long] [year]")
+]
+
+#v(1em)
+
+
+
+#abstract[
+
+This chapter studies the social-choice component of eco-lean, a Lean 4 library for formal economic theory. The focus throughout is on the social-choice modules implementing profiles, social welfare functions, and aggregation axioms within a shared framework, together with fully formal proofs of Arrow’s Impossibility Theorem and the Gibbard--Satterthwaite theorem. The development makes all assumptions explicit and organises the proofs into modular components, clarifying the logical structure of these results. More broadly, it illustrates how formalisation can serve as a precise language for economic theory and provide a foundation for computational approaches to reasoning.
+
+*Keywords:* Social Choice Theory, Formal Verification, Lean 4, Arrow’s Theorem, Gibbard--Satterthwaite Theorem
+
+]
+
+
+= Introduction
+
+Theoretical economics is largely developed through axiomatic reasoning. Results are derived from assumptions about preferences, feasibility, and aggregation, with conclusions obtained by chains of logical implication. In standard presentations, however, many elements of these arguments remain informal. Quantifiers are often suppressed, domain restrictions are implicit, and intermediate steps are left to the reader. While this style is usually sufficient for communication among specialists, it can obscure the precise structure of an argument and make it difficult to verify that all assumptions have been correctly specified.
+
+Proof assistants provide a way of addressing these issues by offering a formal language in which definitions and proofs can be written and mechanically verified. In the case of Lean 4 @demoura_lean4_2021, this development has been closely tied to the growth of mathlib @mathlib_community_lean_2020, a large community-developed library of formalised mathematics covering a wide range of areas, including algebra, topology, analysis, and category theory. The existence of such a library materially lowers the cost of new formalisation projects, because one can build on an existing body of verified mathematics rather than reconstructing basic material from first principles.
+
+The maturity of this ecosystem is reflected in a number of substantial Lean formalisation projects. One published example is the formalisation of the proof of the cap set theorem by #cite(<ellenberg_large_2017>, form: "prose") in Lean by #cite(<dahmen_formalizing_2019>, form: "prose"). This is a useful benchmark because it shows that Lean is capable not only of handling textbook material, but also of formalising relatively recent, high-profile mathematics.
+
+A second prominent example is the Liquid Tensor Experiment , which completed a Lean formal verification of a major theorem in Scholze’s theory of liquid vector spaces. #cite(<commelin_mathematics_2024>, form: "prose") describe the project as a complete formal verification of Theorem A using Lean and mathlib, and emphasise that one motivation was precisely the difficulty of managing the complexity of the original proof by ordinary refereeing alone. This is relevant here not because economic theory resembles condensed mathematics in subject matter, but because it shows how Lean can be used to make intricate mathematical arguments more transparent, auditable and quite importantly, _replicable_.
+
+Similar extensions beyond pure mathematics are also beginning to appear in the natural sciences. #cite(<bobbin_formalizing_2024>, form: "prose") show how Lean can be used to formalise parts of chemical physics, including the Langmuir and BET theories of adsorption, with the aim of making the assumptions and derivations of those theories fully explicit and mechanically checkable. Alongside such published work, there are also ongoing community efforts to build broader Lean-based infrastructure for physics. In particular, #cite(<physlib_digitalizing_2026>, form: "prose") describes itself as an open-source project to “digitalize results from physics into Lean 4”, with the aim of developing reusable foundations for formal work across multiple areas of physics. Together, these developments suggest that formalisation in Lean is no longer confined to pure mathematics, but is beginning to extend into mathematically intensive scientific disciplines as well.
+
+There are also ongoing projects, led by prominent research mathematicians, that further indicate the direction of travel even where the resulting formalisation is not yet complete. #cite(<buzzard_formalizing_fermat_ukri_2023>, form: "prose") is leading a Lean formalisation project for Fermat’s Last Theorem, with the stated aim of reducing the problem to the formalisation of a large body of modern number theory rather than merely reproducing Wiles’ original proof verbatim. Likewise, #cite(<tao_formalizing_pfr_2023>, form: "prose") and collaborators have launched a Lean 4 formalisation of their proof of the Polynomial Freiman-Ruzsa conjecture over
+$𝔽_2$, and Tao has publicly noted that the formalisation process forced the addition of a missing non-emptiness hypothesis in the statement and helped uncover a small but non-trivial bug elsewhere in related work @tao_bug_mastodon_2023. These examples are worth mentioning precisely because they remain ongoing: they show that Lean is now being used not only retrospectively, to certify well-established arguments, but as part of contemporary mathematical practice.
+
+Despite these developments, the use of proof assistants in economics remains limited. This is somewhat surprising given the structure of much of economic theory. Areas such as social choice theory, game theory, and general equilibrium are formulated axiomatically and often rely on combinatorial, order-theoretic, and fixed-point arguments. At the same time, these arguments frequently depend on domain restrictions or intermediate claims that remain implicit in standard exposition. For that reason, economics appears to be a natural candidate for formalisation, both as a means of verification and as a way of clarifying the structure of theory. In line with recent efforts to develop domain-specific libraries in other disciplines, this chapter contributes to an ongoing project, eco-lean @dasbhaumik_ecolean_2026, which aims to provide a Lean-based library for formal economic theory. The present chapter remains focused on the social-choice development within that project.
+
+This chapter explores the use of Lean 4 as a formal language for economic theory, and demonstrates its application through a formalisation of core results in social choice theory. Lean 4 is a theorem prover and programming language designed for interactive formal reasoning, and one practical reason for choosing it is precisely its connection to mathlib and the surrounding community infrastructure. In comparison with older systems, Lean currently offers an unusually active ecosystem for formalising mainstream mathematics and building reusable libraries on top of it.
+
+This does not mean that Lean is the only possible choice. In particular, #cite(<nipkow_social_2009>, form: "prose")'s Isabelle/HOL formalisation shows that Arrow’s theorem @arrow_difficulty_1950 and the Gibbard-Satterthwaite theorem @gibbard_manipulation_1973, @satterthwaite_strategy-proofness_1975 can be derived within a higher-order logic framework. But the objective of the present chapter is not simply to certify one or two theorems. It is to build a reusable economist-facing library in which preferences, profiles, social welfare functions, and related concepts can be expressed in a common framework. For that purpose, Lean’s type-theoretic setting and the breadth of mathlib make it a natural platform.
+
+The contribution of the chapter is twofold. First, it develops the social-choice layer of eco-lean, implementing profiles, social welfare functions, and Arrow-style axioms in a reusable framework built around a common weak-preference interface. Second, it presents a fully formalised proof of Arrow’s Impossibility Theorem, together with a Gibbard–Satterthwaite derivation that reuses the same underlying primitives and reduction machinery. More generally, the chapter illustrates how formalisation in Lean can serve not only as a tool for verification, but as a disciplined language for expressing economic theory, in which the logical structure of arguments is explicit and amenable to computational methods, including recent approaches to automated theorem proving.
+
+The remainder of the chapter is organised as follows. Section 2 introduces the basic features of Lean 4 required for the formalisation, focusing on the preference interface on which the social-choice development is built. Section 3 presents the social-choice vocabulary used in the library. Section 4 develops the formal proof of Arrow’s theorem. Section 5 extends the framework to the Gibbard--Satterthwaite theorem. Section 6 compares the present approach with existing formalisations, in particular Nipkow’s Isabelle/HOL development and related work by Davidson and Souther in Lean 3. Section 7 draws methodological lessons and sketches directions for further work.
+
+= Lean 4 as a Formal Language for Economic Theory
+
+
+This section introduces the minimal features of Lean 4 required for the formalisation developed in this chapter. The aim is not to provide a comprehensive account of the language, but to explain how standard economic objects and arguments can be represented within a formal system. The discussion follows the current social-choice development in eco-lean. That development is built on a shared weak-preference interface defined in `EcoLean/ChoicePreferenceUtility/Preference.lean`, but the present chapter remains focused on how that interface is used in the social-choice files.
+
+A central feature of Lean is that logical statements are treated as _objects_, and proofs are explicit constructions that transform assumptions into conclusions. This principle is sometimes described as "propositions as types". While this originates in logic, it has a natural interpretation in economic theory. Much of economic reasoning proceeds by taking a set of assumptions—such as properties of preference relations—and deriving consequences from them through a sequence of inference steps. Lean makes this structure explicit: statements such as $x ≿ y$ are treated as objects that can be used as inputs, and axioms such as transitivity are treated as rules that produce new statements from existing ones.
+
+An important consequence of this approach is that _invalid proofs cannot be expressed within the system_. In informal arguments, it is often possible to write down a sequence of statements that appears to establish a result, but which in fact relies on an unstated assumption or an unjustified inference. For example, one might implicitly assume transitivity at a point where it has not been established, or appeal to the existence of multiple distinct alternatives without verifying that the domain satisfies the required conditions. In Lean, such steps cannot be omitted. If a proof requires transitivity, it must be included explicitly as a hypothesis; if a construction requires distinct elements, this must be justified from the assumptions. If the required information is missing, the proof simply does not type-check. In this sense, Lean enforces a discipline in which only fully justified arguments can be written.
+
+This feature is particularly relevant for social choice theory. Many results depend delicately on assumptions such as finiteness of the agenda, the number of alternatives, or the structure of preferences. By requiring all such assumptions to be made explicit, Lean makes it possible to track exactly which conditions are used at each step of a proof.
+
+Lean 4 is a proof assistant based on dependent type theory, in which mathematical objects are represented as _types_ and logical statements are represented as elements of the type `Prop` (de Moura and Ullrich, 2021). For the purposes of this chapter, types may be interpreted simply as domains of economic objects, and functions between types as mappings between them. The remainder of this section explains how these ideas are implemented in the accompanying library.
+
+== Weak preference as the primitive notion
+
+
+We begin with a standard object from economic theory: a preference relation. In the usual notation, a preference relation on a set of alternatives $alpha$ is a binary relation $≿$ such that, for any $x, y in alpha$, the statement $x ≿ y$ means that $x$ is weakly preferred to $y$.
+
+In the formalisation used in this chapter, weak preference is taken as the primitive notion. In `EcoLean/ChoicePreferenceUtility/Preference.lean`, this is represented by the structure
+
+
+```lean
+structure Preference (α : Type u) where
+  weakPref : α → α → Prop
+```
+
+
+
+This definition can be unpacked as follows. The type $alpha$ represents the set of alternatives. A `Preference` on $alpha$ is an object $R$ equipped with a function `weakPref` that takes two alternatives $x$ and $y$ and returns a proposition. The expression `R.weakPref x y` is therefore the statement that $x$ is weakly preferred to $y$.
+
+For readability, the library introduces notation so that one may write $x ⪰_R y$ or in Lean-style notation, `x ≽[R] y`. This allows formal expressions to closely resemble standard economic notation.
+
+Two aspects of this representation are worth emphasising. First, preferences are treated as purely ordinal objects: no numerical representation is assumed. In particular, the formalisation does not begin with a utility function $u : alpha -> ℝ$, but instead takes pairwise comparisons as primitive. Second, the definition is deliberately minimal. A `Preference` is not assumed to satisfy completeness or transitivity at this stage; these properties are introduced separately.
+
+== Derived relations and rationality properties
+
+
+Once weak preference has been specified, the usual derived notions can be defined. In economic theory, strict preference and indifference are obtained from weak preference by
+
+$
+x ≻ y text("if and only if") x ≿ y text("and not") y ≿ x,
+$
+
+
+
+$
+x ∼ y text("if and only if") x ≿ y text("and") y ≿ x.
+$
+
+
+
+In the formalisation, these definitions are implemented within the `Preference` namespace, with corresponding notation such as `x ≻[R] y` and `x ∼[R] y`.
+
+The file also defines standard rationality properties of preferences, including reflexivity, completeness, transitivity, and the bundled predicate `TotalPreorder`. Crucially, these are expressed as _properties of a given preference_, rather than being built into the definition of `Preference` itself. This allows the same underlying object to be used in settings where these properties may or may not hold, and ensures that the role of each assumption is made explicit.
+
+== Relation to the social-choice layer
+
+
+The point of beginning with this minimal preference interface is that the social-choice files do not redefine preference from scratch. Instead, the later modules build directly on the same weak-preference object, and then add the stronger structure needed for Arrow-style arguments. In this sense, the formalisation starts with a deliberately small primitive and postpones additional assumptions until the social-choice vocabulary is introduced explicitly.
+
+== Profiles and aggregation
+
+
+Profiles and aggregation are introduced one layer later, in `EcoLean/SocialChoiceTheory/Basic.lean`. There a profile is represented as a function
+
+In the formalisation, this is represented as a function
+
+
+```lean
+R : ι → Preference α
+```
+
+
+
+For each individual $i in iota$, the object $R(i)$ is a preference relation. For alternatives $x, y in alpha$, the expression
+
+
+```lean
+(R i).weakPref x y
+```
+
+
+
+or equivalently $x ⪰_{R(i)} y$, means that individual $i$ weakly prefers $x$ to $y$.
+
+Thus, a profile is simply a mapping from individuals to preference objects. This makes explicit that profiles are functions assigning preferences to individuals, but it also reflects the layering of the current API: the preference interface is defined first, and the social-choice layer then reuses it.
+
+== Explicit assumptions and finite structure
+
+
+A key feature of formalisation in Lean is that assumptions that are often implicit in informal reasoning must be stated explicitly. This is particularly important in social choice theory, where many arguments rely on conditions such as finiteness of the set of alternatives or the existence of multiple distinct alternatives.
+
+In the formal development, such assumptions appear as explicit hypotheses. For example, finiteness of a type $alpha$ is expressed by `Fintype α`, and equality is typically required to be decidable via `DecidableEq α`. These conditions must be included wherever they are needed.
+
+This leads to the inclusion of elementary lemmas ensuring, for example, the existence of distinct alternatives in finite sets of sufficient size. Although such results are straightforward mathematically, they must be proved explicitly in the formal setting.
+
+== Layered structure of the formalisation
+
+
+The overall design of the library is layered.
+
+At the most basic level, weak preference is treated as a primitive relation. From this, strict preference, indifference, and incomparability are derived. At the next level, properties such as completeness and transitivity are introduced as predicates on preferences. The social-choice files then bundle the assumptions they need through a rational-preference wrapper and define profiles and social welfare functions on top of that shared base.
+
+This layered approach allows the development to remain flexible. Results that do not require strong assumptions can be stated at a general level, while results that do require such assumptions can impose them explicitly.
+
+== Summary
+
+
+Lean provides a language in which economic objects can be represented directly as functions and structures, and in which logical statements can be expressed in a fully explicit way. By treating statements as objects and proofs as constructions, it enforces a discipline in which all assumptions and inference steps must be specified.
+
+In the formalisation used in this chapter, weak preference is taken as primitive, derived relations are introduced explicitly, and structural assumptions are imposed only when required. This results in a representation of economic theory in which the logical structure of arguments is transparent and the dependence of results on their assumptions is clearly visible. It also means that the later social-choice developments can be described in terms of a precise and stable preference API.
+
+The next section builds on this framework to introduce the core objects of social choice theory used in the formalisation of Arrow’s theorem.
+
+
+= Social Choice Theory in Lean
+
+
+This section introduces the core objects of social choice theory as they are represented in the formalisation. Building on the representation of preferences developed in the previous section, the aim is to encode profiles, aggregation rules, and the principal axioms of social choice in a way that can be checked mechanically. Throughout, the presentation follows the structure and terminology of the accompanying library, and all objects are described using their actual definitions in the code.
+
+The current social-choice API is organised in two closely related stages. First, `EcoLean/SocialChoiceTheory/Basic.lean` develops the low-level language of binary relations, finite agendas, pairwise agreement, and bundled order structures. Second, the same file exposes a forward-facing vocabulary aligned with the rest of eco-lean: `Preference`, `Profile`, `SocialChoiceFunction`, `SocialWelfareFunction`, and the agenda-indexed predicates `ParetoOn`, `IIAOn`, `IsDictatorOn`, and `DictatorialOn`. The later files `Arrow.lean` and `GibbardSatterthwaite.lean` are then written in that vocabulary.
+
+== Binary relations and derived notions
+
+
+The file `Basic.lean` develops the theory of binary relations at a primitive level. A weak relation is represented simply as a function
+
+$
+R : sigma -> sigma -> text("Prop"),
+$
+
+
+so that for alternatives $x, y$, the expression $R x y$ denotes that $x$ is weakly preferred to $y$.
+
+From such a relation, the formalisation defines:
+- `StrictPref R x y`, representing strict preference,
+- `Indiff R x y`, representing indifference.
+
+
+These are defined directly in terms of $R$, without assuming structural properties such as transitivity or totality. This allows general lemmas to be proved for arbitrary relations.
+
+A substantial portion of `Basic.lean` is devoted to establishing how these derived notions interact with properties such as transitivity and totality. The file also defines pairwise comparison predicates such as `SameOrder` and `SameOrder'`, which later become the basic transport language for IIA arguments.
+
+== Finite agendas and pairwise agreement
+
+
+Much of the social choice development takes place on an explicit finite agenda `X : Finset σ`. In `Basic.lean`, this is handled through finite-set lemmas and associated comparison machinery.
+
+In particular, the file proves elementary but reusable separation lemmas such as:
+- `Finset.existsSecondDistinctMem`,
+- `Finset.existsThirdDistinctMem`.
+
+These lemmas are exactly the combinatorial facts needed later in Arrow-style proofs. In the same part of the file, `PairwiseAgreesOn` expresses that two profiles induce the same pairwise order on a given pair of alternatives for every voter, and the namespace lemmas for `PairwiseAgreesOn` expose its weak and strict components explicitly.
+
+== Bundled preference structures
+
+
+In addition to working with arbitrary relations, the formalisation introduces bundled structures imposing standard properties.
+
+In `Basic.lean`, these include:
+- `QuasiOrder`, representing reflexive and transitive relations,
+- `PrefOrder`, representing reflexive, transitive, and total relations.
+
+
+These structures ensure that once an object is declared to be a `PrefOrder`, the corresponding axioms are available automatically. At the same time, the current forward-facing social-choice API is built around the structure
+
+
+```lean
+structure RationalPreference (A : Type u) extends EcoLean.Preference A where
+  isComplete : EcoLean.Preference.Complete toPreference
+  isTransitive : EcoLean.Preference.Transitive toPreference
+```
+
+
+and then abbreviates this bundled rational-preference object as `Preference` inside `EcoLean.SocialChoiceTheory`. This is the sense in which the present social-choice layer reuses the primitive weak-preference interface while still bundling the rationality conditions needed for Arrow’s theorem.
+
+At the same time, many results continue to be stated at the level of general relations, with properties imposed as hypotheses. This reflects the layered design of the formalisation.
+
+== Profiles and social aggregation
+
+
+A preference profile is represented as a function
+
+$
+P : iota -> text("Preference") sigma.
+$
+
+
+
+Thus, for each individual $i : iota$, the object $P i$ is a preference relation. Pairwise comparisons are expressed as `(P i).weakPref x y`.
+
+This representation makes explicit that a profile is a mapping from individuals to preference objects. On top of this, `Basic.lean` defines the two main aggregation types:
+
+
+```lean
+abbrev SocialChoiceFunction (V : Type u) (A : Type v) : Type (max u v) :=
+  Profile V A → A
+
+abbrev SocialWelfareFunction (V : Type u) (A : Type v) : Type (max u v) :=
+  Profile V A → Preference A
+```
+
+
+The first assigns a chosen alternative to each profile. The second assigns a social preference relation to each profile. Arrow’s theorem is proved for social welfare functions, while the Gibbard--Satterthwaite file begins with strict-ballot social choice functions and then induces a social relation from them.
+
+== Arrow-style axioms
+
+
+The central axioms of the current API are introduced in `Basic.lean` using agenda-indexed predicates. The two most important are:
+
+```lean
+def ParetoOn
+    (F : SocialWelfareFunction V A) (X : Finset A) : Prop :=
+  ∀ x y, x ∈ X → y ∈ X → ∀ P : Profile V A,
+    (∀ i : V, Profile.StrictPref P i x y) →
+      SocialWelfareFunction.StrictPref F P x y
+
+def IIAOn
+    (F : SocialWelfareFunction V A) (X : Finset A) : Prop :=
+  ∀ (P Q : Profile V A) (x y : A),
+    x ∈ X → y ∈ X →
+    PairwiseAgreesOn P Q x y →
+    SameOrder (F P) (F Q) x y x y
+```
+
+
+`ParetoOn` requires unanimous strict preference on the agenda to be inherited socially. `IIAOn` requires the social comparison of a pair to depend only on the voters’ comparisons of that pair. The same file also defines `IsDictatorOn` and `DictatorialOn`, which provide the formal target of Arrow’s impossibility result.
+
+== Order modification constructions
+
+
+A distinctive feature of `Arrow.lean` is the use of explicit constructions for modifying preferences:
+
+
+```lean
+maketop
+makebot
+makeabove
+```
+
+
+
+These operations modify the position of a designated alternative while preserving all other pairwise comparisons away from that alternative. They are the formal gadgets that make the pivot proof go through.
+
+== The pivot argument and dictatorship
+
+
+The proof of Arrow’s theorem follows a pivot-based strategy.
+
+Using extremal alternatives and order-modification constructions, the formalisation shows that for each alternative there exists an individual whose change in ranking affects the social outcome. These individuals act as pivots.
+
+The argument then shows that such pivot voters become decisive over broader comparisons, eventually yielding an individual who is decisive over all pairs of alternatives. This individual is a dictator.
+
+Each step is decomposed into explicit lemmas.
+
+== Strict ballots and translation
+
+
+The file `GibbardSatterthwaite.lean` introduces strict ballots via the structure `LinBallot`, representing strict linear orders.
+
+To integrate this with the rest of the development, the file defines:
+- `prefers`,
+- `weakPref`,
+- `toPreference`.
+
+
+These allow a `LinBallot` to be converted into the social-choice `Preference` type via `toPreference`, ensuring that the strict-ballot development remains compatible with the rest of the library.
+
+== Summary
+
+
+The formalisation builds a hierarchy of objects: relations, derived notions (`StrictPref`, `Indiff`), bundled preference structures, profiles, and aggregation rules. Arrow’s axioms are expressed through the agenda-indexed predicates `ParetoOn` and `IIAOn`, and the target notion of dictatorship is expressed by `DictatorialOn`.
+
+The proof of Arrow’s theorem proceeds through explicit constructions on these objects, mirroring standard economic arguments while ensuring that every step is formally justified.
+
+= Arrow’s Theorem in Lean
+
+
+This section presents the formalisation of Arrow’s theorem in `Arrow.lean`. The proof follows the classical pivot strategy, but its implementation in Lean makes the logical structure of the argument considerably more explicit. The file does not present the theorem as a single monolithic proof. Instead, it develops a sequence of intermediate predicates, profile-transforming operations, and lemmas, and then assembles the final impossibility theorem from these pieces. This organisation is itself mathematically informative, because it makes clear which assumptions are used at each stage and which constructions are needed to pass from local pairwise arguments to global dictatorship.
+
+The theorem ultimately proved in the file is not stated in the older Arrow-specific vocabulary, but directly in the language developed in `Basic.lean`:
+
+
+```lean
+theorem arrow [Fintype ι] [DecidableEq ι]
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X) (hX : 3 ≤ X.card) :
+    DictatorialOn f X := by
+  exact fourth_step hIIA hX (second_step hPareto hIIA hX)
+```
+
+
+
+Mathematically, this theorem states that if `f` is a social welfare function on the finite agenda `X`, and if `f` satisfies Pareto efficiency and independence of irrelevant alternatives on `X`, then `f` is dictatorial on `X`, provided that `X` contains at least three alternatives. The theorem is proved compositionally: `second_step` first shows that every alternative in `X` has a pivot voter, and `fourth_step` then upgrades this property to full dictatorship.
+
+Several assumptions appear explicitly in the statement.
+
+The assumption `[Fintype ι]` expresses the finiteness of the set of individuals. This is not merely a background convenience. It is used in the proof of `second_step_aux`, where the argument proceeds by induction on a finite set of voters.
+
+The assumption `[DecidableEq ι]` is also essential. It is needed whenever a profile is modified at a specific voter, for example in constructions of the form
+
+```lean
+fun j => if j = i then maketop (R j) b else R j
+```
+
+
+or when profiles are defined by case distinctions on whether `j = i`. In ordinary mathematical prose, such updates are written informally and equality of indices is taken for granted. In Lean, the ability to decide equality is required explicitly.
+
+The hypothesis
+
+```lean
+hPareto : ParetoOn f X
+```
+
+
+formalises the Pareto condition on the agenda `X`. It is used to transfer unanimity of strict preference from the profile level to the social level. In the proof, this assumption plays two roles. First, it supplies the boundary cases of the pivot argument, by showing that if every voter places an alternative at the top or bottom, then the social ranking must do likewise. Second, it is used in the contradiction argument in `first_step`, where a modified profile is engineered so that every individual strictly ranks one alternative above another, forcing the same strict ranking socially.
+
+The hypothesis
+
+```lean
+hIIA : IIAOn f X
+```
+
+
+formalises independence of irrelevant alternatives on `X`. This assumption is the key transport mechanism in the proof. It is not used abstractly or globally. Rather, it is applied locally and repeatedly to move pairwise social comparisons across profiles that have been carefully engineered to agree on a particular pair of alternatives. In that sense, the entire proof can be read as a sequence of pairwise transfers justified by IIA.
+
+Finally, the cardinality assumption
+
+```lean
+hX : 3 ≤ X.card
+```
+
+
+is used in two distinct ways. It is used first in the lemma `exists_of_not_extremal`, where the failure of extremality of a designated alternative must be converted into the existence of two other distinct alternatives witnessing a nontrivial social chain. It is used again in `fourth_step`, where a third alternative is required in order to compare pivot voters and show that local dictatorship-except can be upgraded to full dictatorship.
+
+== Extremal alternatives
+
+
+The first significant block of the file introduces the predicates that describe extremal positions of an alternative in a preference relation:
+
+
+```lean
+def IsStrictlyWorst (b : σ) (r : Preference σ) (X : Finset σ) : Prop :=
+  ∀ a ∈ X, a ≠ b → StrictPref r a b
+
+def IsStrictlyBest (b : σ) (r : Preference σ) (X : Finset σ) : Prop :=
+  ∀ a ∈ X, a ≠ b → StrictPref r b a
+
+def IsExtremal (b : σ) (r : Preference σ) (X : Finset σ) : Prop :=
+  IsStrictlyWorst b r X ∨ IsStrictlyBest b r X
+```
+
+
+
+Mathematically, these definitions do exactly what their names suggest. `IsStrictlyWorst b r X` says that every other alternative in the finite agenda `X` is strictly preferred to `b` under the preference `r`. `IsStrictlyBest` is the dual condition. `IsExtremal` simply records that `b` lies at one of the two ends of the ranking.
+
+These predicates are central because the pivot argument does not begin directly with dictatorship or decisiveness. It begins with the weaker and more flexible idea that a designated alternative can be moved from one extreme of the ranking to the other. This is why the file comment explicitly says that the pivot construction "toggles an alternative `b` from one extreme to the other".
+
+The next few lemmas unpack what it means for extremality to fail. The key ones are:
+
+
+```lean
+lemma not_strictlyWorst_iff :
+    ¬ IsStrictlyWorst b r X ↔ ∃ a, a ∈ X ∧ a ≠ b ∧ ¬ StrictPref r a b
+
+lemma not_strictlyBest_iff :
+    ¬ IsStrictlyBest b r X ↔ ∃ a, a ∈ X ∧ a ≠ b ∧ ¬ StrictPref r b a
+
+lemma not_extremal_iff :
+    ¬ IsExtremal b r X ↔
+      (∃ a, a ∈ X ∧ a ≠ b ∧ ¬ StrictPref r a b) ∧
+      (∃ c, c ∈ X ∧ c ≠ b ∧ ¬ StrictPref r b c)
+```
+
+
+
+Mathematically, these lemmas extract witnesses to the failure of topness and bottomness. If `b` is not strictly worst, then there exists some alternative `a` that is not strictly above `b`. If `b` is not strictly best, then there exists some `c` that is not strictly below `b`. The conjunction of these facts is exactly what is needed later in order to obtain a nontrivial social chain through `b`.
+
+The lemma
+
+```lean
+lemma not_extremal'
+    (r : Preference σ) (h : ¬ IsExtremal b r X) :
+    ∃ a c, a ∈ X ∧ c ∈ X ∧ a ≠ b ∧ c ≠ b ∧ r b a ∧ r c b
+```
+
+
+uses totality of the preference to convert failures of strict preference into weak comparisons. Mathematically, if `a` is not strictly above `b`, then totality forces `b ≽ a`; similarly, if `b` is not strictly above `c`, then totality forces `c ≽ b`. This yields a weak sandwich
+
+$
+c ⪰ b ⪰ a.
+$
+
+
+This weak sandwich is later refined into a more useful chain of distinct alternatives in the social order.
+
+The file then proves that strict bestness and strict worstness are mutually exclusive whenever there exists at least one distinct alternative in the agenda. The lemmas
+
+```lean
+IsStrictlyBest.not_strictlyWorst
+IsStrictlyBest.not_strictlyWorst'
+IsStrictlyWorst.not_strictlyBest
+IsStrictlyWorst.not_strictlyBest'
+```
+
+
+formalise these incompatibilities. The primed versions use cardinality assumptions on the finite set `X` to extract a distinct witness automatically. These lemmas are later used to rule out degenerate cases in which an alternative might otherwise seem to be both top and bottom.
+
+== Order-modification gadgets
+
+
+The next major block of the file introduces the three profile-transforming operations that drive the proof:
+
+
+```lean
+noncomputable def maketop (r : Preference σ) (b : σ) : Preference σ := ...
+
+noncomputable def makebot (r : Preference σ) (b : σ) : Preference σ := ...
+
+noncomputable def makeabove (r : Preference σ) (a b : σ) : Preference σ := ...
+```
+
+
+
+These are not merely convenient abbreviations. They are the formal counterparts of the standard transformations used in textbook Arrow proofs.
+
+The construction `maketop r b` produces a new weak preference in which the designated alternative `b` is weakly above all alternatives, while all comparisons among alternatives distinct from `b` are inherited from `r`. This is visible directly in the internal definition of the relation:
+
+```lean
+rel := fun x y => if x = b then True else if y = b then False else r x y
+```
+
+
+Mathematically, this says:
+- if the left-hand alternative is `b`, then the relation holds automatically;
+- if the right-hand alternative is `b`, then the relation fails unless both alternatives coincide;
+- otherwise the original preference is preserved.
+
+
+The dual construction `makebot r b` places `b` at the bottom:
+
+```lean
+rel := fun x y => if y = b then True else if x = b then False else r x y
+```
+
+
+Again, all comparisons not involving `b` are unchanged.
+
+The more delicate construction is `makeabove r a b`. The accompanying file comment explains its intended meaning very clearly: it "inserts `b` just above the set of alternatives weakly below `a`, in particular making `b` strictly above `a`." The internal definition distinguishes cases according to whether the left or right argument is `b`. If neither is `b`, the original relation is preserved. If one argument is `b`, the comparison is determined by whether the other alternative lies weakly below `a` in the original relation. This is the operation that later makes it possible to create a social chain through `b` while preserving irrelevant pairwise information.
+
+Each of these constructions is defined as a full `Preference σ`, not just as a raw binary relation. This means that the code does not merely specify how the relation should behave; it also proves that the resulting object still satisfies the required structural properties. In particular, each definition uses `Preference.ofPrefOrder` and then discharges the reflexivity, totality, and transitivity obligations by explicit case analysis.
+
+The most important meta-property of these gadgets is not their extremal effect on `b`, but their invariance away from `b`. This is captured by the lemmas:
+
+
+```lean
+lemma maketop_noteq ...
+lemma maketop_noteq' ...
+
+lemma makebot_noteq ...
+lemma makebot_noteq' ...
+
+lemma makeabove_noteq ...
+lemma makeabove_noteq' ...
+```
+
+
+
+The unprimed versions say that the weak relation is unchanged on pairs of alternatives distinct from `b`. The primed versions say the same for `StrictPref`. Mathematically, these lemmas are the bridge between the profile-modification gadgets and IIA. They ensure that when a profile is altered by moving `b`, the pairwise ordering of any pair not involving `b` remains the same, which is exactly the hypothesis needed to apply `IIAOn`.
+
+The file also records the direct extremal consequences of these gadgets:
+
+
+```lean
+lemma is_strictlyBest_maketop ...
+lemma is_strictlyWorst_makebot ...
+lemma makeabove_above ...
+lemma makeabove_above' ...
+lemma makeabove_below ...
+```
+
+
+
+These lemmas formalise the facts that `maketop` really places `b` at the top, `makebot` places it at the bottom, and `makeabove` places `b` above `a` and above every alternative weakly below `a`, while also allowing alternatives not below `a` to remain above `b`.
+
+== Profiles, SWFs, and Arrow-style predicates
+
+
+The next block in the file moves from individual preferences to social aggregation using the shared vocabulary exported by `Basic.lean`. A profile is a term of type `Profile ι σ`, and the Arrow proof studies a social welfare function
+
+```lean
+f : SocialWelfareFunction ι σ
+```
+
+on an explicit agenda `X : Finset σ`.
+
+The Arrow axioms themselves are not reintroduced under separate legacy names inside the file. Instead, `Arrow.lean` uses the agenda-indexed predicates `ParetoOn`, `IIAOn`, and `DictatorialOn` directly. The corresponding application principles are provided in the namespaces defined in `Basic.lean`. For Pareto:
+
+
+```lean
+theorem apply
+    {F : SocialWelfareFunction V A} {X : Finset A}
+    (h : ParetoOn F X)
+    (P : Profile V A) {x y : A}
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : ∀ i : V, Profile.StrictPref P i x y) :
+    SocialWelfareFunction.StrictPref F P x y :=
+  h x y hx hy P hxy
+```
+
+
+
+Mathematically, this is the standard Pareto principle in operational form: if every voter strictly prefers `x` to `y`, then society strictly prefers `x` to `y`.
+
+For IIA, the corresponding application theorem is:
+
+
+```lean
+theorem apply
+    {F : SocialWelfareFunction V A} {X : Finset A}
+    (h : IIAOn F X)
+    (P Q : Profile V A) (x y : A)
+    (hx : x ∈ X) (hy : y ∈ X)
+    (hxy : PairwiseAgreesOn P Q x y) :
+    SameOrder (F P) (F Q) x y x y :=
+  h P Q x y hx hy hxy
+```
+
+
+
+This theorem is the formal mechanism by which pairwise social comparisons are transported across profiles. It says that if two profiles agree pairwise on `(x,y)`, then the social preferences `F P` and `F Q` have the same order on `(x,y)`. The derived theorems `IIA.weak` and `IIA.strict` unpack this into weak and strict pairwise equivalences.
+
+The important point is that IIA is not used vaguely. Every application of IIA in the proof has the same formal shape: verify `PairwiseAgreesOn P Q x y`, then use one of the above transport theorems to move a social comparison from `f P` to `f Q` or vice versa. This is the central technical mechanism of the entire proof.
+
+The genuinely Arrow-specific notions introduced in `Arrow.lean` itself are pivotality and intermediate dictatorship:
+
+
+```lean
+def IsPivotal (f : SocialWelfareFunction ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop := ...
+def HasPivot (f : SocialWelfareFunction ι σ) (X : Finset σ) (b : σ) : Prop := ∃ i, IsPivotal f X i b
+def IsDictatorExcept (f : SocialWelfareFunction ι σ) (X : Finset σ) (i : ι) (b : σ) : Prop := ...
+```
+
+
+
+These definitions are much more precise than their informal names suggest. `IsPivotal f X i b` packages the exact witness data needed later: two profiles `R` and `R'`, agreement of all non-pivot voters on every pair in `X`, extremality of `b` in both profiles for all voters, and the conditions that `i` ranks `b` worst in one profile and best in the other while society moves correspondingly from worst to best. `IsDictatorExcept f X i b` expresses dictatorship on all pairs of alternatives not involving `b`.
+
+== Auxiliary Pareto lemmas
+
+
+Before the main proof begins, the file proves two foundational lemmas:
+
+
+```lean
+theorem is_strictlyBest_of_forall_is_strictlyBest ...
+theorem is_strictlyWorst_of_forall_is_strictlyWorst ...
+```
+
+
+
+Mathematically, these say that if every individual makes `b` strictly best, then society makes `b` strictly best, and similarly for strictly worst. The proofs are immediate applications of the Pareto principle to each relevant pair in `X`.
+
+These lemmas matter because the pivot argument requires canonical social boundary cases. To show that an alternative can move from socially bottom to socially top, one first needs profiles where its social position is already known. These lemmas provide exactly that.
+
+The next auxiliary lemma is:
+
+
+```lean
+lemma exists_of_not_extremal
+    (hX : 3 ≤ X.card) (hb : b ∈ X) (h : ¬ IsExtremal b (f R) X) :
+    ∃ a c, a ∈ X ∧ c ∈ X ∧ a ≠ b ∧ c ≠ b ∧ a ≠ c ∧ (f R) a b ∧ (f R) b c
+```
+
+
+
+Mathematically, if `b` is not extremal in the social order, then there exist two distinct alternatives `a` and `c`, both different from `b`, such that
+
+$
+a ⪰ b text("and") b ⪰ c
+$
+
+
+in the social preference. This lemma is the first place where the cardinality assumption `3 ≤ X.card` is used in an essential way. It ensures that when `b` is not extremal there are enough distinct alternatives to form a genuine chain through `b`. This chain is the raw material for the contradiction argument in `first_step`.
+
+== Step 1: preservation of extremality
+
+
+The first major theorem is:
+
+
+```lean
+lemma first_step
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X)
+    (hX : 3 ≤ X.card) (hb : b ∈ X) (hextr : ∀ i, IsExtremal b (R i) X) :
+    IsExtremal b (f R) X
+```
+
+
+
+Mathematically, this says that if every individual places `b` at an extreme of their ranking, then the social preference must also place `b` at an extreme.
+
+The proof is by contradiction. Assume `b` is not socially extremal. Then `exists_of_not_extremal` yields distinct alternatives `a` and `c` in `X` such that
+
+$
+("fR") a b text("and") ("fR") b c.
+$
+
+
+
+The next move is to build a modified profile
+
+```lean
+let R' : Profile ι σ := fun j => makeabove (R j) a c
+```
+
+
+Mathematically, each individual’s ranking is altered by inserting `b` relative to `a` and `c`. The code then proves two key voter-level claims:
+
+- if voter `j` does not rank `b` strictly worst in `R j`, then in `R' j` one has `b ≻ c`;
+- if voter `j` does not rank `b` strictly best in `R j`, then in `R' j` one has `c ≻ b`.
+
+
+These are encoded in the internal local claims `H1` and `H2` and follow from `makeabove_below`, `makeabove_above'` and the decomposition of `IsExtremal`.
+
+Using these claims, the proof obtains via Pareto a strict social comparison
+
+$
+c ≻ a
+$
+
+
+in the modified profile `R'`.
+
+At this point IIA enters in its characteristic role. The code constructs:
+
+```lean
+have h_ab : SameOrder (f R) (f R') a b a b := ...
+have h_bc : SameOrder (f R) (f R') b c b c := ...
+```
+
+
+These are applications of `hIIA`, and the pairwise agreement conditions are discharged using the `makeabove_noteq` and `makeabove_noteq'` lemmas or, in the cases involving `b`, by explicit `sameOrder_of_strict_strict` and `sameOrder_of_reverse_strict` arguments.
+
+Mathematically, what is happening is the following. Although the profiles `R` and `R'` differ globally, they agree on the pair `(a,b)` in exactly the sense required by IIA, and likewise on `(b,c)`. Hence the social weak comparisons `(fR) a b` and `(fR) b c` can be transported to `fR'`. Combining those transported weak comparisons with the Pareto-implied strict comparison `c ≻ a` in `fR'`, transitivity yields a contradiction.
+
+Thus the assumption that `b` is not socially extremal must be false, and `first_step` is proved.
+
+This theorem already exhibits the overall pattern of the formalisation: profile modification, local agreement lemmas, IIA-based transfer of pairwise comparisons, and contradiction via transitivity.
+
+== The canonical bottom profile and `worstSet`
+
+
+The second phase of the proof begins by defining an artificial base order:
+
+
+```lean
+noncomputable def r₂ (b : σ) : Preference σ := ...
+```
+
+
+
+The file comment describes `r₂ b` as the order with `b` at the very bottom and everything else weakly tied above it. This is exactly what the internal relation enforces: any alternative is weakly above `b`, while `b` is weakly above nothing except itself.
+
+Using `r₂ b`, the proof later defines the canonical profile
+
+```lean
+let R0 : Profile ι σ := fun _ => r₂ b
+```
+
+
+in which every voter ranks `b` strictly worst.
+
+The file also introduces the finite set
+
+```lean
+noncomputable def worstSet [Fintype ι] [DecidableEq ι]
+    (R : Profile ι σ) (b : σ) (X : Finset σ) : Finset ι := ...
+```
+
+
+which is the set of individuals who rank `b` strictly worst in profile `R`.
+
+Mathematically, `worstSet R b X` turns an informal combinatorial idea into an explicit object. Instead of saying vaguely that one "flips voters one by one from placing `b` at the bottom to placing `b` at the top", the formalisation literally tracks the finite set of voters still placing `b` at the bottom and inducts on that set.
+
+== Step 2: pivot existence
+
+
+The heart of the pivot construction is:
+
+
+```lean
+lemma second_step_aux [Fintype ι] [DecidableEq ι]
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X)
+    (hX : 2 < X.card) (b_in : b ∈ X) {D' : Finset ι} :
+    ∀ {R : Profile ι σ},
+      D' = worstSet R b X →
+      (∀ i, IsExtremal b (R i) X) →
+      IsStrictlyWorst b (f R) X →
+      HasPivot f X b := by ...
+```
+
+
+
+The mathematical content is as follows. Suppose one has a profile in which every voter makes `b` extremal and society makes `b` strictly worst. Then there exists a pivot voter for `b`.
+
+The proof proceeds by induction on the finite set `worstSet R b X`.
+
+In the base case, this set is empty. Then no voter ranks `b` strictly worst. Since every voter is assumed to make `b` extremal, every voter must rank `b` strictly best. By the auxiliary Pareto lemma, society must then rank `b` strictly best. But this contradicts the hypothesis that `b` is socially strictly worst. Thus the base case cannot occur under the stated hypotheses.
+
+In the inductive step, the set is written as `insert i D`, and the profile is modified at voter `i`:
+
+```lean
+let R' : Profile ι σ := fun j => if j = i then maketop (R j) b else R j
+```
+
+
+Mathematically, voter `i` is flipped from placing `b` at the bottom to placing `b` at the top, while every other voter is left unchanged.
+
+The code then proves that all voters still make `b` extremal in the new profile `R'`. It next splits into two cases.
+
+If `b` is socially strictly best in `f R'`, then the pivot has been found. The proof explicitly constructs the witness for `HasPivot f X b`, using the original profile `R`, the modified profile `R'`, and the conditions required in the definition of `IsPivotal`.
+
+If `b` is not socially strictly best in `f R'`, then `first_step` is invoked to show that `b` is still socially strictly worst in `f R'`, since all voters still make `b` extremal and the agenda has at least three alternatives. The induction hypothesis can then be applied to the smaller set `D`.
+
+This theorem is where finiteness of the voter set is used most concretely, and it shows exactly how the pivot construction is realised in the formalisation: by induction on the explicit finite set of voters who still place `b` at the bottom.
+
+The global version is then:
+
+
+```lean
+lemma second_step [Fintype ι] [DecidableEq ι]
+    (hPareto : ParetoOn f X) (hIIA : IIAOn f X)
+    (hX : 3 ≤ X.card) (b : σ) (b_in : b ∈ X) :
+    HasPivot f X b := by ...
+```
+
+
+
+This theorem defines the base profile `R0`, proves that every voter makes `b` strictly worst in it, uses Pareto to conclude that society also makes `b` strictly worst, and then applies `second_step_aux`. The result is:
+
+$
+forall b in X, text("HasPivot f X b").
+$
+
+
+
+== Step 3: from pivotality to dictatorship-except
+
+
+The next theorem is:
+
+
+```lean
+lemma third_step
+    (hIIA : IIAOn f X)
+    (b_in : b ∈ X) {i : ι} (i_piv : IsPivotal f X i b) :
+    IsDictatorExcept f X i b := by ...
+```
+
+
+
+Mathematically, this says that if voter `i` is pivotal for `b`, then `i` dictates every pair of alternatives not involving `b`.
+
+This is the most technically involved step in the file, and it is also the point at which IIA is used most heavily.
+
+The theorem fixes alternatives `a` and `c` distinct from `b`, and a target profile `Q` in which voter `i` strictly prefers `c` to `a`. The goal is to show that society also strictly prefers `c` to `a`.
+
+The proof begins by unpacking the data contained in `IsPivotal f X i b`. This yields two witness profiles `R` and `R'`, together with:
+- pairwise agreement of all non-pivot voters on all pairs in `X`,
+- extremality of `b` for all voters in both profiles,
+- the fact that voter `i` ranks `b` strictly worst in `R i` and strictly best in `R' i`,
+- the fact that society ranks `b` strictly worst in `fR` and strictly best in `fR'`.
+
+
+The crucial construction is a hybrid profile `Q'`:
+
+```lean
+let Q' : Profile ι σ := fun j =>
+  if j = i then makeabove (Q j) a b
+  else if IsStrictlyWorst b (R j) X then makebot (Q j) b else maketop (Q j) b
+```
+
+
+
+Mathematically, this profile is designed so that:
+- voter `i` places `b` just above `a`,
+- every other voter places `b` at the bottom or top according to whether they were in the "worst" or "best" branch of the pivotal witness.
+
+
+The rest of the proof consists of three IIA transfers.
+
+First, the code proves
+
+```lean
+have h_cb : SameOrder (f R) (f Q') c b c b := ...
+```
+
+
+This uses `hIIA` with the pair `(c,b)`. For voter `i`, the needed pairwise comparison is obtained from `makeabove_below`. For the remaining voters, the proof uses either `makebot` or `maketop` depending on whether the original pivotal witness had `b` worst or best. The conclusion is that the strict social comparison `c ≻ b` from `f R` can be transferred to `f Q'`.
+
+Second, the code proves
+
+```lean
+have h_ba : SameOrder (f R') (f Q') b a b a := ...
+```
+
+
+This is another IIA transfer, now on the pair `(b,a)`. It uses `makeabove_above` for voter `i`, and again uses `makebot` or `maketop` for the other voters. This transports the strict social comparison `b ≻ a` from `f R'` to `f Q'`.
+
+Once these two pairwise strict comparisons have been imported into the same profile `Q'`, transitivity of the social preference yields
+
+$
+c ≻ a
+$
+
+
+in `f Q'`.
+
+The final step is to move this conclusion back to the original target profile `Q`. The theorem has already proved, via the auxiliary local claim `hQ'`, that `Q` and `Q'` have the same order on the pair `(c,a)`. Therefore one more application of IIA transfers `c ≻ a` from `f Q'` to `f Q`. This is exactly the desired conclusion.
+
+Mathematically, `third_step` shows that a pivot for `b` is an almost-dictator: the voter controls every pair of alternatives that does not involve `b`. Formally, the proof realises this by constructing a single profile `Q'` into which the relevant pairwise social information from the two pivotal witness profiles can be imported and then exported back to the target profile.
+
+== Step 4: from dictatorship-except to full dictatorship
+
+
+The final stage is:
+
+
+```lean
+lemma fourth_step
+    (hIIA : IIAOn f X)
+    (hX : 3 ≤ X.card) (hpiv : ∀ b ∈ X, HasPivot f X b) :
+    DictatorialOn f X := by ...
+```
+
+
+
+Mathematically, this theorem says: if every alternative has a pivot voter, then there exists a single voter who is a full dictator.
+
+The proof first selects an arbitrary alternative `b ∈ X` and a corresponding pivot voter `i`:
+
+```lean
+obtain ⟨b, hb⟩ := Finset.card_pos.mp hXpos
+obtain ⟨i, i_piv⟩ := hpiv b hb
+```
+
+
+
+The next internal claim,
+
+```lean
+have h :
+    ∀ a ∈ X, a ≠ b → ∀ Rᵢ : Profile ι σ,
+      (StrictPref (Rᵢ i) a b → StrictPref (f Rᵢ) a b) ∧
+      (StrictPref (Rᵢ i) b a → StrictPref (f Rᵢ) b a)
+```
+
+
+shows that voter `i` already determines every pair involving `b`, provided the other alternative is distinct from `b`. This is the key bridge from `IsDictatorExcept` to full dictatorship.
+
+To prove this, the code fixes an alternative `a ≠ b`, then uses the cardinality assumption to choose a third distinct alternative `c`. It then obtains a pivot voter `j` for `c`:
+
+```lean
+rcases hpiv c hc with ⟨j, j_piv⟩
+have hdict := third_step hIIA hc j_piv
+```
+
+
+
+At this point, `third_step` tells us that `j` dictates every pair not involving `c`. The proof then shows that `j = i`. This is done by contradiction: if `j ≠ i`, then the witness profiles from `i_piv` and the dictatorship-except property of `j` can be combined to contradict the social topness or bottomness conditions in the pivotal witness profiles. This is the key identification step. It ensures that the pivot voter for `c` is the same as the pivot voter for `b`.
+
+Once `j = i` is established, the dictatorship-except property obtained from `third_step` can be applied to the pairs `(a,b)` and `(b,a)`, showing that voter `i` determines both orientations involving `b`.
+
+The proof then concludes with:
+
+```lean
+refine ⟨i, ?_⟩
+```
+
+
+and checks the dictator condition for an arbitrary strict comparison `x ≻ y` in voter `i`'s preference. Three cases are distinguished:
+- `x = b`,
+- `y = b`,
+- neither `x` nor `y` equals `b`.
+
+
+The first two cases are handled by the internal claim `h`, and the third is handled directly by `third_step hIIA hb i_piv`.
+
+Thus, `fourth_step` upgrades the local, excluded-alternative dictatorship supplied by `third_step` to full dictatorship across all pairs in `X`.
+
+== Summary
+
+
+The proof of Arrow’s theorem in `Arrow.lean` is mathematically classical, but its formal implementation makes several features especially transparent.
+
+First, the argument is modular. It is decomposed into explicit steps: preservation of extremality, existence of pivots, dictatorship except for one alternative, and full dictatorship.
+
+Second, the role of each assumption is clearly visible. Pareto is used to create boundary cases and force strict social comparisons under unanimity. IIA is used as a local transport principle for pairwise social comparisons across modified profiles. Finiteness of the voter set supports induction over `worstSet`, while the three-alternative assumption supplies the distinct witnesses needed for contradiction and propagation.
+
+Third, the proof is driven by explicit constructions. The operations `maketop`, `makebot`, and `makeabove` do not merely serve an expository purpose; they are the formal devices that make it possible to manipulate a designated alternative while preserving the pairwise agreements required by IIA.
+
+For these reasons, the formalisation does more than certify the theorem. It reconstructs the classical pivot proof as a precisely organised library of definitions, transformations, and lemmas, each with a clearly delineated mathematical role.
+begin
+
+= Gibbard--Satterthwaite in Lean
+
+
+This section presents the formalisation of the Gibbard--Satterthwaite theorem in `GibbardSatterthwaite.lean`. In contrast to the proof of Arrow’s theorem in `Arrow.lean`, this file is not organised as a direct four-step impossibility argument. Its architecture is instead a reduction. The file begins with strict ballots and strict-profile social choice functions, derives a monotonicity principle from non-manipulability, uses pair-top constructions to extract a binary social relation from a social choice function, proves Pareto and independence properties for that induced relation, and then invokes an Arrow-style dictatorship theorem for the induced relation. The final stage translates that relational dictatorship statement back into dictatorship of the original social choice function.
+
+This organisation is mathematically informative. It shows that the proof does not proceed by reproducing the Arrow pivot argument inside the strict-ballot setting. Instead, it turns a strategic social choice problem into a social relation problem, proves that the induced relation satisfies Arrow-style axioms, and then applies an external impossibility theorem as the final step.
+
+The principal theorem proved in the file is:
+
+
+```lean
+theorem gibbardSatterthwaite
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (honto : OntoOn g X)
+    (hnm : NonManipulable g X)
+    (_hX : 3 ≤ X.card)
+    (harrow :
+      StrictSocialRelation.ParetoOn (socialPrefers g) X →
+      StrictSocialRelation.IIAOn (socialPrefers g) X →
+      StrictSocialRelation.DictatorialOn (socialPrefers g) X) :
+    IsChoiceDictatorship g X := by
+  have hPareto : StrictSocialRelation.ParetoOn (socialPrefers g) X :=
+    socialPrefers_pareto g X hchoose honto hnm
+  have hIIA : StrictSocialRelation.IIAOn (socialPrefers g) X :=
+    socialPrefers_iia g X hchoose honto hnm
+  have hDict : StrictSocialRelation.DictatorialOn (socialPrefers g) X :=
+    harrow hPareto hIIA
+  exact socialPrefers_dictatorial_implies_choice_dictator g X hchoose honto hnm hDict
+```
+
+
+
+Mathematically, this theorem states that if `g` is a strict-ballot social choice function on the finite agenda `X`, if `g` always chooses from `X`, is onto on `X`, and is non-manipulable on `X`, then `g` is a choice dictatorship on `X`, provided that one has available an Arrow-style dictatorship theorem for the induced strict social relation `socialPrefers g`. The theorem is therefore proved compositionally. First, the file derives Pareto and IIA for the induced relation. Second, it applies the supplied Arrow-style theorem `harrow`. Third, it converts the resulting dictatorship of the induced relation into dictatorship of the original social choice function.
+
+Several assumptions appear explicitly in the main theorem and the lemmas leading up to it.
+
+The assumptions `[Fintype ι]` and `[DecidableEq ι]` express finiteness and decidable equality on the set of individuals. These assumptions are used directly in the monotonicity argument. The file defines profiles that switch voters one by one from one ballot profile to another, and these constructions require both an enumeration of the voters and the ability to update a profile at a designated individual.
+
+The assumption `[DecidableEq σ]` is required because the strict-ballot and pair-top constructions repeatedly test equality of alternatives. This enters both the ballot-level definitions and the profile-level transformations.
+
+The assumption `[Nonempty ι]` is used in the top-unanimity argument, where one must extract a distinguished voter in order to combine onto-ness, non-manipulability, and monotonicity.
+
+The hypothesis
+
+```lean
+hchoose : ChoosesFrom g X
+```
+
+
+formalises feasibility. It guarantees that the chosen outcome always lies in the finite agenda `X`. This is used whenever the proof restricts attention to profiles whose relevant comparisons occur entirely inside `X`. In particular, it is needed in the monotonicity and binary-choice lemmas to ensure that both the original and modified outcomes remain inside the domain under discussion.
+
+The hypothesis
+
+```lean
+honto : OntoOn g X
+```
+
+
+formalises non-imposition. It ensures that every alternative in `X` can be realised as the outcome of `g` for some strict profile. This assumption is used in the top-unanimity argument, where one begins from a profile yielding a designated alternative and then topifies a set of alternatives while preserving that outcome by monotonicity.
+
+The hypothesis
+
+```lean
+hnm : NonManipulable g X
+```
+
+
+formalises strategy-proofness. This is the main behavioural assumption of the theorem. However, the rest of the file does not work directly with the existential negation in the definition of manipulability. Instead, it first proves an equivalent operational form and then uses that reformulation to derive monotonicity. Thus, non-manipulability is the ultimate source of the impossibility result, but monotonicity is the immediate technical engine of the proof.
+
+Finally, the cardinality assumption
+
+```lean
+_hX : 3 ≤ X.card
+```
+
+
+appears in the main theorem because the final impossibility statement is obtained by applying an Arrow-style result to the induced strict social relation. In the body of `gibbardSatterthwaite` itself, the assumption is not used directly. Its mathematical role is inherited from the Arrow theorem supplied as `harrow`.
+
+== Strict ballots and translation to weak preference
+
+
+The file begins by introducing strict ballots.
+
+
+```lean
+structure LinBallot (σ : Type*) where
+  lt : σ → σ → Prop
+  irrefl : ∀ x : σ, ¬ lt x x
+  trans : ∀ ⦃x y z : σ⦄, lt x y → lt y z → lt x z
+  total : ∀ {x y : σ}, x ≠ y → lt x y ∨ lt y x
+```
+
+
+
+The intended internal orientation is recorded explicitly in the file comments: `lt x y` means that `y` is strictly preferred to `x`. This is therefore the reverse of the usual economic notation. To obtain a forward-facing comparison relation, the file defines
+
+
+```lean
+def prefers (L : LinBallot σ) (x y : σ) : Prop :=
+  L.lt y x
+```
+
+
+
+Mathematically, `prefers x y` means that $x$ is strictly preferred to $y$ in the ordinary sense.
+
+The file then defines the associated weak preference relation:
+
+
+```lean
+def weakPref (L : LinBallot σ) (x y : σ) : Prop :=
+  x = y ∨ L.prefers x y
+```
+
+
+
+Thus, a strict ballot is turned into a weak preference by adjoining equality. This is the exact analogue of the standard construction in economic theory, where one passes from a strict ranking to its weak closure.
+
+The next step packages this weak relation into the eco-lean preference interface:
+
+
+```lean
+def toPreference (L : LinBallot σ) : Preference σ := ...
+```
+
+
+
+This definition is not merely notational. The file proves that the induced weak relation is reflexive, transitive, and total, and then constructs a `Preference` through `Preference.ofPrefOrder`. Thus, a strict ballot is translated into the same primitive preference object used elsewhere in the eco-lean library.
+
+For compatibility with older code, the file also defines
+
+
+```lean
+def toPrefOrder (L : LinBallot σ) : PrefOrder σ := ...
+```
+
+
+
+and proves bridge lemmas such as
+
+
+```lean
+lemma toPrefOrder_strict_iff ...
+lemma toPreference_strictPref_iff ...
+lemma toPreference_eq_or_prefers ...
+lemma toPrefOrder_eq_or_lt ...
+```
+
+
+
+These lemmas identify strict and weak comparisons in the translated orders with the original ballot relation. Mathematically, they guarantee that no information is lost in passing from strict ballots to weak preferences and back to strict comparisons.
+
+== Strict profiles and social choice functions
+
+
+Once strict ballots have been introduced, the file defines the profile and social choice layers:
+
+
+```lean
+abbrev StrictProfile (ι σ : Type*) := ι → LinBallot σ
+abbrev StrictSocialChoiceFunction (ι σ : Type*) := StrictProfile ι σ → σ
+```
+
+
+
+Mathematically, a strict profile assigns a strict linear ballot to each individual, and a strict social choice function maps such a profile to a single alternative.
+
+The file then formalises the domain restrictions on such functions:
+
+
+```lean
+def ChoosesFrom (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) : Prop :=
+  ∀ P : StrictProfile ι σ, g P ∈ X
+
+def OntoOn (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) : Prop :=
+  ∀ a, a ∈ X → ∃ P : StrictProfile ι σ, g P = a
+```
+
+
+
+The first predicate ensures feasibility of outcomes, and the second is non-imposition on the agenda `X`.
+
+The file also defines the single-voter profile update operation:
+
+
+```lean
+def strictProfileUpdate
+    (P : StrictProfile ι σ) (i : ι) (L : LinBallot σ) : StrictProfile ι σ :=
+  fun j => if j = i then L else P j
+```
+
+
+
+Mathematically, this is the basic operation of unilateral misreporting. It will be used in the definitions of manipulability and in the equivalent local form of non-manipulability.
+
+== Manipulability and its operational form
+
+
+The behavioural core of the theorem is captured by the definitions
+
+
+```lean
+def Manipulable (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) : Prop :=
+  ∃ P : StrictProfile ι σ, ∃ i : ι, ∃ L : LinBallot σ,
+    let P' := strictProfileUpdate P i L
+    g P ∈ X ∧ g P' ∈ X ∧
+    g P ≠ g P' ∧
+    (P i).lt (g P) (g P')
+
+def NonManipulable (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) : Prop :=
+  ¬ Manipulable g X
+```
+
+
+
+Mathematically, `Manipulable` says that there exists a profile, a voter, and an alternative report such that if the voter deviates to that report, the outcome changes to one that is strictly preferred according to the voter’s true ballot. `NonManipulable` is therefore the formal counterpart of strategy-proofness.
+
+The file immediately proves a more operational theorem:
+
+
+```lean
+lemma nonManipulable_iff
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ) :
+    NonManipulable g X ↔
+      ∀ P : StrictProfile ι σ, ∀ i : ι, ∀ L : LinBallot σ,
+        let P' := strictProfileUpdate P i L
+        g P ∈ X → g P' ∈ X → g P ≠ g P' →
+          (P i).lt (g P') (g P) ∧ L.lt (g P) (g P') := by ...
+```
+
+
+
+This theorem is central to the file. Instead of working directly with the negation of the existential definition of manipulation, the subsequent proofs work with this local reformulation. Mathematically, it states that if a profile change at a single voter leads to a different outcome, then under non-manipulability the voter’s true ballot must rank the original outcome above the new one, while the announced ballot must rank the new outcome above the original one. This is the exact contradiction pattern later used to derive monotonicity.
+
+== Switching profiles and monotonicity
+
+
+The next major block introduces switching profiles:
+
+
+```lean
+noncomputable def switchProfile
+    (P P' : StrictProfile ι σ) (k : ℕ) : StrictProfile ι σ := ...
+```
+
+
+
+together with the lemmas
+
+
+```lean
+lemma switchProfile_zero ...
+lemma switchProfile_all ...
+lemma switchProfile_succ ...
+```
+
+
+
+Mathematically, `switchProfile P P' k` is the profile obtained by taking the first `k` voters, according to the finite enumeration of $iota$, from `P'` and all remaining voters from `P`. This construction is the combinatorial skeleton of the monotonicity proof.
+
+Using these switching profiles, the file proves:
+
+
+```lean
+/-- If nobody demotes the current winner, the winner stays the winner. -/
+lemma monotonicity
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (hnm : NonManipulable g X)
+    {P P' : StrictProfile ι σ}
+    (hmono :
+      ∀ i : ι, ∀ a : σ,
+        (P i).lt a (g P) →
+        (P' i).lt a (g P)) :
+    g P' = g P := by ...
+```
+
+
+
+Mathematically, this theorem says that if no voter demotes the original winner $"gP"$ when passing from profile $P$ to profile $P'$, then the winner cannot change. The proof is by induction on the sequence of switching profiles. At each stage, one changes the ballot of exactly one voter. If the outcome were to change at that stage, then `nonManipulable_iff` would force both the original and the modified ballot to rank the two outcomes in inconsistent directions, contradicting the monotonicity hypothesis `hmono`. Thus the winner remains constant throughout the switching sequence, and in particular $"gP"' = "gP"$.
+
+This monotonicity theorem is one of the true engines of the file. In the Arrow development, IIA serves as the transport mechanism for pairwise comparisons. In the Gibbard--Satterthwaite development, that role is played by monotonicity derived from non-manipulability.
+
+== Pair-top constructions
+
+
+The next block introduces the pair-top constructions that allow a social choice function to be converted into a social relation.
+
+At the ballot level, the file defines
+
+
+```lean
+noncomputable def topifyLin (S : Finset σ) (L : LinBallot σ) : LinBallot σ where
+  lt x y :=
+    if x ∈ S then
+      if y ∈ S then L.lt x y else False
+    else
+      if y ∈ S then True else L.lt x y
+  ...
+```
+
+
+
+Mathematically, `topifyLin S L` moves the set `S` to the top of the ranking while preserving the original order inside `S` and inside its complement. If both alternatives lie in `S`, the original ballot `L` decides their order. If the right-hand alternative is in `S` and the left-hand one is not, then the comparison is forced so that the right-hand alternative is strictly preferred. If neither lies in `S`, the original comparison is preserved.
+
+The file proves the corresponding structural lemmas:
+
+
+```lean
+lemma topifyLin_mem_mem ...
+lemma topifyLin_not_mem_not_mem ...
+lemma topifyLin_not_mem_mem ...
+lemma not_topifyLin_mem_not_mem ...
+```
+
+
+
+These are the strict-ballot analogues of the profile-invariance lemmas used in the Arrow file. They control how the pair-top operation affects comparisons according to the membership status of each alternative.
+
+The profile-level version is
+
+
+```lean
+noncomputable def topProfile
+    (S : Finset σ) (P : StrictProfile ι σ) : StrictProfile ι σ :=
+  fun i => topifyLin S (P i)
+```
+
+
+
+with the basic private access lemma
+
+```lean
+private lemma topProfile_apply ...
+```
+
+
+and the private symmetry helper
+
+```lean
+private lemma topProfile_pair_eq_swap ...
+```
+
+
+
+Mathematically, `topProfile S P` simply topifies the same set `S` for every voter in the profile.
+
+== Top unanimity and binary pair choice
+
+
+The first major use of monotonicity is the internal theorem
+
+
+```lean
+private lemma top_unanimity
+    (g : StrictSocialChoiceFunction ι σ) (X S : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (honto : OntoOn g X)
+    (hnm : NonManipulable g X)
+    (hS : S.Nonempty)
+    (hSX : S ⊆ X)
+    (P : StrictProfile ι σ) :
+    g (topProfile S P) ∈ S := by ...
+```
+
+
+
+Mathematically, if every voter moves the set `S` to the top of their ballot, then the chosen outcome must lie in `S`. The proof starts from a profile witnessing onto-ness for some element of `S`, topifies `S`, and then uses monotonicity to show that the resulting winner cannot leave the promoted set.
+
+The file then proves the internal binary-choice theorem
+
+
+```lean
+private lemma binary_top_choice_eq_left
+    (g : StrictSocialChoiceFunction ι σ) (X : Finset σ)
+    (hchoose : ChoosesFrom g X)
+    (honto : OntoOn g X)
+    (hnm : NonManipulable g X)
+    (P : StrictProfile ι σ) (a b : σ)
+    (ha : a ∈ X) (_hb : b ∈ X)
+    (hall : ∀ i : ι, (P i).lt b a) :
+    g (topProfile ({a, b} : Finset σ) P) = a := by ...
+```
+
+
+
+Mathematically, this says that if every voter ranks $a$ above $b$, then once the pair `{a, b}` has been moved to the top, the social choice function must select $a$. The theorem first uses `top_unanimity` to show that the outcome lies in the pair, and then uses monotonicity to rule out the possibility that $b$ is selected.
+
+This theorem is the key binary bridge from social choice to social relation. It is the strict-ballot counterpart of using Pareto on a two-alternative comparison in the Arrow setting.
+
+== From social choice to a strict social relation
+
+
+The current file passes directly from a strict-ballot social choice function to an induced strict social relation. The central definition is:
+
+
+```lean
+def socialPrefers
+    (g : StrictSocialChoiceFunction ι σ)
+    (P : StrictProfile ι σ) : σ → σ → Prop :=
+  fun x y => x ≠ y ∧ g (topProfile ({x, y} : Finset σ) P) = x
+```
+
+
+The idea is that the social comparison between $a$ and $b$ is determined by the outcome chosen when the pair `{a, b}` is placed at the top of every ballot. Thus the social choice function is converted into a binary social relation.
+
+The file then introduces a dedicated namespace `StrictSocialRelation`, with the forward-facing predicates
+
+
+```lean
+def ParetoOn
+def IIAOn
+def IsDictatorOn
+def DictatorialOn
+```
+
+
+for strict social relations on strict-ballot profiles. This is the vocabulary used in the statement of `gibbardSatterthwaite`.
+
+== Pareto and IIA for the induced relation
+
+
+The next goal is to show that the induced strict social relation satisfies Arrow-style axioms. The two key internal lemmas are
+
+
+```lean
+private lemma socialPrefers_pareto ...
+private lemma socialPrefers_iia ...
+```
+
+
+The first says that if every voter strictly prefers $a$ to $b$, then the induced relation `socialPrefers g` also ranks $a$ above $b$. The proof uses `binary_top_choice_eq_left` on the topified pair `{a, b}`.
+
+The second is the strict-ballot analogue of IIA. Given two profiles agreeing on the pair $(a,b)$, the proof topifies the pair `{a, b}` in both profiles and then shows, using monotonicity, that the chosen element from the pair cannot differ. The required pairwise agreement is handled by the strict-profile agreement lemmas in the file, in particular `StrictProfile.PairwiseAgreesOn` and the pair-top comparison lemmas derived from `topifyLin`.
+
+Thus, from the single behavioural assumption `NonManipulable g X`, together with feasibility and onto-ness, the file derives both Pareto and IIA for the induced relation `socialPrefers g`.
+
+== From relational dictatorship to choice dictatorship
+
+
+Once Pareto and IIA have been obtained for the induced relation, the theorem `gibbardSatterthwaite` applies the supplied Arrow-style impossibility principle `harrow`. The result is a dictatorship theorem for the induced strict social relation.
+
+The final step is to translate this relational dictatorship back into dictatorship of the original social choice function. The central internal theorem is:
+
+
+```lean
+private lemma socialPrefers_dictatorial_implies_choice_dictator ...
+```
+
+
+Mathematically, this says that if the induced strict social relation is dictatorial, then the social choice function itself is dictatorial in the sense that the chosen outcome is top-ranked by the dictator among all elements of `X`.
+
+The proof fixes the chosen alternative `w := g P` and an arbitrary comparison alternative $q$. It then topifies the pair `{q, w}`, uses the dictatorship of the induced relation to conclude that the dictator’s ballot must rank $w$ above $q$, and then lets $q$ vary over the agenda. In this way, the file converts a pairwise relational dictatorship condition into a global choice dictatorship statement.
+
+
+
+== The final theorem
+
+
+With all these ingredients in place, the main theorem `gibbardSatterthwaite` is immediate. Its proof simply:
+- derives Pareto for `socialPrefers g`,
+- derives IIA for `socialPrefers g`,
+- applies the supplied Arrow-style impossibility theorem `harrow`,
+- converts the resulting social dictatorship into choice dictatorship.
+
+== Summary
+
+
+The formalisation of Gibbard--Satterthwaite in `GibbardSatterthwaite.lean` does not reproduce the Arrow pivot proof directly inside the strict-ballot setting. Instead, it proceeds by reduction. The file introduces strict ballots, translates them into the shared preference framework, derives monotonicity from non-manipulability, uses pair-top constructions to define the induced strict social relation `socialPrefers`, proves Pareto and IIA for that relation, and then invokes an Arrow-style dictatorship theorem before translating the resulting conclusion back into dictatorship of the original social choice function.
+
+As in the Arrow development, the role of each assumption is transparent. Feasibility and onto-ness control the outcome domain. Non-manipulability is converted into an operational local form and then used to derive monotonicity. Finiteness of the voter set supports the switching-profile construction. Pair-topification provides the analogue of the profile gadgets used in the Arrow proof. For these reasons, the formalisation does more than verify Gibbard--Satterthwaite. It exhibits the theorem as an extension of the same eco-lean architecture developed for Arrow’s theorem, while making clear that the proof strategy is not a second pivot argument, but a reduction from social choice to social relation impossibility.
+
+= Comparison with Existing Formalisations
+
+
+Formal proofs of social choice impossibility theorems remain relatively rare, and the present development can be situated alongside two especially relevant precedents: the Isabelle/HOL formalisation by #cite(<nipkow_social_2009>, form: "prose"), and the Lean 3 development of #cite(<souther_lean_2020>, form: "prose"). These works are close enough to make comparison genuinely illuminating, but different enough that the contrasts are methodologically significant. In particular, the present development differs from Nipkow’s work in its treatment of both Arrow’s theorem and the Gibbard--Satterthwaite theorem, and differs from Souther’s in its treatment of Arrow’s theorem within Lean itself.
+
+== Comparison with Nipkow on Arrow’s theorem
+
+
+The most established formalisation of Arrow’s theorem is due to #cite(<nipkow_social_2009>, form: "prose"), who formalises Arrow’s theorem in Isabelle/HOL following arguments due to #cite(<geanakoplos_three_2005>, form: "prose"). Nipkow’s development is especially important because it demonstrates that classical social choice impossibility proofs can be mechanised in a mature theorem-proving environment, and because it distinguishes two formal routes to Arrow’s theorem: one based on utility representations and another based on preference orderings.
+
+The present development differs from Nipkow’s Arrow formalisation at several levels.
+
+First, the ambient formal environment is different. Nipkow works in Isabelle/HOL, that is, in classical higher-order logic. The present work is carried out in Lean 4, within dependent type theory and the broader mathlib ecosystem. This is not merely a difference of syntax. Nipkow’s development is theorem-oriented: the formalisation is organised around proving Arrow’s theorem and related impossibility results in HOL. The present development is library-oriented. Arrow’s theorem is proved inside a broader eco-lean architecture intended to support formal economic theory more generally.
+
+Second, the representation of preferences differs. Nipkow formalises Arrow’s theorem both in a utility-based setting and in an order-based setting. By contrast, the present development adopts a relation-first architecture. Weak preference is primitive, encoded through the minimal `Preference` structure, and strict preference, indifference, completeness, and transitivity are defined from that primitive interface. This keeps the formalisation closer to the ordinal language in which much of economic theory is actually stated, and it also makes the Arrow development one client of a more general preference library rather than a stand-alone proof over a specialised representation.
+
+Third, the treatment of the domain differs. Nipkow’s development works over types together with assumptions ensuring sufficient richness of the alternative space. The present development instead works consistently with an explicit finite agenda `X : Finset σ`. This makes feasibility conditions, membership assumptions, and cardinality arguments fully explicit in theorem statements. The consequence is that combinatorial facts which are often suppressed in informal proofs, such as the extraction of three distinct alternatives from a finite agenda of cardinality at least three, are formalised as reusable lemmas.
+
+Fourth, the two developments differ in proof architecture. Mathematically, both are recognisably Geanakoplos-style pivot proofs. However, the present development isolates much more of the conceptual skeleton of the proof into reusable definitions and named stages. In particular, `Arrow.lean` is organised around extremal alternatives, the explicit order-modification gadgets `maketop`, `makebot`, and `makeabove`, and the successive intermediate notions `IsPivotal`, `HasPivot`, and `IsDictatorExcept`, culminating in the staged theorems `first_step`, `second_step`, `third_step`, and `fourth_step`. This does not change the broad mathematical strategy, but it makes the internal architecture of the proof more modular and reusable.
+
+Finally, the role of independence of irrelevant alternatives is made especially explicit in the present development. Rather than appearing only as an abstract axiom, it is paired with a concrete library of pairwise-agreement and invariance lemmas, allowing it to function as a transport principle across carefully modified profiles. This profile-transforming infrastructure is one of the distinctive features of the Lean development and gives the formal proof a particularly transparent local structure.
+
+== Comparison with Nipkow on Gibbard--Satterthwaite
+
+
+The contrast with Nipkow becomes even sharper in the case of Gibbard--Satterthwaite. Nipkow’s development derives the theorem as a corollary within the Isabelle/HOL formalisation. In broad mathematical terms, the present development also reduces Gibbard--Satterthwaite to an Arrow-style impossibility theorem, but the structure of the reduction is made much more explicit and is integrated into the same reusable architecture as the Arrow proof.
+
+The starting point is different from the Arrow file. The present `GibbardSatterthwaite.lean` begins with strict ballots, represented by `LinBallot`, and defines forward-facing notions of strict and weak preference through `prefers`, `weakPref`, and `toPreference`. This means that strict ballots are not treated as an isolated object language. Instead, they are translated back into the shared eco-lean preference interface. That design choice already distinguishes the present development from a more theorem-local formalisation. The strict-ballot setting is supported, but it remains interoperable with the same preference layer used elsewhere in the project.
+
+The key mathematical engine of the proof is also different in emphasis. In the Arrow development, the central local mechanism is IIA, used as a transport principle for pairwise social comparisons across profiles. In the Gibbard--Satterthwaite development, the corresponding local engine is not IIA but monotonicity derived from non-manipulability. The file begins by defining `Manipulable` and `NonManipulable`, proves the operational reformulation `nonManipulable_iff`, and then derives a monotonicity theorem using switching profiles. This monotonicity principle is then used, together with pair-top constructions, to define an induced strict social relation from the social choice function.
+
+This pair-top stage is especially important. The file introduces `topifyLin` and `topProfile`, proves top-unanimity and binary pair-choice results, and then uses these to define the induced strict social relation `socialPrefers`. Pareto and IIA are not assumed for this induced relation. They are derived from the strategic assumptions on the underlying social choice function. Only after this induced strict social relation has been shown to satisfy Arrow-style axioms does the proof invoke an Arrow-style dictatorship theorem as a parameter. The final step then converts dictatorship of the induced social relation back into dictatorship of the original social choice function.
+
+In this sense, the present Gibbard--Satterthwaite development is best understood as a reduction pipeline: strict ballots are translated into preferences, non-manipulability is converted into monotonicity, pair-topification yields an induced social relation, Pareto and IIA are derived for that relation, and only then is an Arrow-style impossibility theorem applied. Compared with Nipkow’s corollary-style treatment, the present development makes the intermediate conceptual stages more explicit and more reusable within a broader economics-oriented library.
+
+== Comparison with Souther on Arrow’s theorem
+
+
+A closer comparator within Lean itself is the repository `lean-social-choice` developed by #cite(<souther_lean_2020>, form: "prose"). In particular, Souther’s `arrows_theorem.lean` provides a direct Lean formalisation of Arrow’s theorem explicitly following a Geanakoplos-style proof. At the level of broad mathematical strategy, the two developments are very close. Both introduce extremal alternatives, both use the profile-transforming operations `maketop`, `makebot`, and `makeabove`, and both proceed through intermediate notions of pivotality and restricted dictatorship before obtaining full dictatorship.
+
+The principal difference lies not in the high-level proof strategy, but in the architectural organisation of the formalisation.
+
+Souther’s development is proof-driven. The Arrow file is a direct formalisation of a specific argument inside a social-choice-centred Lean repository, and its central vocabulary, including `weak_pareto`, `ind_of_irr_alts`, `is_pivotal`, and `is_dictator_except`, is tailored to that theorem. Definitions and constructions are introduced as they are needed for the proof itself.
+
+By contrast, the present development is library-driven. It is built on a general preference layer in `EcoLean/ChoicePreferenceUtility/Preference.lean`, develops reusable social-choice infrastructure in `Basic.lean`, and proves Arrow’s theorem within that shared framework using the notions `ParetoOn`, `IIAOn`, and `DictatorialOn`. The older `PrefOrder`-based infrastructure remains available through wrappers in `Basic.lean`, but the proof itself is written in the forward-facing social-choice vocabulary. As a result, the theorem is embedded in a broader formal architecture rather than standing as a largely self-contained proof file.
+
+This difference yields several concrete contrasts.
+
+First, the present development begins from a more minimal representation of preference. Rather than taking a bundled preference order as the primitive object for the Arrow proof, it begins from primitive weak preference and introduces stronger structure only where required. This makes the proof sit naturally inside a broader economic theory of preferences and choice.
+
+Second, the implementation of independence of irrelevant alternatives is more systematically factored out. In the present development, pairwise agreement and pairwise order transport are handled through shared predicates such as `PairwiseAgreesOn` and `SameOrder`, together with invariance lemmas for the order-modification gadgets. In Souther’s development, IIA is used centrally and correctly, but more of the pairwise transport machinery remains internal to the proof itself.
+
+Third, intermediate notions such as pivotality and dictatorship-except are integrated into a more explicitly reusable infrastructure. The present development makes it particularly clear how the profile-modification gadgets and the pairwise transport lemmas interact, and this makes the conceptual skeleton of the pivot argument more visible as a library of formal tools rather than only as one theorem proof.
+
+== Summary
+
+
+Taken together, these comparisons show that the present work stands in continuity with prior formal social choice theory while also pursuing a different formalisation strategy.
+
+Compared with Nipkow’s Isabelle/HOL work, the present development replaces a theorem-oriented HOL formalisation with a library-oriented Lean 4 architecture, uses a relation-first preference interface rather than utility- or order-first primitives, works uniformly with an explicit finite agenda, and makes the profile-transforming and transport machinery more explicit in both the Arrow and Gibbard--Satterthwaite settings.
+
+Compared with Souther’s Lean formalisation of Arrow’s theorem, the present development remains mathematically close in overall proof strategy, but differs in its more general preference interface, its shared social-choice infrastructure, and its more systematic effort to isolate reusable proof-theoretic components.
+
+In this sense, the contribution of the present development is not only to verify Arrow’s theorem and the Gibbard--Satterthwaite theorem in Lean, but to integrate these impossibility results into a wider formal framework intended to support further developments in formal economic theory.
+
+
+= Methodological Implications and Future Directions
+
+
+The formalisation of Arrow’s theorem and the Gibbard--Satterthwaite theorem in Lean does more than provide machine-checked proofs of two classical results. It changes how the structure of economic arguments is represented, analysed, and extended. This section draws out the methodological implications of the development and outlines directions for further work within the eco-lean framework.
+
+== Explicitness of assumptions
+
+
+A central consequence of formalisation is the elimination of implicit assumptions. In standard presentations of both Arrow’s theorem and the Gibbard--Satterthwaite theorem, conditions such as finiteness of the voter set, richness of the alternative space, or admissibility of profile modifications are often handled informally. In the formal setting, such assumptions must be stated explicitly and supplied wherever they are required.
+
+In the Arrow development, this is reflected in hypotheses such as:
+- finiteness of the set of individuals, expressed through `[Fintype ι]`,
+- decidable equality, required for profile updates,
+- the explicit finite agenda `X : Finset σ`,
+- and the cardinality condition `3 ≤ X.card`.
+
+
+In the Gibbard--Satterthwaite development, additional assumptions such as `ChoosesFrom`, `OntoOn`, and `NonManipulable` appear and are propagated through the reduction. Each plays a precise role in the argument, and none can be omitted without breaking specific steps of the proof.
+
+This explicitness has methodological value. It allows one to identify exactly which assumptions are responsible for which conclusions, and therefore to analyse how results depend on their hypotheses. In particular, it becomes possible to ask whether particular assumptions can be weakened, replaced, or isolated, and to do so in a setting where all logical dependencies are formally tracked.
+
+== Separation of primitives and structure
+
+
+A second important feature of the development is the separation between primitive objects and additional structure. Preferences are introduced as minimal weak relations, without assuming completeness or transitivity. Stronger properties are imposed only when required by a particular argument.
+
+This design principle extends across the library. Social welfare functions, social choice functions, and strict ballots are defined independently, and connections between them are established through explicit translation functions such as `toPreference` and `socialPrefers`. As a result, the Arrow and Gibbard--Satterthwaite developments operate within the same underlying framework, even though they begin from different representations of individual preferences.
+
+This contrasts with many informal treatments of economic theory, in which definitions are bundled together with their standard assumptions. The formalisation shows that it is both possible and useful to separate these layers. The resulting structure is more flexible and better suited to reuse across different parts of economic theory.
+
+== Local transport principles
+
+
+Both the Arrow and Gibbard--Satterthwaite proofs rely on local invariance principles that allow information to be transported across profiles.
+
+In the Arrow setting, this role is played by independence of irrelevant alternatives. Through predicates such as `PairwiseAgreesOn` and `SameOrder`, together with invariance lemmas for the order-modification gadgets `maketop`, `makebot`, and `makeabove`, IIA becomes an explicit mechanism for transferring pairwise social comparisons between carefully constructed profiles.
+
+In the Gibbard--Satterthwaite setting, the analogous role is played by monotonicity derived from non-manipulability. The lemma `monotonicity` ensures that the outcome of a social choice function is preserved under profile changes that do not demote the chosen alternative. This property replaces IIA as the key local invariance principle and is used to derive top-unanimity and binary pair-choice results.
+
+In both cases, the impossibility result is driven by a local transport mechanism:
+- IIA in the Arrow proof,
+- monotonicity in the Gibbard--Satterthwaite proof.
+
+
+Making these mechanisms explicit clarifies the logical structure of the arguments and reveals a common pattern underlying different impossibility theorems.
+
+== Reduction as a proof strategy
+
+
+The formalisation of Gibbard--Satterthwaite illustrates a second methodological idea: reduction between economic results.
+
+Rather than proving Gibbard--Satterthwaite directly as an independent impossibility theorem, the development constructs a reduction from social choice to a strict social relation. A strict-ballot social choice function is transformed into an induced strict social relation via pair-topification. Pareto and IIA are then derived for this induced relation, and an Arrow-style impossibility theorem is invoked to obtain dictatorship.
+
+This reduction-based approach has two advantages. First, it avoids duplicating proof effort. Once an Arrow-style theorem has been established, it can be reused as a component in other results. Second, it clarifies the conceptual relationship between the two theorems. Gibbard--Satterthwaite is not merely analogous to Arrow’s theorem; it can be obtained from it through a precise sequence of transformations.
+
+== Library-oriented formalisation
+
+
+A central feature of the present work is its library-oriented design. The development is not organised as a collection of isolated theorem proofs. Instead, it is structured around reusable components:
+- a general preference layer,
+- shared definitions of social welfare and social choice,
+- profile transformation operators,
+- pairwise comparison interfaces,
+- and bridge constructions between different representations.
+
+
+Arrow’s theorem and the Gibbard--Satterthwaite theorem are then proved within this shared framework. This makes it possible to reuse definitions, lemmas, and proof patterns across different parts of the theory.
+
+This approach contrasts with more theorem-oriented formalisations, in which each result is developed largely independently. The library-oriented design is particularly well suited to economic theory, where many results rely on common underlying structures and can benefit from a shared formal infrastructure.
+
+== Future directions
+
+
+The present development opens several avenues for further work, particularly in the direction of integrating formal economic theory with automated reasoning systems based on reinforcement learning.
+
+At a mathematical level, the library can be extended to incorporate a wider range of results in social choice and decision theory. The modular structure of the Arrow and Gibbard--Satterthwaite developments suggests that additional impossibility theorems, characterisation results, and domain restrictions can be formalised within the same framework. Because key components—such as preference representations, profile transformations, and pairwise comparison lemmas—are already isolated, new results can build directly on existing infrastructure.
+
+The preference layer has already been extended beyond the material used in this chapter to include utility representation and rationalisation results. A natural next step is therefore not to introduce utility theory from scratch, but to connect those existing results more tightly to the social-choice development and to extend them further toward expected utility, uncertainty, and models of ambiguity.
+
+More significantly, the formalisation provides a natural environment for reinforcement learning–based approaches to automated theorem proving. In Lean, proofs are explicit objects constructed through sequences of valid inference steps. This allows theorem proving to be interpreted as a sequential decision problem, in which an agent selects actions—such as tactic applications or term constructions—in order to transform a goal into a completed proof.
+
+Within this perspective, the eco-lean library defines a structured environment in which:
+- the state consists of a proof goal together with its context,
+- actions correspond to admissible proof steps,
+- and rewards are obtained when valid proofs or intermediate milestones are reached.
+
+
+Reinforcement learning can be used to train agents to navigate this space. Such agents can learn heuristics for proof search, reuse previously discovered patterns, and explore variations of known arguments. In the context of social choice theory, this raises the possibility of partially automating the discovery of proof strategies such as pivot constructions, profile transformations, or reduction arguments.
+
+The modular architecture of the present development is particularly well suited to this approach. Because the key constructions are already encoded as reusable components, they provide a natural and structured action space for a learning agent. Rather than searching blindly over low-level proof steps, the agent can operate over economically meaningful transformations.
+
+Large language models can play a complementary role in this setting. While reinforcement learning provides a framework for structured exploration of proof spaces, language models can assist by generating candidate lemmas, suggesting proof outlines, or translating informal arguments into formal sketches. The combination of these approaches suggests a hybrid system in which language models propose directions and reinforcement learning agents refine them within the constraints of the formal system.
+
+More ambitiously, this integration opens the possibility of semi-automated theorem discovery in economics. Because the formalisation makes the dependence of results on their assumptions explicit, it becomes possible to systematically vary those assumptions and explore the resulting consequences. A reinforcement learning agent operating over such a structured space could, in principle, identify new impossibility results, characterisations, or boundary cases by recombining existing components of the library.
+
+Finally, this suggests a broader shift in how economic theory may be developed. Rather than treating formal proofs as static end products, they can be viewed as part of an interactive computational process in which conjectures, proof strategies, and verification are tightly integrated. In this setting, eco-lean is intended not only as a repository of formal results, but as an environment for exploring and constructing economic theory with the assistance of learning-based reasoning systems.
+
+== Summary
+
+
+The formalisation of Arrow’s theorem and the Gibbard--Satterthwaite theorem in Lean demonstrates that central results in social choice theory can be embedded in a unified and reusable formal framework. By making assumptions explicit, separating primitives from structure, and organising proofs around local transport principles and reductions, the development provides a clear account of the logical structure of these results.
+
+At the same time, by situating these proofs within a modular library designed for extension and interaction with automated reasoning systems, it points toward a broader reorganisation of economic theory as a formal, computational, and extensible discipline.
+
+#bibliography("references.bib", style: "chicago-author-date")
