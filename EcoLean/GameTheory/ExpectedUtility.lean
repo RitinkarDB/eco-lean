@@ -1,4 +1,5 @@
 import EcoLean.GameTheory.ExpectedUtility.Lottery
+import EcoLean.GameTheory.ExpectedUtility.Representation
 
 /-!
 # Expected utility

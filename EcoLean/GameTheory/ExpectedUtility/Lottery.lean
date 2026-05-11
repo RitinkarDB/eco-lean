@@ -105,6 +105,36 @@ theorem mix_apply
   rw [tsum_fintype]
   simp [PMF.bernoulli_apply]
 
+@[simp] theorem mix_zero (p q : Lottery Outcome) :
+    mix p q 0 (by norm_num) = q := by
+  ext x
+  rw [mix_apply]
+  simp
+
+@[simp] theorem mix_one (p q : Lottery Outcome) :
+    mix p q 1 le_rfl = p := by
+  ext x
+  rw [mix_apply]
+  simp
+
+@[simp] theorem mix_self
+    (p : Lottery Outcome) (a : NNReal) (ha : a ≤ 1) :
+    mix p p a ha = p := by
+  rw [mix]
+  simp only [ite_self]
+  exact PMF.bind_const (PMF.bernoulli a ha) p
+
+theorem support_mix_subset
+    (p q : Lottery Outcome) (a : NNReal) (ha : a ≤ 1) :
+    (mix p q a ha).support ⊆ p.support ∪ q.support := by
+  intro x hx
+  rw [mix] at hx
+  rcases (PMF.mem_support_bind_iff (p := PMF.bernoulli a ha)
+      (f := fun b => if b then p else q) x).mp hx with ⟨b, _hb, hxb⟩
+  cases b <;> simp at hxb
+  · exact Or.inr hxb
+  · exact Or.inl hxb
+
 theorem prob_mix
     (p q : Lottery Outcome) (a : NNReal) (ha : a ≤ 1) (x : Outcome) :
     prob (mix p q a ha) x =

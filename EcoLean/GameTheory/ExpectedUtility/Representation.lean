@@ -1,0 +1,183 @@
+import EcoLean.GameTheory.ExpectedUtility.Lottery
+
+/-!
+# The forward vNM construction
+
+This file contains the constructive core of the forward direction of the
+von Neumann-Morgenstern utility theorem.
+
+Given best and worst lotteries bounding a carrier, mixture continuity assigns
+to every lottery a certainty-equivalent weight: the lottery is indifferent to a
+mixture of the best and worst lotteries with that weight.  The remaining
+representation proof obligations are isolated as two explicit predicates:
+
+* the selected weights represent the preference order;
+* the selected weight of a lottery is affine in its outcome probabilities.
+
+Those are the hard induction/independence parts of the AFP proof.  Keeping them
+as named obligations gives later files a precise target rather than a vague
+placeholder theorem.
+-/
+
+universe u
+
+namespace EcoLean
+namespace GameTheory
+namespace ExpectedUtility
+
+variable {Outcome : Type u}
+
+/--
+Data needed to run the certainty-equivalent part of the vNM construction.
+
+`best` and `worst` bound all lotteries in `S`, and mixture continuity supplies
+an indifference between every lottery in `S` and some mixture of those bounds.
+-/
+structure VNMConstructionData
+    (P : Preference (Lottery Outcome))
+    (S : Set (Lottery Outcome)) where
+  best : Lottery Outcome
+  worst : Lottery Outcome
+  best_mem : best ∈ S
+  worst_mem : worst ∈ S
+  best_weakPref : ∀ p : Lottery Outcome, p ∈ S → P.weakPref best p
+  weakPref_worst : ∀ p : Lottery Outcome, p ∈ S → P.weakPref p worst
+  continuous : VNMContinuous P S
+
+namespace VNMConstructionData
+
+variable {P : Preference (Lottery Outcome)}
+variable {S : Set (Lottery Outcome)}
+
+/-- The existential statement supplied by mixture continuity for `p`. -/
+theorem exists_weight
+    (D : VNMConstructionData P S)
+    (p : Lottery Outcome) (hp : p ∈ S) :
+    ∃ (a : NNReal), ∃ (ha : a ≤ 1),
+      P.Indiff (mix D.best D.worst a ha) p := by
+  exact D.continuous D.best_mem hp D.worst_mem
+    (D.best_weakPref p hp) (D.weakPref_worst p hp)
+
+/--
+The selected certainty-equivalent weight of `p`: a probability of the best
+lottery in a mixture with the worst lottery.
+-/
+noncomputable def weight
+    (D : VNMConstructionData P S)
+    (p : Lottery Outcome) (hp : p ∈ S) : NNReal :=
+  Classical.choose (D.exists_weight p hp)
+
+/-- The selected certainty-equivalent weight lies in `[0, 1]`. -/
+noncomputable def weight_le_one
+    (D : VNMConstructionData P S)
+    (p : Lottery Outcome) (hp : p ∈ S) :
+    D.weight p hp ≤ 1 :=
+  Classical.choose (Classical.choose_spec (D.exists_weight p hp))
+
+/--
+The selected best/worst mixture is indifferent to the original lottery.
+-/
+theorem mix_weight_indiff
+    (D : VNMConstructionData P S)
+    (p : Lottery Outcome) (hp : p ∈ S) :
+    P.Indiff
+      (mix D.best D.worst (D.weight p hp) (D.weight_le_one p hp)) p :=
+  Classical.choose_spec (Classical.choose_spec (D.exists_weight p hp))
+
+/--
+The outcome utility index induced by the certainty-equivalent construction.
+
+Each outcome receives the selected weight of its degenerate lottery.
+-/
+noncomputable def outcomeUtility
+    (D : VNMConstructionData P S)
+    (hDegenerate : ∀ x : Outcome, degenerate x ∈ S)
+    (x : Outcome) : ℝ :=
+  D.weight (degenerate x) (hDegenerate x)
+
+theorem degenerate_mix_weight_indiff
+    (D : VNMConstructionData P S)
+    (hDegenerate : ∀ x : Outcome, degenerate x ∈ S)
+    (x : Outcome) :
+    P.Indiff
+      (mix D.best D.worst
+        (D.weight (degenerate x) (hDegenerate x))
+        (D.weight_le_one (degenerate x) (hDegenerate x)))
+      (degenerate x) :=
+  D.mix_weight_indiff (degenerate x) (hDegenerate x)
+
+/--
+The selected certainty-equivalent weights represent the preference order on
+`S`.
+
+This is one of the two remaining hard proof obligations in the full forward
+vNM theorem.
+-/
+def WeightRepresents
+    (D : VNMConstructionData P S) : Prop :=
+  ∀ ⦃p q : Lottery Outcome⦄, (hp : p ∈ S) → (hq : q ∈ S) →
+    (P.weakPref p q ↔ (D.weight p hp : ℝ) ≥ (D.weight q hq : ℝ))
+
+/--
+The selected weight is affine in lottery probabilities with respect to an
+outcome utility index.
+
+For the canonical construction, `u` should be `D.outcomeUtility hDegenerate`.
+This is the other hard proof obligation in the full forward vNM theorem.
+-/
+def WeightAffine [Fintype Outcome]
+    (D : VNMConstructionData P S)
+    (u : Outcome → ℝ) : Prop :=
+  ∀ (p : Lottery Outcome) (hp : p ∈ S),
+    (D.weight p hp : ℝ) = expectedValue u p
+
+/--
+Once the certainty-equivalent weights are known to represent preferences and
+to be affine in probabilities, they produce a finite expected-utility
+representation.
+-/
+theorem expectedValueRepresentsOn_of_weightRepresents_of_weightAffine
+    [Fintype Outcome]
+    (D : VNMConstructionData P S)
+    (u : Outcome → ℝ)
+    (hRep : D.WeightRepresents)
+    (hAff : D.WeightAffine u) :
+    ExpectedValueRepresentsOn P S u := by
+  intro p q hp hq
+  rw [← hAff p hp, ← hAff q hq]
+  exact hRep hp hq
+
+/--
+The same bridge specialized to the canonical outcome utility generated by the
+selected weights of degenerate lotteries.
+-/
+theorem expectedValueRepresentsOn_of_constructedUtility
+    [Fintype Outcome]
+    (D : VNMConstructionData P S)
+    (hDegenerate : ∀ x : Outcome, degenerate x ∈ S)
+    (hRep : D.WeightRepresents)
+    (hAff : D.WeightAffine (D.outcomeUtility hDegenerate)) :
+    ExpectedValueRepresentsOn P S (D.outcomeUtility hDegenerate) :=
+  D.expectedValueRepresentsOn_of_weightRepresents_of_weightAffine
+    (D.outcomeUtility hDegenerate) hRep hAff
+
+/--
+Existence form of the forward bridge: once the two remaining AFP-style proof
+obligations for the selected certainty-equivalent weights are discharged, the
+constructed outcome utility index gives an expected-utility representation.
+-/
+theorem exists_expectedValueRepresentsOn_of_constructedUtility
+    [Fintype Outcome]
+    (D : VNMConstructionData P S)
+    (hDegenerate : ∀ x : Outcome, degenerate x ∈ S)
+    (hRep : D.WeightRepresents)
+    (hAff : D.WeightAffine (D.outcomeUtility hDegenerate)) :
+    ∃ u : Outcome → ℝ, ExpectedValueRepresentsOn P S u :=
+  ⟨D.outcomeUtility hDegenerate,
+    D.expectedValueRepresentsOn_of_constructedUtility hDegenerate hRep hAff⟩
+
+end VNMConstructionData
+
+end ExpectedUtility
+end GameTheory
+end EcoLean
