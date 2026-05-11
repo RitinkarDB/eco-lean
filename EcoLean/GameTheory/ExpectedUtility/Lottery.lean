@@ -236,6 +236,75 @@ theorem expectedValue_generatedPref_independent [Fintype Outcome]
   · intro h
     nlinarith
 
+theorem expectedValue_generatedPref_continuous [Fintype Outcome]
+    (u : Outcome → ℝ) (S : Set (Lottery Outcome)) :
+    VNMContinuous (Utility.generatedPref (expectedValue u)) S := by
+  intro p q r _hp _hq _hr hpq hqr
+  let Up := expectedValue u p
+  let Uq := expectedValue u q
+  let Ur := expectedValue u r
+  change Up ≥ Uq at hpq
+  change Uq ≥ Ur at hqr
+  by_cases hEq : Up = Ur
+  · refine ⟨1, le_rfl, ?_⟩
+    have hUq : Uq = Up := by
+      nlinarith
+    constructor
+    · change expectedValue u (mix p r 1 le_rfl) ≥ Uq
+      rw [expectedValue_mix]
+      simp [Up, Uq, hUq]
+    · change Uq ≥ expectedValue u (mix p r 1 le_rfl)
+      rw [expectedValue_mix]
+      simp [Up, Uq, hUq]
+  · have hUrUp : Ur < Up := by
+      have hle : Ur ≤ Up := by
+        linarith
+      exact lt_of_le_of_ne hle (Ne.symm hEq)
+    let aR : ℝ := (Uq - Ur) / (Up - Ur)
+    have haR_nonneg : 0 ≤ aR := by
+      dsimp [aR]
+      exact div_nonneg (by linarith) (by linarith)
+    have haR_le_one : aR ≤ 1 := by
+      dsimp [aR]
+      rw [div_le_one (by linarith)]
+      linarith
+    let a : NNReal := Real.toNNReal aR
+    have ha : a ≤ 1 := by
+      dsimp [a]
+      rw [Real.toNNReal_le_one]
+      exact haR_le_one
+    refine ⟨a, ha, ?_⟩
+    have ha_coe : (a : ℝ) = aR := by
+      exact Real.coe_toNNReal aR haR_nonneg
+    have hsub_coe : ((1 - a : NNReal) : ℝ) = 1 - aR := by
+      rw [NNReal.coe_sub ha, ha_coe]
+      norm_num
+    have hmix : expectedValue u (mix p r a ha) = Uq := by
+      rw [expectedValue_mix]
+      rw [ha_coe, hsub_coe]
+      change aR * Up + (1 - aR) * Ur = Uq
+      dsimp [aR]
+      have hden_ne : Up - Ur ≠ 0 := by
+        nlinarith
+      field_simp [hden_ne]
+      ring
+    constructor
+    · change expectedValue u (mix p r a ha) ≥ Uq
+      rw [hmix]
+    · change Uq ≥ expectedValue u (mix p r a ha)
+      rw [hmix]
+
+theorem expectedValue_generatedPref_vnmRational [Fintype Outcome]
+    (u : Outcome → ℝ) {S : Set (Lottery Outcome)}
+    (hS : MixtureClosed S) :
+    VNMRational (Utility.generatedPref (expectedValue u)) S := by
+  exact
+    ⟨(Utility.generatedPref (expectedValue u)).rationalOn_of_representsOn
+        (expectedValue_generatedPref_representsOn u S),
+      hS,
+      expectedValue_generatedPref_independent u S,
+      expectedValue_generatedPref_continuous u S⟩
+
 theorem rationalOn_of_vnmRational
     {P : Preference (Lottery Outcome)} {S : Set (Lottery Outcome)}
     (h : VNMRational P S) :
@@ -266,6 +335,103 @@ theorem rationalOn_of_expectedUtilityRepresentsOn
     (hRep : ExpectedUtilityRepresentsOn P S U) :
     P.RationalOn S :=
   P.rationalOn_of_representsOn hRep
+
+theorem vnmIndependent_of_expectedValueRepresentsOn [Fintype Outcome]
+    {P : Preference (Lottery Outcome)}
+    {S : Set (Lottery Outcome)}
+    {u : Outcome → ℝ}
+    (hS : MixtureClosed S)
+    (hRep : ExpectedValueRepresentsOn P S u) :
+    VNMIndependent P S := by
+  intro p q r hp hq hr a ha hpos
+  have haR : 0 < (a : ℝ) := by
+    exact_mod_cast hpos
+  have hpr : mix p r a ha ∈ S := hS hp hr a ha
+  have hqr : mix q r a ha ∈ S := hS hq hr a ha
+  rw [hRep hp hq, hRep hpr hqr]
+  rw [expectedValue_mix, expectedValue_mix]
+  constructor
+  · intro h
+    nlinarith
+  · intro h
+    nlinarith
+
+theorem vnmContinuous_of_expectedValueRepresentsOn [Fintype Outcome]
+    {P : Preference (Lottery Outcome)}
+    {S : Set (Lottery Outcome)}
+    {u : Outcome → ℝ}
+    (hS : MixtureClosed S)
+    (hRep : ExpectedValueRepresentsOn P S u) :
+    VNMContinuous P S := by
+  intro p q r hp hq hr hpq hqr
+  let Up := expectedValue u p
+  let Uq := expectedValue u q
+  let Ur := expectedValue u r
+  have hpqU : Up ≥ Uq := by
+    change expectedValue u p ≥ expectedValue u q
+    exact (hRep hp hq).mp hpq
+  have hqrU : Uq ≥ Ur := by
+    change expectedValue u q ≥ expectedValue u r
+    exact (hRep hq hr).mp hqr
+  by_cases hEq : Up = Ur
+  · refine ⟨1, le_rfl, ?_⟩
+    have hUq : Uq = Up := by
+      nlinarith
+    have hmixS : mix p r 1 le_rfl ∈ S := hS hp hr 1 le_rfl
+    have hmix : expectedValue u (mix p r 1 le_rfl) = Uq := by
+      rw [expectedValue_mix]
+      simp [Up, Uq, hUq]
+    constructor
+    · exact (hRep hmixS hq).mpr (by rw [hmix])
+    · exact (hRep hq hmixS).mpr (by rw [hmix])
+  · have hUrUp : Ur < Up := by
+      have hle : Ur ≤ Up := by
+        linarith
+      exact lt_of_le_of_ne hle (Ne.symm hEq)
+    let aR : ℝ := (Uq - Ur) / (Up - Ur)
+    have haR_nonneg : 0 ≤ aR := by
+      dsimp [aR]
+      exact div_nonneg (by linarith) (by linarith)
+    have haR_le_one : aR ≤ 1 := by
+      dsimp [aR]
+      rw [div_le_one (by linarith)]
+      linarith
+    let a : NNReal := Real.toNNReal aR
+    have ha : a ≤ 1 := by
+      dsimp [a]
+      rw [Real.toNNReal_le_one]
+      exact haR_le_one
+    refine ⟨a, ha, ?_⟩
+    have hmixS : mix p r a ha ∈ S := hS hp hr a ha
+    have ha_coe : (a : ℝ) = aR := by
+      exact Real.coe_toNNReal aR haR_nonneg
+    have hsub_coe : ((1 - a : NNReal) : ℝ) = 1 - aR := by
+      rw [NNReal.coe_sub ha, ha_coe]
+      norm_num
+    have hmix : expectedValue u (mix p r a ha) = Uq := by
+      rw [expectedValue_mix]
+      rw [ha_coe, hsub_coe]
+      change aR * Up + (1 - aR) * Ur = Uq
+      dsimp [aR]
+      have hden_ne : Up - Ur ≠ 0 := by
+        nlinarith
+      field_simp [hden_ne]
+      ring
+    constructor
+    · exact (hRep hmixS hq).mpr (by rw [hmix])
+    · exact (hRep hq hmixS).mpr (by rw [hmix])
+
+theorem vnmRational_of_expectedValueRepresentsOn [Fintype Outcome]
+    {P : Preference (Lottery Outcome)}
+    {S : Set (Lottery Outcome)}
+    {u : Outcome → ℝ}
+    (hS : MixtureClosed S)
+    (hRep : ExpectedValueRepresentsOn P S u) :
+    VNMRational P S :=
+  ⟨rationalOn_of_expectedUtilityRepresentsOn hRep,
+    hS,
+    vnmIndependent_of_expectedValueRepresentsOn hS hRep,
+    vnmContinuous_of_expectedValueRepresentsOn hS hRep⟩
 
 end ExpectedUtility
 end GameTheory
