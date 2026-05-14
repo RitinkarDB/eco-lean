@@ -442,6 +442,127 @@ def BestWorstMixtureOrder
     (P.weakPref (mix D.best D.worst a ha) (mix D.best D.worst b hb) ↔
       (a : ℝ) ≥ (b : ℝ))
 
+theorem bestWorstMixture_weakPref_of_ge
+    (D : VNMConstructionData P S)
+    (hRat : P.RationalOn S)
+    (hIndependent : VNMIndependent P S)
+    (hS : MixtureClosed S)
+    {a b : NNReal} (ha : a ≤ 1) (hb : b ≤ 1)
+    (hba : (b : ℝ) ≤ (a : ℝ)) :
+    P.weakPref (mix D.best D.worst a ha) (mix D.best D.worst b hb) := by
+  by_cases hazero : a = 0
+  · have hbzero : b = 0 := by
+      apply NNReal.coe_injective
+      have : (b : ℝ) = 0 := by
+        have hnonneg : (0 : ℝ) ≤ b := by exact_mod_cast (zero_le b)
+        have hau : (a : ℝ) = 0 := by simp [hazero]
+        linarith
+      simpa using this
+    have hmixS : mix D.best D.worst a ha ∈ S :=
+      hS D.best_mem D.worst_mem a ha
+    have hrefl := (P.reflexiveOn_of_completeOn hRat.1) hmixS
+    simpa [hazero, hbzero] using hrefl
+  · have hapos : 0 < a := lt_of_le_of_ne bot_le (Ne.symm hazero)
+    let c : NNReal := b / a
+    have hc_le : c ≤ 1 := by
+      dsimp [c]
+      rw [div_le_one hapos]
+      exact_mod_cast hba
+    have hc_mul : c * a = b := by
+      dsimp [c]
+      exact div_mul_cancel₀ b (ne_of_gt hapos)
+    have hmaS : mix D.best D.worst a ha ∈ S :=
+      hS D.best_mem D.worst_mem a ha
+    have hmixS :
+        mix (mix D.best D.worst a ha) D.worst c hc_le ∈ S :=
+      hS hmaS D.worst_mem c hc_le
+    have hselfPrefWorst :
+        P.weakPref (mix D.best D.worst a ha) D.worst :=
+      D.weakPref_worst (mix D.best D.worst a ha) hmaS
+    have hpref :
+        P.weakPref
+          (mix (mix D.best D.worst a ha) (mix D.best D.worst a ha) c hc_le)
+          (mix (mix D.best D.worst a ha) D.worst c hc_le) :=
+      weakPref_mix_right_of_independent hRat hIndependent
+        hmaS D.worst_mem hmaS hselfPrefWorst c hc_le
+    have hmixEq :
+        mix (mix D.best D.worst a ha) D.worst c hc_le =
+          mix D.best D.worst b hb := by
+      rw [mix_mix_right]
+      simp [hc_mul]
+    simpa [mix_self, hmixEq] using hpref
+
+theorem not_bestWorstMixture_weakPref_of_lt
+    (D : VNMConstructionData P S)
+    (hIndependent : VNMIndependent P S)
+    (hS : MixtureClosed S)
+    (hStrict : ¬ P.Indiff D.best D.worst)
+    {a b : NNReal} (ha : a ≤ 1) (hb : b ≤ 1)
+    (hlt : (a : ℝ) < (b : ℝ)) :
+    ¬ P.weakPref (mix D.best D.worst a ha) (mix D.best D.worst b hb) := by
+  intro hpref
+  have hltNN : a < b := by
+    exact_mod_cast hlt
+  have hbpos : 0 < b := lt_of_le_of_lt bot_le hltNN
+  let c : NNReal := a / b
+  have hc_le : c ≤ 1 := by
+    dsimp [c]
+    rw [div_le_one hbpos]
+    exact le_of_lt hltNN
+  have hc_lt : c < 1 := by
+    dsimp [c]
+    rw [div_lt_one hbpos]
+    exact hltNN
+  have hc_mul : c * b = a := by
+    dsimp [c]
+    exact div_mul_cancel₀ a (ne_of_gt hbpos)
+  have hmaS : mix D.best D.worst a ha ∈ S :=
+    hS D.best_mem D.worst_mem a ha
+  have hmbS : mix D.best D.worst b hb ∈ S :=
+    hS D.best_mem D.worst_mem b hb
+  have hmixEq :
+      mix (mix D.best D.worst b hb) D.worst c hc_le =
+        mix D.best D.worst a ha := by
+    rw [mix_mix_right]
+    simp [hc_mul]
+  have hpref' :
+      P.weakPref
+        (mix (mix D.best D.worst b hb) D.worst c hc_le)
+        (mix (mix D.best D.worst b hb) (mix D.best D.worst b hb) c hc_le) := by
+    simpa [hmixEq, mix_self] using hpref
+  have hWorstPrefMb :
+      P.weakPref D.worst (mix D.best D.worst b hb) :=
+    (weakPref_mix_right_iff_of_independent hIndependent
+      D.worst_mem hmbS hmbS c hc_le hc_lt).mpr hpref'
+  have hWorstPrefBest :
+      P.weakPref D.worst D.best := by
+    have hMixed :
+        P.weakPref
+          (mix D.worst D.worst b hb)
+          (mix D.best D.worst b hb) := by
+      simpa [mix_self] using hWorstPrefMb
+    exact
+      (hIndependent D.worst_mem D.best_mem D.worst_mem b hb hbpos).mpr
+        hMixed
+  exact hStrict ⟨D.best_weakPref D.worst D.worst_mem, hWorstPrefBest⟩
+
+theorem bestWorstMixtureOrder_of_strict
+    (D : VNMConstructionData P S)
+    (hRat : P.RationalOn S)
+    (hIndependent : VNMIndependent P S)
+    (hS : MixtureClosed S)
+    (hStrict : ¬ P.Indiff D.best D.worst) :
+    D.BestWorstMixtureOrder := by
+  intro a ha b hb
+  constructor
+  · intro hpref
+    by_contra hnot
+    have hlt : (a : ℝ) < (b : ℝ) := lt_of_not_ge hnot
+    exact D.not_bestWorstMixture_weakPref_of_lt
+      hIndependent hS hStrict ha hb hlt hpref
+  · intro hge
+    exact D.bestWorstMixture_weakPref_of_ge hRat hIndependent hS ha hb hge
+
 theorem weightRepresents_of_bestWorstMixtureOrder
     (D : VNMConstructionData P S)
     (hRat : P.RationalOn S)
@@ -502,6 +623,73 @@ def WeightMixLinear
       (D.weight (mix p q a ha) (hS hp hq a ha) : ℝ) =
         (a : ℝ) * (D.weight p hp : ℝ) +
           ((1 - a : NNReal) : ℝ) * (D.weight q hq : ℝ)
+
+theorem weightMixLinear_of_strict
+    (D : VNMConstructionData P S)
+    (hRat : P.RationalOn S)
+    (hIndependent : VNMIndependent P S)
+    (hS : MixtureClosed S)
+    (hStrict : ¬ P.Indiff D.best D.worst) :
+    D.WeightMixLinear hS := by
+  intro p q hp hq a ha
+  let wp : NNReal := D.weight p hp
+  let wq : NNReal := D.weight q hq
+  let hr : mix p q a ha ∈ S := hS hp hq a ha
+  let wr : NNReal := D.weight (mix p q a ha) hr
+  have hwp : wp ≤ 1 := D.weight_le_one p hp
+  have hwq : wq ≤ 1 := D.weight_le_one q hq
+  have hwr : wr ≤ 1 := D.weight_le_one (mix p q a ha) hr
+  let w : NNReal := a * wp + (1 - a) * wq
+  have hw : w ≤ 1 := by
+    dsimp [w]
+    calc
+      a * wp + (1 - a) * wq ≤ a * 1 + (1 - a) * 1 := by gcongr
+      _ = a + (1 - a) := by ring
+      _ = 1 := by exact add_tsub_cancel_of_le ha
+  let mp : Lottery Outcome := mix D.best D.worst wp hwp
+  let mq : Lottery Outcome := mix D.best D.worst wq hwq
+  let mr : Lottery Outcome := mix D.best D.worst wr hwr
+  let mw : Lottery Outcome := mix D.best D.worst w hw
+  have hmpS : mp ∈ S := hS D.best_mem D.worst_mem wp hwp
+  have hmqS : mq ∈ S := hS D.best_mem D.worst_mem wq hwq
+  have hmrS : mr ∈ S := hS D.best_mem D.worst_mem wr hwr
+  have hmwS : mw ∈ S := hS D.best_mem D.worst_mem w hw
+  have hmix_mp_mq_S : mix mp mq a ha ∈ S := hS hmpS hmqS a ha
+  have hIndiffPQ :
+      P.Indiff (mix mp mq a ha) (mix p q a ha) :=
+    indiff_mix_of_indiff hRat hIndependent hS
+      hmpS hp hmqS hq
+      (D.mix_weight_indiff p hp)
+      (D.mix_weight_indiff q hq)
+      a ha
+  have hmixEq : mix mp mq a ha = mw := by
+    dsimp [mp, mq, mw, w]
+    rw [mix_mix]
+  have hmwIndiffR : P.Indiff mw (mix p q a ha) := by
+    simpa [hmixEq] using hIndiffPQ
+  have hmrIndiffR : P.Indiff mr (mix p q a ha) :=
+    D.mix_weight_indiff (mix p q a ha) hr
+  have hmrPrefMw : P.weakPref mr mw :=
+    hRat.2 hmrS hr hmwS hmrIndiffR.1 hmwIndiffR.2
+  have hmwPrefMr : P.weakPref mw mr :=
+    hRat.2 hmwS hr hmrS hmwIndiffR.1 hmrIndiffR.2
+  have hOrder := D.bestWorstMixtureOrder_of_strict hRat hIndependent hS hStrict
+  have hwr_ge_w : (wr : ℝ) ≥ (w : ℝ) :=
+    (hOrder wr hwr w hw).mp hmrPrefMw
+  have hw_ge_wr : (w : ℝ) ≥ (wr : ℝ) :=
+    (hOrder w hw wr hwr).mp hmwPrefMr
+  have hwr_eq_w : (wr : ℝ) = (w : ℝ) :=
+    le_antisymm hw_ge_wr hwr_ge_w
+  have hw_coe :
+      (w : ℝ) =
+        (a : ℝ) * (wp : ℝ) + ((1 - a : NNReal) : ℝ) * (wq : ℝ) := by
+    dsimp [w]
+  calc
+    (D.weight (mix p q a ha) hr : ℝ) = (wr : ℝ) := rfl
+    _ = (w : ℝ) := hwr_eq_w
+    _ = (a : ℝ) * (D.weight p hp : ℝ) +
+          ((1 - a : NNReal) : ℝ) * (D.weight q hq : ℝ) := by
+        simpa [wp, wq] using hw_coe
 
 theorem weightAffine_of_weightMixLinear_on_mixtureGenerated
     [Fintype Outcome]
@@ -667,6 +855,36 @@ theorem expectedValueRepresentsOn_of_generalOutcomeUtility_of_mixOrder_and_weigh
       D.weightRepresents_of_bestWorstMixtureOrder hRat hS (hOrder hStrict))
     hLinear
 
+theorem expectedValueRepresentsOn_of_generalOutcomeUtility_of_weightMixLinear'
+    [Fintype Outcome]
+    (D : VNMConstructionData P S)
+    (hDegenerate : ∀ x : Outcome, degenerate x ∈ S)
+    (hRat : P.RationalOn S)
+    (hIndependent : VNMIndependent P S)
+    (hS : MixtureClosed S)
+    (hGenerated : ∀ p : Lottery Outcome, p ∈ S →
+      MixtureGenerated (Set.univ : Set Outcome) p)
+    (hLinear : ¬ P.Indiff D.best D.worst → D.WeightMixLinear hS) :
+    ExpectedValueRepresentsOn P S (D.generalOutcomeUtility hDegenerate) :=
+  D.expectedValueRepresentsOn_of_generalOutcomeUtility_of_mixOrder_and_weightMixLinear
+    hDegenerate hRat hS hGenerated
+    (fun hStrict => D.bestWorstMixtureOrder_of_strict hRat hIndependent hS hStrict)
+    hLinear
+
+theorem expectedValueRepresentsOn_of_generalOutcomeUtility_of_vnmAxioms
+    [Fintype Outcome]
+    (D : VNMConstructionData P S)
+    (hDegenerate : ∀ x : Outcome, degenerate x ∈ S)
+    (hRat : P.RationalOn S)
+    (hIndependent : VNMIndependent P S)
+    (hS : MixtureClosed S)
+    (hGenerated : ∀ p : Lottery Outcome, p ∈ S →
+      MixtureGenerated (Set.univ : Set Outcome) p) :
+    ExpectedValueRepresentsOn P S (D.generalOutcomeUtility hDegenerate) :=
+  D.expectedValueRepresentsOn_of_generalOutcomeUtility_of_weightMixLinear'
+    hDegenerate hRat hIndependent hS hGenerated
+    (fun hStrict => D.weightMixLinear_of_strict hRat hIndependent hS hStrict)
+
 end VNMConstructionData
 
 theorem exists_expectedValueRepresentsOn_of_vnmRational_generated
@@ -723,6 +941,52 @@ theorem exists_expectedValueRepresentsOn_of_vnmRational_generated_of_mixOrder
         (hOrder D)
         (hLinear D)⟩
 
+theorem exists_expectedValueRepresentsOn_of_vnmRational_generated_of_weightMixLinear
+    [Fintype Outcome] [Nonempty Outcome]
+    {P : Preference (Lottery Outcome)}
+    {S : Set (Lottery Outcome)}
+    (hVNM : VNMRational P S)
+    (hDegenerate : ∀ x : Outcome, degenerate x ∈ S)
+    (hGenerated : ∀ p : Lottery Outcome, p ∈ S →
+      MixtureGenerated (Set.univ : Set Outcome) p)
+    (hLinear : ∀ D : VNMConstructionData P S,
+      ¬ P.Indiff D.best D.worst →
+        D.WeightMixLinear (mixtureClosed_of_vnmRational hVNM)) :
+    ∃ u : Outcome → ℝ, ExpectedValueRepresentsOn P S u := by
+  rcases exists_constructionData_of_vnmRational_generated
+      hVNM hDegenerate hGenerated with
+    ⟨D, _⟩
+  exact
+    ⟨D.generalOutcomeUtility hDegenerate,
+      D.expectedValueRepresentsOn_of_generalOutcomeUtility_of_weightMixLinear'
+        hDegenerate
+        (rationalOn_of_vnmRational hVNM)
+        (independent_of_vnmRational hVNM)
+        (mixtureClosed_of_vnmRational hVNM)
+        hGenerated
+        (hLinear D)⟩
+
+theorem exists_expectedValueRepresentsOn_of_vnmRational_generated_full
+    [Fintype Outcome] [Nonempty Outcome]
+    {P : Preference (Lottery Outcome)}
+    {S : Set (Lottery Outcome)}
+    (hVNM : VNMRational P S)
+    (hDegenerate : ∀ x : Outcome, degenerate x ∈ S)
+    (hGenerated : ∀ p : Lottery Outcome, p ∈ S →
+      MixtureGenerated (Set.univ : Set Outcome) p) :
+    ∃ u : Outcome → ℝ, ExpectedValueRepresentsOn P S u := by
+  rcases exists_constructionData_of_vnmRational_generated
+      hVNM hDegenerate hGenerated with
+    ⟨D, _⟩
+  exact
+    ⟨D.generalOutcomeUtility hDegenerate,
+      D.expectedValueRepresentsOn_of_generalOutcomeUtility_of_vnmAxioms
+        hDegenerate
+        (rationalOn_of_vnmRational hVNM)
+        (independent_of_vnmRational hVNM)
+        (mixtureClosed_of_vnmRational hVNM)
+        hGenerated⟩
+
 theorem exists_expectedValueRepresentsOn_of_vnmRational_generatedLotteries_of_mixOrder
     [Fintype Outcome] [Nonempty Outcome]
     {P : Preference (Lottery Outcome)}
@@ -740,6 +1004,53 @@ theorem exists_expectedValueRepresentsOn_of_vnmRational_generatedLotteries_of_mi
     (fun _ hp => hp)
     hOrder
     hLinear
+
+theorem exists_expectedValueRepresentsOn_of_vnmRational_generatedLotteries_of_weightMixLinear
+    [Fintype Outcome] [Nonempty Outcome]
+    {P : Preference (Lottery Outcome)}
+    (hVNM : VNMRational P (GeneratedLotteries (Set.univ : Set Outcome)))
+    (hLinear : ∀ D : VNMConstructionData P (GeneratedLotteries (Set.univ : Set Outcome)),
+      ¬ P.Indiff D.best D.worst →
+        D.WeightMixLinear (mixtureClosed_of_vnmRational hVNM)) :
+    ∃ u : Outcome → ℝ,
+      ExpectedValueRepresentsOn P (GeneratedLotteries (Set.univ : Set Outcome)) u :=
+  exists_expectedValueRepresentsOn_of_vnmRational_generated_of_weightMixLinear
+    hVNM
+    (fun x => MixtureGenerated.ofOutcome (Set.mem_univ x))
+    (fun _ hp => hp)
+    hLinear
+
+theorem exists_expectedValueRepresentsOn_of_vnmRational_generatedLotteries_full
+    [Fintype Outcome] [Nonempty Outcome]
+    {P : Preference (Lottery Outcome)}
+    (hVNM : VNMRational P (GeneratedLotteries (Set.univ : Set Outcome))) :
+    ∃ u : Outcome → ℝ,
+      ExpectedValueRepresentsOn P (GeneratedLotteries (Set.univ : Set Outcome)) u :=
+  exists_expectedValueRepresentsOn_of_vnmRational_generated_full
+    hVNM
+    (fun x => MixtureGenerated.ofOutcome (Set.mem_univ x))
+    (fun _ hp => hp)
+
+/--
+Finite-outcome von Neumann-Morgenstern expected-utility representation over
+the full carrier of lotteries.
+
+The proof uses `mixtureGenerated_univ` to identify all finite PMFs with the
+binary-mixture closure of degenerate lotteries, then applies the generated
+carrier theorem.
+-/
+theorem exists_expectedValueRepresentsOn_of_vnmRational_univ
+    [Fintype Outcome] [Nonempty Outcome]
+    {P : Preference (Lottery Outcome)}
+    (hVNM : VNMRational P (Set.univ : Set (Lottery Outcome))) :
+    ∃ u : Outcome → ℝ,
+      ExpectedValueRepresentsOn P (Set.univ : Set (Lottery Outcome)) u := by
+  have hVNM_generated :
+      VNMRational P (GeneratedLotteries (Set.univ : Set Outcome)) := by
+    simpa [generatedLotteries_univ] using hVNM
+  simpa [generatedLotteries_univ] using
+    (exists_expectedValueRepresentsOn_of_vnmRational_generatedLotteries_full
+      (Outcome := Outcome) (P := P) hVNM_generated)
 
 end ExpectedUtility
 end GameTheory
