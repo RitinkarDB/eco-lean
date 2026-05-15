@@ -266,6 +266,11 @@ theorem nonemptyValuedOn_iff_subset_dom {F : Correspondence X Y} {A : Set X} :
     rw [mem_ofFun_iff] at hy
     exact hy.symm ▸ hf hxA
 
+theorem nonemptyValuedOn_ofFun (f : X → Y) {A : Set X} :
+    NonemptyValuedOn (ofFun f) A := by
+  intro x hx
+  exact ⟨f x, rfl⟩
+
 /-- The graph of a correspondence restricted to a domain carrier. -/
 def graphOn (F : Correspondence X Y) (A : Set X) : Set (X × Y) :=
   {p | p.1 ∈ A ∧ p.2 ∈ F p.1}
@@ -437,6 +442,11 @@ theorem compactValuedOn_const [TopologicalSpace Y] {S : Set Y} {A : Set X}
   intro x hx
   exact hS
 
+theorem compactValuedOn_ofFun [TopologicalSpace Y] (f : X → Y) {A : Set X} :
+    CompactValuedOn (ofFun f) A := by
+  intro x hx
+  exact isCompact_singleton
+
 theorem ClosedGraphOn.closedValuedOn [TopologicalSpace X] [TopologicalSpace Y]
     {F : Correspondence X Y} {A : Set X} (hF : ClosedGraphOn F A) :
     ClosedValuedOn F A := by
@@ -499,6 +509,46 @@ theorem prod_compactValuedOn [TopologicalSpace Y] [TopologicalSpace Z]
   intro x hx
   exact (hF hx).prod (hG hx)
 
+/-- Closed graphs are preserved by pointwise products of correspondences. -/
+theorem prod_closedGraphOn [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+    {F : Correspondence X Y} {G : Correspondence X Z} {A : Set X}
+    (hF : ClosedGraphOn F A) (hG : ClosedGraphOn G A) :
+    ClosedGraphOn (prod F G) A := by
+  let πF : X × (Y × Z) → X × Y := fun p => (p.1, p.2.1)
+  let πG : X × (Y × Z) → X × Z := fun p => (p.1, p.2.2)
+  have hπF : Continuous πF :=
+    continuous_fst.prodMk (continuous_fst.comp continuous_snd)
+  have hπG : Continuous πG :=
+    continuous_fst.prodMk (continuous_snd.comp continuous_snd)
+  have hEq :
+      graphOn (prod F G) A =
+        πF ⁻¹' graphOn F A ∩ πG ⁻¹' graphOn G A := by
+    ext p
+    constructor
+    · intro hp
+      exact ⟨⟨hp.1, hp.2.1⟩, ⟨hp.1, hp.2.2⟩⟩
+    · intro hp
+      exact ⟨hp.1.1, hp.1.2, hp.2.2⟩
+  rw [ClosedGraphOn, hEq]
+  exact (IsClosed.preimage hπF hF).inter (IsClosed.preimage hπG hG)
+
+/-- A continuous single-valued map has a closed graph over a closed carrier. -/
+theorem closedGraphOn_ofFun [TopologicalSpace X] [TopologicalSpace Y] [T2Space Y]
+    {f : X → Y} {A : Set X} (hA : IsClosed A) (hf : ContinuousOn f A) :
+    ClosedGraphOn (ofFun f) A := by
+  let carrier : Set (X × Y) := Prod.fst ⁻¹' A
+  have hcarrier : IsClosed carrier := IsClosed.preimage continuous_fst hA
+  have hfOn : ContinuousOn (fun p : X × Y => f p.1) carrier :=
+    hf.comp continuous_fst.continuousOn (by intro p hp; exact hp)
+  have hsndOn : ContinuousOn (fun p : X × Y => p.2) carrier :=
+    continuous_snd.continuousOn
+  have hEq :
+      graphOn (ofFun f) A = {p ∈ carrier | p.2 = f p.1} := by
+    ext p
+    rfl
+  rw [ClosedGraphOn, hEq]
+  exact hcarrier.isClosed_eq hsndOn hfOn
+
 @[simp] theorem upperHemicontinuousOn_ofFun_iff
     [TopologicalSpace X] [TopologicalSpace Y] {f : X → Y} {A : Set X} :
     UpperHemicontinuousOn (ofFun f) A ↔ ContinuousOn f A := by
@@ -556,6 +606,12 @@ theorem convexValuedOn_const [Semiring 𝕜] [PartialOrder 𝕜]
   intro x hx
   exact hS
 
+theorem convexValuedOn_ofFun [Semiring 𝕜] [PartialOrder 𝕜]
+    [AddCommMonoid Y] [Module 𝕜 Y] (f : X → Y) {A : Set X} :
+    ConvexValuedOn (𝕜 := 𝕜) (ofFun f) A := by
+  intro x hx
+  exact convex_singleton (f x)
+
 @[simp] theorem convexValuedOn_restrictDomain_univ_iff
     [Semiring 𝕜] [PartialOrder 𝕜] [AddCommMonoid Y] [SMul 𝕜 Y]
     {F : Correspondence X Y} {A : Set X} :
@@ -600,6 +656,12 @@ theorem argmax_subset {u : X → Y → ℝ} {F : Correspondence X Y} (x : X) :
     argmax u F x ⊆ F x := by
   intro y hy
   exact hy.1
+
+theorem argmax_mapsToOn {u : X → Y → ℝ} {F : Correspondence X Y}
+    {A : Set X} {B : Set Y} (hF : MapsToOn F A B) :
+    MapsToOn (argmax u F) A B := by
+  intro x hxA y hy
+  exact hF hxA hy.1
 
 theorem isMaxOn_of_mem_argmax {u : X → Y → ℝ} {F : Correspondence X Y}
     {x : X} {y : Y} (hy : y ∈ argmax u F x) :
@@ -746,6 +808,94 @@ theorem argmax_const_closedGraphOn
     simpa [φ, Function.comp_def] using hu.comp hφcont.continuousOn hφmap
   exact hfeasible.isClosed_le hconst hu
 
+/--
+Variable-feasible-set argmax has a closed graph when the feasible
+correspondence has a closed graph, is lower hemicontinuous, and the objective
+is globally continuous.
+
+This is the closed-graph half of Berge's maximum theorem in the form needed
+for best-response correspondences: lower hemicontinuity supplies nearby
+feasible competitors, while continuity of payoffs transfers strict
+non-optimality to nearby parameters.
+-/
+theorem argmax_closedGraphOn
+    [TopologicalSpace X] [TopologicalSpace Y] {u : X → Y → ℝ}
+    {F : Correspondence X Y} {A : Set X}
+    (hA : IsClosed A) (hFclosed : ClosedGraphOn F A)
+    (hFlhc : LowerHemicontinuousOn F A)
+    (hu : Continuous fun p : X × Y => u p.1 p.2) :
+    ClosedGraphOn (argmax u F) A := by
+  classical
+  rw [ClosedGraphOn, ← isOpen_compl_iff]
+  refine isOpen_iff_mem_nhds.mpr ?_
+  intro p hp
+  rcases p with ⟨x, y⟩
+  by_cases hxA : x ∈ A
+  · by_cases hyF : y ∈ F x
+    · have hnotArg : y ∉ argmax u F x := by
+        intro hyArg
+        exact hp ⟨hxA, hyArg⟩
+      rw [mem_argmax_iff] at hnotArg
+      have hnotMax : ¬ ∀ z, z ∈ F x → u x z ≤ u x y := by
+        intro hmax
+        exact hnotArg ⟨hyF, hmax⟩
+      push_neg at hnotMax
+      rcases hnotMax with ⟨z, hzF, hyz⟩
+      rcases exists_between hyz with ⟨c, hyc, hcz⟩
+      let low : Set (X × Y) := {q | u q.1 q.2 < c}
+      let high : Set (X × Y) := {q | c < u q.1 q.2}
+      have hlowOpen : IsOpen low := isOpen_Iio.preimage hu
+      have hhighOpen : IsOpen high := isOpen_Ioi.preimage hu
+      have hhighMem : high ∈ nhds (x, z) :=
+        hhighOpen.mem_nhds hcz
+      rcases mem_nhds_prod_iff'.mp hhighMem with
+        ⟨Ux, Vz, hUxOpen, hxUx, hVzOpen, hzVz, hprodHigh⟩
+      have hInter : (F x ∩ Vz).Nonempty := ⟨z, hzF, hzVz⟩
+      have hLhcEventually :
+          ∀ᶠ x' in nhdsWithin x A, IsOpen Vz ∧ (F x' ∩ Vz).Nonempty :=
+        hFlhc x hxA Vz ⟨hVzOpen, hInter⟩
+      have hLhcSet : {x' | (F x' ∩ Vz).Nonempty} ∈ nhdsWithin x A := by
+        filter_upwards [hLhcEventually] with x' hx'
+        exact hx'.2
+      rcases mem_nhdsWithin_iff_exists_mem_nhds_inter.mp hLhcSet with
+        ⟨Nlhc, hNlhcMem, hNlhcSub⟩
+      rcases mem_nhds_iff.mp hNlhcMem with
+        ⟨Ulhc, hUlhcSub, hUlhcOpen, hxUlhc⟩
+      let U : Set (X × Y) := low ∩ Prod.fst ⁻¹' (Ux ∩ Ulhc)
+      have hUopen : IsOpen U :=
+        hlowOpen.inter ((hUxOpen.inter hUlhcOpen).preimage continuous_fst)
+      have hpU : (x, y) ∈ U := ⟨hyc, hxUx, hxUlhc⟩
+      have hUsub : U ⊆ (graphOn (argmax u F) A)ᶜ := by
+        intro q hq hqGraph
+        rcases hq with ⟨hqLow, hqUx, hqUlhc⟩
+        rcases hqGraph with ⟨hqA, hqArg⟩
+        have hNonempty : (F q.1 ∩ Vz).Nonempty :=
+          hNlhcSub ⟨hUlhcSub hqUlhc, hqA⟩
+        rcases hNonempty with ⟨z', hz'F, hz'Vz⟩
+        have hHigh : c < u q.1 z' :=
+          show (q.1, z') ∈ high from hprodHigh ⟨hqUx, hz'Vz⟩
+        have hz'Le : u q.1 z' ≤ u q.1 q.2 :=
+          hqArg.2 z' hz'F
+        exact not_lt_of_ge hz'Le (hqLow.trans hHigh)
+      exact Filter.mem_of_superset (hUopen.mem_nhds hpU) hUsub
+    · let U : Set (X × Y) := (graphOn F A)ᶜ
+      have hUopen : IsOpen U := isOpen_compl_iff.mpr hFclosed
+      have hpU : (x, y) ∈ U := by
+        intro hpF
+        exact hyF hpF.2
+      have hUsub : U ⊆ (graphOn (argmax u F) A)ᶜ := by
+        intro q hq hqGraph
+        exact hq ⟨hqGraph.1, argmax_subset q.1 hqGraph.2⟩
+      exact Filter.mem_of_superset (hUopen.mem_nhds hpU) hUsub
+  · let U : Set (X × Y) := Prod.fst ⁻¹' Aᶜ
+    have hUopen : IsOpen U :=
+      hA.isOpen_compl.preimage continuous_fst
+    have hpU : (x, y) ∈ U := hxA
+    have hUsub : U ⊆ (graphOn (argmax u F) A)ᶜ := by
+      intro q hq hqGraph
+      exact hq hqGraph.1
+    exact Filter.mem_of_superset (hUopen.mem_nhds hpU) hUsub
+
 end Argmax
 
 section FixedPoints
@@ -811,6 +961,167 @@ theorem fixedPoints_subset_dom (F : Correspondence X X) :
 @[simp] theorem fixedPointOn_ofFun_iff {f : X → X} {A : Set X} {x : X} :
     FixedPointOn (ofFun f) A x ↔ x ∈ A ∧ f x = x := by
   rw [fixedPointOn_iff, mem_ofFun_iff, eq_comm]
+
+/-- Closed graph correspondences have closed fixed-point sets. -/
+theorem ClosedGraphOn.isClosed_fixedPointsOn [TopologicalSpace X]
+    {F : Correspondence X X} {A : Set X} (hF : ClosedGraphOn F A) :
+    IsClosed (fixedPointsOn F A) := by
+  let diagonal : X → X × X := fun x => (x, x)
+  have hDiagonal : Continuous diagonal := continuous_id.prodMk continuous_id
+  have hpre : diagonal ⁻¹' graphOn F A = fixedPointsOn F A := by
+    ext x
+    simp [diagonal]
+  simpa [hpre] using IsClosed.preimage hDiagonal hF
+
+/-- On a compact carrier, closed graph correspondences have compact fixed-point sets. -/
+theorem ClosedGraphOn.isCompact_fixedPointsOn [TopologicalSpace X]
+    {F : Correspondence X X} {A : Set X}
+    (hF : ClosedGraphOn F A) (hA : IsCompact A) :
+    IsCompact (fixedPointsOn F A) := by
+  exact hA.of_isClosed_subset hF.isClosed_fixedPointsOn (fixedPointsOn_subset F A)
+
+/--
+A carrier has the Brouwer fixed-point property if every continuous
+self-map of the carrier has a fixed point.
+
+This is deliberately stated as a reusable property rather than specialized
+to Euclidean simplexes; later Brouwer theorems can instantiate it for
+compact convex finite-dimensional domains.
+-/
+def BrouwerFixedPointProperty [TopologicalSpace X] (K : Set X) : Prop :=
+  ∀ f : X → X, Set.MapsTo f K K → ContinuousOn f K → ∃ x ∈ K, f x = x
+
+theorem BrouwerFixedPointProperty.hasFixedPointOn_ofFun [TopologicalSpace X]
+    {K : Set X} (hK : BrouwerFixedPointProperty K)
+    {f : X → X} (hfMap : Set.MapsTo f K K) (hfCont : ContinuousOn f K) :
+    HasFixedPointOn (ofFun f) K := by
+  rcases hK f hfMap hfCont with ⟨x, hxK, hfx⟩
+  exact ⟨x, hxK, by rw [mem_ofFun_iff]; exact hfx.symm⟩
+
+/--
+The standard closed-graph form of Kakutani's fixed-point hypotheses on a
+carrier `K`.
+
+For applications, `F` is usually a best-response or excess-demand
+correspondence. The fields are intentionally factored so later game-theory
+theorems can assemble them by reusable lemmas: product preservation,
+Berge maximum theorem, and convexity of argmax values.
+-/
+structure KakutaniPremises [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
+    (K : Set X) (F : Correspondence X X) : Prop where
+  compact_domain : IsCompact K
+  convex_domain : Convex ℝ K
+  nonempty_domain : K.Nonempty
+  mapsTo_domain : MapsToOn F K K
+  nonempty_values : NonemptyValuedOn F K
+  compact_values : CompactValuedOn F K
+  convex_values : ConvexValuedOn (𝕜 := ℝ) F K
+  closed_graph : ClosedGraphOn F K
+
+/-- Continuous self-maps of compact Hausdorff carriers are single-valued
+instances of the Kakutani hypotheses. -/
+theorem KakutaniPremises.ofFun
+    [TopologicalSpace X] [T2Space X] [AddCommMonoid X] [Module ℝ X]
+    {K : Set X} {f : X → X}
+    (hKcompact : IsCompact K) (hKconvex : Convex ℝ K) (hKne : K.Nonempty)
+    (hfMap : Set.MapsTo f K K) (hfCont : ContinuousOn f K) :
+    KakutaniPremises K (ofFun f) where
+  compact_domain := hKcompact
+  convex_domain := hKconvex
+  nonempty_domain := hKne
+  mapsTo_domain := mapsToOn_ofFun_iff.mpr hfMap
+  nonempty_values := nonemptyValuedOn_ofFun f
+  compact_values := compactValuedOn_ofFun f
+  convex_values := convexValuedOn_ofFun f
+  closed_graph := closedGraphOn_ofFun hKcompact.isClosed hfCont
+
+/--
+Argmax correspondences satisfy the Kakutani hypotheses under the standard
+Berge maximum-theorem assumptions plus quasiconcavity.
+
+This is the reusable bridge from payoff maximization problems to fixed-point
+theorems: once a model constructs `F` and verifies these assumptions, the
+argmax correspondence is ready for a Kakutani-style existence theorem.
+-/
+theorem KakutaniPremises.of_argmax
+    [TopologicalSpace X] [T2Space X] [AddCommMonoid X] [Module ℝ X]
+    {K : Set X} {u : X → X → ℝ} {F : Correspondence X X}
+    (hKcompact : IsCompact K) (hKconvex : Convex ℝ K) (hKne : K.Nonempty)
+    (hFmap : MapsToOn F K K)
+    (hFnonempty : NonemptyValuedOn F K)
+    (hFcompact : CompactValuedOn F K)
+    (hFclosed : ClosedGraphOn F K)
+    (hFlhc : LowerHemicontinuousOn F K)
+    (hu : Continuous fun p : X × X => u p.1 p.2)
+    (huQuasi : ∀ ⦃x⦄, x ∈ K → QuasiconcaveOn ℝ (F x) (u x)) :
+    KakutaniPremises K (argmax u F) := by
+  have huSections : ∀ ⦃x⦄, x ∈ K → ContinuousOn (u x) (F x) := by
+    intro x hxK
+    have hxcont : Continuous fun y : X => u x y :=
+      hu.comp (continuous_const.prodMk continuous_id)
+    exact hxcont.continuousOn
+  have hArgmaxNonempty : NonemptyValuedOn (argmax u F) K :=
+    argmax_nonemptyValuedOn_of_compact hFcompact hFnonempty huSections
+  exact
+    { compact_domain := hKcompact
+      convex_domain := hKconvex
+      nonempty_domain := hKne
+      mapsTo_domain := argmax_mapsToOn hFmap
+      nonempty_values := hArgmaxNonempty
+      compact_values :=
+        argmax_compactValuedOn_of_compact hFcompact hFnonempty huSections
+      convex_values :=
+        argmax_convexValuedOn_of_quasiconcave hArgmaxNonempty huQuasi
+      closed_graph :=
+        argmax_closedGraphOn hKcompact.isClosed hFclosed hFlhc hu }
+
+/-- A carrier satisfies Kakutani when every correspondence satisfying the
+Kakutani hypotheses has a fixed point on that carrier. -/
+def KakutaniFixedPointProperty [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
+    (K : Set X) : Prop :=
+  ∀ F : Correspondence X X, KakutaniPremises K F → HasFixedPointOn F K
+
+theorem KakutaniFixedPointProperty.hasFixedPointOn
+    [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
+    {K : Set X} (hK : KakutaniFixedPointProperty K)
+    {F : Correspondence X X} (hF : KakutaniPremises K F) :
+    HasFixedPointOn F K :=
+  hK F hF
+
+theorem KakutaniFixedPointProperty.nonempty_fixedPointsOn
+    [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
+    {K : Set X} (hK : KakutaniFixedPointProperty K)
+    {F : Correspondence X X} (hF : KakutaniPremises K F) :
+    (fixedPointsOn F K).Nonempty := by
+  rcases hK.hasFixedPointOn hF with ⟨x, hx⟩
+  exact ⟨x, hx⟩
+
+/-- Kakutani's fixed-point property implies Brouwer's fixed-point property
+on compact convex Hausdorff carriers by viewing functions as singleton-valued
+correspondences. -/
+theorem KakutaniFixedPointProperty.brouwerFixedPointProperty
+    [TopologicalSpace X] [T2Space X] [AddCommMonoid X] [Module ℝ X]
+    {K : Set X} (hK : KakutaniFixedPointProperty K)
+    (hKcompact : IsCompact K) (hKconvex : Convex ℝ K) (hKne : K.Nonempty) :
+    BrouwerFixedPointProperty K := by
+  intro f hfMap hfCont
+  have hPremises : KakutaniPremises K (ofFun f) :=
+    KakutaniPremises.ofFun hKcompact hKconvex hKne hfMap hfCont
+  rcases hK.hasFixedPointOn hPremises with ⟨x, hxK, hxF⟩
+  rw [mem_ofFun_iff] at hxF
+  exact ⟨x, hxK, hxF.symm⟩
+
+theorem KakutaniPremises.isClosed_fixedPointsOn
+    [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
+    {K : Set X} {F : Correspondence X X} (hF : KakutaniPremises K F) :
+    IsClosed (fixedPointsOn F K) :=
+  hF.closed_graph.isClosed_fixedPointsOn
+
+theorem KakutaniPremises.isCompact_fixedPointsOn
+    [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
+    {K : Set X} {F : Correspondence X X} (hF : KakutaniPremises K F) :
+    IsCompact (fixedPointsOn F K) :=
+  hF.closed_graph.isCompact_fixedPointsOn hF.compact_domain
 
 end FixedPoints
 
