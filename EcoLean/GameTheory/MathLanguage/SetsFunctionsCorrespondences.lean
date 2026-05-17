@@ -1089,6 +1089,37 @@ theorem BrouwerFixedPointProperty.hasFixedPointOn_ofFun [TopologicalSpace X]
   exact ⟨x, hxK, by rw [mem_ofFun_iff]; exact hfx.symm⟩
 
 /--
+The one-dimensional Brouwer fixed-point theorem for closed intervals.
+
+This is the first concrete instance of `BrouwerFixedPointProperty` in the
+library. It packages mathlib's intermediate-value-theorem fixed-point result
+in the correspondence API used by the game-theory existence layer.
+-/
+theorem brouwerFixedPointProperty_Icc
+    {α : Type u} [ConditionallyCompleteLinearOrder α] [TopologicalSpace α]
+    [OrderTopology α] [DenselyOrdered α] {a b : α} (hab : a ≤ b) :
+    BrouwerFixedPointProperty (Set.Icc a b) := by
+  intro f hfMap hfCont
+  exact exists_mem_Icc_isFixedPt_of_mapsTo hfCont hab hfMap
+
+/--
+The one-dimensional Brouwer fixed-point theorem for unordered closed
+intervals.
+
+This wrapper is useful when an interval is constructed before choosing an
+orientation for its endpoints.
+-/
+theorem brouwerFixedPointProperty_uIcc
+    {α : Type u} [ConditionallyCompleteLinearOrder α] [TopologicalSpace α]
+    [OrderTopology α] [DenselyOrdered α] (a b : α) :
+    BrouwerFixedPointProperty (Set.uIcc a b) := by
+  rcases le_total a b with hab | hba
+  · simpa [Set.uIcc_of_le hab] using
+      (brouwerFixedPointProperty_Icc (a := a) (b := b) hab)
+  · simpa [Set.uIcc_of_ge hba] using
+      (brouwerFixedPointProperty_Icc (a := b) (b := a) hba)
+
+/--
 The standard closed-graph form of Kakutani's fixed-point hypotheses on a
 carrier `K`.
 
