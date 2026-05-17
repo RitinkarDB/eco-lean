@@ -185,6 +185,17 @@ def prod (F : Correspondence X Y) (G : Correspondence X Z) :
     subst p
     exact ⟨rfl, rfl⟩
 
+/-- Indexed product of a family of correspondences with a common domain. -/
+def pi {ι : Type w} {Yᵢ : ι → Type v}
+    (F : ∀ i, Correspondence X (Yᵢ i)) :
+    Correspondence X (∀ i, Yᵢ i) :=
+  fun x => Set.pi Set.univ fun i => F i x
+
+@[simp] theorem mem_pi_iff {ι : Type w} {Yᵢ : ι → Type v}
+    {F : ∀ i, Correspondence X (Yᵢ i)} {x : X} {y : ∀ i, Yᵢ i} :
+    y ∈ pi F x ↔ ∀ i, y i ∈ F i x := by
+  simp [pi]
+
 /-- Restrict the domain of a correspondence to a subtype carrier. -/
 def restrictDomain (F : Correspondence X Y) (A : Set X) : Correspondence A Y :=
   fun x => F x.1
@@ -369,6 +380,26 @@ theorem prod_nonemptyValuedOn {F : Correspondence X Y} {G : Correspondence X Z}
   rcases hG hx with ⟨z, hzG⟩
   exact ⟨(y, z), ⟨hyF, hzG⟩⟩
 
+theorem pi_mapsToOn {ι : Type w} {Yᵢ : ι → Type v}
+    {F : ∀ i, Correspondence X (Yᵢ i)}
+    {A : Set X} {B : ∀ i, Set (Yᵢ i)}
+    (hF : ∀ i, MapsToOn (F i) A (B i)) :
+    MapsToOn (pi F) A (Set.pi Set.univ B) := by
+  intro x hx y hy
+  rw [mem_pi_iff] at hy
+  rw [Set.mem_univ_pi]
+  intro i
+  exact hF i hx (hy i)
+
+theorem pi_nonemptyValuedOn {ι : Type w} {Yᵢ : ι → Type v}
+    {F : ∀ i, Correspondence X (Yᵢ i)} {A : Set X}
+    (hF : ∀ i, NonemptyValuedOn (F i) A) :
+    NonemptyValuedOn (pi F) A := by
+  classical
+  intro x hx
+  choose y hy using fun i => hF i hx
+  exact ⟨y, by simpa [mem_pi_iff] using hy⟩
+
 @[simp] theorem nonemptyValuedOn_restrictDomain_univ_iff
     {F : Correspondence X Y} {A : Set X} :
     NonemptyValuedOn (restrictDomain F A) Set.univ ↔ NonemptyValuedOn F A := by
@@ -532,6 +563,56 @@ theorem prod_closedGraphOn [TopologicalSpace X] [TopologicalSpace Y] [Topologica
   rw [ClosedGraphOn, hEq]
   exact (IsClosed.preimage hπF hF).inter (IsClosed.preimage hπG hG)
 
+theorem pi_closedValuedOn {ι : Type w} {Yᵢ : ι → Type v}
+    [∀ i, TopologicalSpace (Yᵢ i)]
+    {F : ∀ i, Correspondence X (Yᵢ i)} {A : Set X}
+    (hF : ∀ i, ClosedValuedOn (F i) A) :
+    ClosedValuedOn (pi F) A := by
+  intro x hx
+  have hEq :
+      pi F x = ⋂ i, (fun y : ∀ i, Yᵢ i => y i) ⁻¹' F i x := by
+    ext y
+    simp [pi]
+  rw [hEq]
+  exact isClosed_iInter fun i => IsClosed.preimage (continuous_apply i) (hF i hx)
+
+theorem pi_compactValuedOn {ι : Type w} {Yᵢ : ι → Type v}
+    [∀ i, TopologicalSpace (Yᵢ i)]
+    {F : ∀ i, Correspondence X (Yᵢ i)} {A : Set X}
+    (hF : ∀ i, CompactValuedOn (F i) A) :
+    CompactValuedOn (pi F) A := by
+  intro x hx
+  simpa [pi] using isCompact_univ_pi fun i => hF i hx
+
+/--
+Closed graphs are preserved by indexed products when the carrier is closed.
+The explicit closed-carrier hypothesis handles the empty index type.
+-/
+theorem pi_closedGraphOn {ι : Type w} {Yᵢ : ι → Type v}
+    [TopologicalSpace X] [∀ i, TopologicalSpace (Yᵢ i)]
+    {F : ∀ i, Correspondence X (Yᵢ i)} {A : Set X}
+    (hA : IsClosed A) (hF : ∀ i, ClosedGraphOn (F i) A) :
+    ClosedGraphOn (pi F) A := by
+  let π : (i : ι) → X × (∀ i, Yᵢ i) → X × Yᵢ i :=
+    fun i p => (p.1, p.2 i)
+  have hπ : ∀ i, Continuous (π i) := by
+    intro i
+    exact continuous_fst.prodMk (continuous_apply i |>.comp continuous_snd)
+  have hEq :
+      graphOn (pi F) A =
+        Prod.fst ⁻¹' A ∩ ⋂ i, (π i) ⁻¹' graphOn (F i) A := by
+    ext p
+    simp [graphOn, pi, π]
+    intro hpA
+    constructor
+    · intro hp i
+      exact ⟨hpA, hp i⟩
+    · intro hp i
+      exact (hp i).2
+  rw [ClosedGraphOn, hEq]
+  exact (IsClosed.preimage continuous_fst hA).inter
+    (isClosed_iInter fun i => IsClosed.preimage (hπ i) (hF i))
+
 /-- A continuous single-valued map has a closed graph over a closed carrier. -/
 theorem closedGraphOn_ofFun [TopologicalSpace X] [TopologicalSpace Y] [T2Space Y]
     {f : X → Y} {A : Set X} (hA : IsClosed A) (hf : ContinuousOn f A) :
@@ -631,6 +712,15 @@ theorem prod_convexValuedOn [Semiring 𝕜] [PartialOrder 𝕜]
     ConvexValuedOn (𝕜 := 𝕜) (prod F G) A := by
   intro x hx
   exact (hF hx).prod (hG hx)
+
+theorem pi_convexValuedOn {ι : Type t} {Yᵢ : ι → Type w}
+    [Semiring 𝕜] [PartialOrder 𝕜]
+    [∀ i, AddCommMonoid (Yᵢ i)] [∀ i, SMul 𝕜 (Yᵢ i)]
+    {F : ∀ i, Correspondence X (Yᵢ i)} {A : Set X}
+    (hF : ∀ i, ConvexValuedOn (𝕜 := 𝕜) (F i) A) :
+    ConvexValuedOn (𝕜 := 𝕜) (pi F) A := by
+  intro x hx
+  simpa [pi] using convex_pi (s := (Set.univ : Set ι)) (fun i _hi => hF i hx)
 
 end Convex
 
