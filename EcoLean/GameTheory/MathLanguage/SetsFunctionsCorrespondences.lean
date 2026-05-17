@@ -1,7 +1,10 @@
 import Mathlib.Analysis.Convex.Basic
 import Mathlib.Analysis.Convex.Quasiconvex
+import Mathlib.Analysis.Convex.StdSimplex
 import Mathlib.Topology.Constructions.SumProd
 import Mathlib.Topology.ContinuousOn
+import Mathlib.Topology.Algebra.ContinuousAffineEquiv
+import Mathlib.Topology.Algebra.Module.Equiv
 import Mathlib.Topology.Instances.Real.Lemmas
 import Mathlib.Topology.Semicontinuity.Hemicontinuity
 import Mathlib.Topology.Order.Compact
@@ -990,7 +993,7 @@ end Argmax
 
 section FixedPoints
 
-variable {X : Type u}
+variable {X : Type u} {Y : Type v}
 
 /-- Fixed points of a self-correspondence. -/
 def fixedPoints (F : Correspondence X X) : Set X :=
@@ -1044,6 +1047,75 @@ theorem fixedPoints_subset_dom (F : Correspondence X X) :
   intro x hx
   exact ⟨x, hx⟩
 
+/--
+Transport a self-correspondence across an equivalence of ambient spaces.
+
+This is the correspondence-level conjugation operation: a point `y` in the
+target space is sent to the image, under `e`, of the old value at `e.symm y`.
+It is the fixed-point version of changing coordinates.
+-/
+def equivConjugate (e : X ≃ Y) (F : Correspondence X X) : Correspondence Y Y :=
+  fun y => e '' F (e.symm y)
+
+@[simp] theorem mem_equivConjugate_iff {e : X ≃ Y}
+    {F : Correspondence X X} {y y' : Y} :
+    y' ∈ equivConjugate e F y ↔ e.symm y' ∈ F (e.symm y) := by
+  constructor
+  · rintro ⟨x, hxF, rfl⟩
+    simpa using hxF
+  · intro hy
+    exact ⟨e.symm y', hy, by simp⟩
+
+@[simp] theorem mem_fixedPoints_equivConjugate_iff {e : X ≃ Y}
+    {F : Correspondence X X} {y : Y} :
+    y ∈ fixedPoints (equivConjugate e F) ↔ e.symm y ∈ fixedPoints F := by
+  rw [mem_fixedPoints_iff, mem_equivConjugate_iff, mem_fixedPoints_iff]
+
+@[simp] theorem fixedPointOn_equivConjugate_iff {e : X ≃ Y}
+    {F : Correspondence X X} {A : Set X} {y : Y} :
+    FixedPointOn (equivConjugate e F) (e '' A) y ↔
+      FixedPointOn F A (e.symm y) := by
+  constructor
+  · intro hy
+    exact
+      ⟨by simpa [Equiv.image_eq_preimage_symm] using hy.1,
+        by simpa using (mem_equivConjugate_iff.mp hy.2)⟩
+  · intro hx
+    exact
+      ⟨by simpa [Equiv.image_eq_preimage_symm] using hx.1,
+        by simpa using (mem_equivConjugate_iff.mpr hx.2)⟩
+
+theorem fixedPointsOn_equivConjugate {e : X ≃ Y}
+    (F : Correspondence X X) (A : Set X) :
+    fixedPointsOn (equivConjugate e F) (e '' A) = e '' fixedPointsOn F A := by
+  ext y
+  change FixedPointOn (equivConjugate e F) (e '' A) y ↔
+    y ∈ e '' fixedPointsOn F A
+  constructor
+  · intro hy
+    exact ⟨e.symm y, fixedPointOn_equivConjugate_iff.mp hy, by simp⟩
+  · rintro ⟨x, hx, rfl⟩
+    exact fixedPointOn_equivConjugate_iff.mpr (by simpa using hx)
+
+theorem graphOn_equivConjugate {e : X ≃ Y}
+    (F : Correspondence X X) (A : Set X) :
+    graphOn (equivConjugate e F) (e '' A) =
+      (e.prodCongr e) '' graphOn F A := by
+  ext p
+  constructor
+  · intro hp
+    refine ⟨(e.symm p.1, e.symm p.2), ?_, ?_⟩
+    · exact
+        ⟨by simpa [Equiv.image_eq_preimage_symm] using hp.1,
+          by simpa using (mem_equivConjugate_iff.mp hp.2)⟩
+    · ext <;> simp
+  · rintro ⟨p, hp, rfl⟩
+    have hpF : e.symm (e p.2) ∈ F (e.symm (e p.1)) := by
+      simpa using hp.2
+    exact
+      ⟨⟨p.1, hp.1, rfl⟩,
+        mem_equivConjugate_iff.mpr hpF⟩
+
 @[simp] theorem mem_fixedPoints_ofFun_iff {f : X → X} {x : X} :
     x ∈ fixedPoints (ofFun f) ↔ f x = x := by
   rw [mem_fixedPoints_iff, mem_ofFun_iff, eq_comm]
@@ -1088,6 +1160,105 @@ theorem BrouwerFixedPointProperty.hasFixedPointOn_ofFun [TopologicalSpace X]
   rcases hK f hfMap hfCont with ⟨x, hxK, hfx⟩
   exact ⟨x, hxK, by rw [mem_ofFun_iff]; exact hfx.symm⟩
 
+/-- Brouwer's fixed-point property is invariant under homeomorphic changes
+of coordinates. -/
+theorem BrouwerFixedPointProperty.image_homeomorph
+    [TopologicalSpace X] [TopologicalSpace Y]
+    {K : Set X} (hK : BrouwerFixedPointProperty K) (e : X ≃ₜ Y) :
+    BrouwerFixedPointProperty (e '' K) := by
+  intro g hgMap hgCont
+  let f : X → X := fun x => e.symm (g (e x))
+  have hfMap : Set.MapsTo f K K := by
+    intro x hxK
+    have hgx : g (e x) ∈ e '' K := hgMap ⟨x, hxK, rfl⟩
+    simpa [f, Homeomorph.image_eq_preimage_symm] using hgx
+  have heMap : Set.MapsTo e K (e '' K) := by
+    intro x hxK
+    exact ⟨x, hxK, rfl⟩
+  have hgeCont : ContinuousOn (fun x : X => g (e x)) K :=
+    hgCont.comp e.continuous.continuousOn heMap
+  have hfCont : ContinuousOn f K := by
+    simpa [f, Function.comp_def] using
+      e.symm.continuous.comp_continuousOn hgeCont
+  rcases hK f hfMap hfCont with ⟨x, hxK, hfx⟩
+  refine ⟨e x, ⟨x, hxK, rfl⟩, ?_⟩
+  have hfx' := congrArg (fun z : X => e z) hfx
+  simpa [f] using hfx'
+
+/-- Brouwer's fixed-point property pulls back along homeomorphisms. -/
+theorem BrouwerFixedPointProperty.preimage_homeomorph
+    [TopologicalSpace X] [TopologicalSpace Y]
+    {L : Set Y} (hL : BrouwerFixedPointProperty L) (e : X ≃ₜ Y) :
+    BrouwerFixedPointProperty (e ⁻¹' L) := by
+  simpa [Homeomorph.image_symm] using hL.image_homeomorph e.symm
+
+/--
+Brouwer's fixed-point property is invariant under homeomorphisms of the
+carrier subtypes.
+
+This bridges mathlib's common style of building homeomorphisms between
+subtypes, such as `stdSimplex ℝ (Fin 2) ≃ₜ unitInterval`, with eco-lean's
+carrier-set API.
+-/
+theorem BrouwerFixedPointProperty.of_subtype_homeomorph
+    [TopologicalSpace X] [TopologicalSpace Y] {K : Set X} {L : Set Y}
+    (hK : BrouwerFixedPointProperty K) (e : K ≃ₜ L) :
+    BrouwerFixedPointProperty L := by
+  classical
+  intro f hfMap hfCont
+  let fL : L → L := fun y => ⟨f y, hfMap y.2⟩
+  have hfLCont : Continuous fL := by
+    have hfRestrict : Continuous (L.restrict f) := hfCont.restrict
+    exact hfRestrict.codRestrict (fun y => hfMap y.2)
+  let gK : K → K := e.symm ∘ fL ∘ e
+  let g : X → X := fun x => if hx : x ∈ K then (gK ⟨x, hx⟩ : X) else x
+  have hgMap : Set.MapsTo g K K := by
+    intro x hx
+    simp [g, hx]
+  have hgCont : ContinuousOn g K := by
+    rw [continuousOn_iff_continuous_restrict]
+    have hgKCont : Continuous gK := e.symm.continuous.comp (hfLCont.comp e.continuous)
+    have hgValCont : Continuous fun x : K => (gK x : X) :=
+      continuous_subtype_val.comp hgKCont
+    refine hgValCont.congr ?_
+    intro x
+    simp [g, x.2]
+  rcases hK g hgMap hgCont with ⟨x, hxK, hxFixed⟩
+  let xK : K := ⟨x, hxK⟩
+  have hxKFixed : gK xK = xK := by
+    apply Subtype.ext
+    simpa [g, xK, hxK] using hxFixed
+  have hyFixedSubtype : fL (e xK) = e xK := by
+    have h := congrArg e hxKFixed
+    simpa [gK, Function.comp_def] using h
+  refine ⟨(e xK : Y), (e xK).2, ?_⟩
+  exact congrArg Subtype.val hyFixedSubtype
+
+theorem brouwerFixedPointProperty_image_homeomorph_iff
+    [TopologicalSpace X] [TopologicalSpace Y] (e : X ≃ₜ Y) (K : Set X) :
+    BrouwerFixedPointProperty (e '' K) ↔ BrouwerFixedPointProperty K := by
+  constructor
+  · intro hK
+    simpa using hK.preimage_homeomorph e
+  · intro hK
+    exact hK.image_homeomorph e
+
+/-- Brouwer's fixed-point property is preserved by continuous affine
+equivalences. -/
+theorem BrouwerFixedPointProperty.image_continuousAffineEquiv
+    [TopologicalSpace X] [TopologicalSpace Y]
+    [AddCommGroup X] [AddCommGroup Y] [Module ℝ X] [Module ℝ Y]
+    {K : Set X} (hK : BrouwerFixedPointProperty K) (e : X ≃ᴬ[ℝ] Y) :
+    BrouwerFixedPointProperty (e '' K) :=
+  hK.image_homeomorph e.toHomeomorph
+
+theorem brouwerFixedPointProperty_image_continuousAffineEquiv_iff
+    [TopologicalSpace X] [TopologicalSpace Y]
+    [AddCommGroup X] [AddCommGroup Y] [Module ℝ X] [Module ℝ Y]
+    (e : X ≃ᴬ[ℝ] Y) (K : Set X) :
+    BrouwerFixedPointProperty (e '' K) ↔ BrouwerFixedPointProperty K :=
+  brouwerFixedPointProperty_image_homeomorph_iff e.toHomeomorph K
+
 /--
 The one-dimensional Brouwer fixed-point theorem for closed intervals.
 
@@ -1119,6 +1290,25 @@ theorem brouwerFixedPointProperty_uIcc
   · simpa [Set.uIcc_of_ge hba] using
       (brouwerFixedPointProperty_Icc (a := b) (b := a) hba)
 
+/-- Singleton carriers have the Brouwer fixed-point property. -/
+theorem brouwerFixedPointProperty_singleton [TopologicalSpace X] (x : X) :
+    BrouwerFixedPointProperty ({x} : Set X) := by
+  intro f hfMap _hfCont
+  exact ⟨x, by simp, by simpa using hfMap (by simp : x ∈ ({x} : Set X))⟩
+
+/--
+The standard one-dimensional simplex has Brouwer's fixed-point property.
+
+This is the first simplex-shaped Brouwer instance in the eco-lean carrier API:
+it transfers the interval theorem through mathlib's homeomorphism
+`stdSimplexHomeomorphUnitInterval`.
+-/
+theorem brouwerFixedPointProperty_stdSimplex_fin_two :
+    BrouwerFixedPointProperty (stdSimplex ℝ (Fin 2)) := by
+  have hI : BrouwerFixedPointProperty unitInterval :=
+    brouwerFixedPointProperty_Icc (α := ℝ) (a := 0) (b := 1) zero_le_one
+  exact hI.of_subtype_homeomorph stdSimplexHomeomorphUnitInterval.symm
+
 /--
 The standard closed-graph form of Kakutani's fixed-point hypotheses on a
 carrier `K`.
@@ -1138,6 +1328,127 @@ structure KakutaniPremises [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
   compact_values : CompactValuedOn F K
   convex_values : ConvexValuedOn (𝕜 := ℝ) F K
   closed_graph : ClosedGraphOn F K
+
+/--
+Kakutani hypotheses are preserved by continuous linear changes of coordinates.
+
+This is the reusable transport lemma needed to prove fixed-point theorems on a
+standard carrier and move them to linearly equivalent strategy spaces.
+-/
+theorem KakutaniPremises.image_continuousLinearEquiv
+    [TopologicalSpace X] [TopologicalSpace Y]
+    [AddCommMonoid X] [AddCommMonoid Y] [Module ℝ X] [Module ℝ Y]
+    {K : Set X} {F : Correspondence X X}
+    (hF : KakutaniPremises K F) (e : X ≃L[ℝ] Y) :
+    KakutaniPremises (e '' K) (equivConjugate e.toLinearEquiv.toEquiv F) := by
+  let E : X ≃ Y := e.toLinearEquiv.toEquiv
+  change KakutaniPremises (E '' K) (equivConjugate E F)
+  refine
+    { compact_domain := by
+        simpa [E] using hF.compact_domain.image e.continuous
+      convex_domain := by
+        simpa [E] using hF.convex_domain.linear_image e.toLinearEquiv.toLinearMap
+      nonempty_domain := by
+        rcases hF.nonempty_domain with ⟨x, hxK⟩
+        exact ⟨E x, ⟨x, hxK, rfl⟩⟩
+      mapsTo_domain := by
+        intro y hyK y' hyF
+        have hyK' : E.symm y ∈ K := by
+          rcases hyK with ⟨x, hxK, rfl⟩
+          simpa [E] using hxK
+        have hyF' : E.symm y' ∈ F (E.symm y) := by
+          simpa using (mem_equivConjugate_iff.mp hyF)
+        exact ⟨E.symm y', hF.mapsTo_domain hyK' hyF', by simp⟩
+      nonempty_values := by
+        intro y hyK
+        have hyK' : E.symm y ∈ K := by
+          rcases hyK with ⟨x, hxK, rfl⟩
+          simpa [E] using hxK
+        rcases hF.nonempty_values hyK' with ⟨x, hxF⟩
+        exact ⟨E x, ⟨x, hxF, rfl⟩⟩
+      compact_values := by
+        intro y hyK
+        have hyK' : E.symm y ∈ K := by
+          rcases hyK with ⟨x, hxK, rfl⟩
+          simpa [E] using hxK
+        simpa [E] using (hF.compact_values hyK').image e.continuous
+      convex_values := by
+        intro y hyK
+        have hyK' : E.symm y ∈ K := by
+          rcases hyK with ⟨x, hxK, rfl⟩
+          simpa [E] using hxK
+        simpa [E] using
+          (hF.convex_values hyK').linear_image e.toLinearEquiv.toLinearMap
+      closed_graph := by
+        have hGraph :
+            graphOn (equivConjugate E F) (E '' K) =
+              (E.prodCongr E) '' graphOn F K :=
+          graphOn_equivConjugate F K
+        rw [ClosedGraphOn, hGraph]
+        have hClosedImage : IsClosed ((e.prodCongr e) '' graphOn F K) :=
+          (e.prodCongr e).toHomeomorph.isClosed_image.mpr hF.closed_graph
+        simpa [E] using hClosedImage }
+
+/--
+Kakutani hypotheses are preserved by continuous affine changes of coordinates.
+
+This is the affine analogue of `KakutaniPremises.image_continuousLinearEquiv`.
+It is the version needed for translated boxes, affine simplexes, and strategy
+sets whose natural coordinates do not put the origin in a distinguished place.
+-/
+theorem KakutaniPremises.image_continuousAffineEquiv
+    [TopologicalSpace X] [TopologicalSpace Y]
+    [AddCommGroup X] [AddCommGroup Y] [Module ℝ X] [Module ℝ Y]
+    {K : Set X} {F : Correspondence X X}
+    (hF : KakutaniPremises K F) (e : X ≃ᴬ[ℝ] Y) :
+    KakutaniPremises (e '' K) (equivConjugate e.toEquiv F) := by
+  let E : X ≃ Y := e.toEquiv
+  change KakutaniPremises (E '' K) (equivConjugate E F)
+  refine
+    { compact_domain := by
+        simpa [E] using hF.compact_domain.image e.continuous
+      convex_domain := by
+        simpa [E] using hF.convex_domain.affine_image e.toAffineEquiv.toAffineMap
+      nonempty_domain := by
+        rcases hF.nonempty_domain with ⟨x, hxK⟩
+        exact ⟨E x, ⟨x, hxK, rfl⟩⟩
+      mapsTo_domain := by
+        intro y hyK y' hyF
+        have hyK' : E.symm y ∈ K := by
+          rcases hyK with ⟨x, hxK, rfl⟩
+          simpa [E] using hxK
+        have hyF' : E.symm y' ∈ F (E.symm y) := by
+          simpa using (mem_equivConjugate_iff.mp hyF)
+        exact ⟨E.symm y', hF.mapsTo_domain hyK' hyF', by simp⟩
+      nonempty_values := by
+        intro y hyK
+        have hyK' : E.symm y ∈ K := by
+          rcases hyK with ⟨x, hxK, rfl⟩
+          simpa [E] using hxK
+        rcases hF.nonempty_values hyK' with ⟨x, hxF⟩
+        exact ⟨E x, ⟨x, hxF, rfl⟩⟩
+      compact_values := by
+        intro y hyK
+        have hyK' : E.symm y ∈ K := by
+          rcases hyK with ⟨x, hxK, rfl⟩
+          simpa [E] using hxK
+        simpa [E] using (hF.compact_values hyK').image e.continuous
+      convex_values := by
+        intro y hyK
+        have hyK' : E.symm y ∈ K := by
+          rcases hyK with ⟨x, hxK, rfl⟩
+          simpa [E] using hxK
+        simpa [E] using
+          (hF.convex_values hyK').affine_image e.toAffineEquiv.toAffineMap
+      closed_graph := by
+        have hGraph :
+            graphOn (equivConjugate E F) (E '' K) =
+              (E.prodCongr E) '' graphOn F K :=
+          graphOn_equivConjugate F K
+        rw [ClosedGraphOn, hGraph]
+        have hClosedImage : IsClosed ((e.prodCongr e) '' graphOn F K) :=
+          (e.prodCongr e).toHomeomorph.isClosed_image.mpr hF.closed_graph
+        simpa [E] using hClosedImage }
 
 /-- Continuous self-maps of compact Hausdorff carriers are single-valued
 instances of the Kakutani hypotheses. -/
@@ -1201,6 +1512,36 @@ Kakutani hypotheses has a fixed point on that carrier. -/
 def KakutaniFixedPointProperty [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
     (K : Set X) : Prop :=
   ∀ F : Correspondence X X, KakutaniPremises K F → HasFixedPointOn F K
+
+theorem KakutaniFixedPointProperty.image_continuousAffineEquiv
+    [TopologicalSpace X] [TopologicalSpace Y]
+    [AddCommGroup X] [AddCommGroup Y] [Module ℝ X] [Module ℝ Y]
+    {K : Set X} (hK : KakutaniFixedPointProperty K) (e : X ≃ᴬ[ℝ] Y) :
+    KakutaniFixedPointProperty (e '' K) := by
+  intro G hG
+  let E : X ≃ Y := e.toEquiv
+  let Gpull : Correspondence X X := equivConjugate E.symm G
+  have hPull : KakutaniPremises K Gpull := by
+    have hImage := hG.image_continuousAffineEquiv e.symm
+    simpa [Gpull, E] using hImage
+  rcases hK Gpull hPull with ⟨x, hxK, hxGpull⟩
+  refine ⟨E x, ⟨x, hxK, rfl⟩, ?_⟩
+  have hxG : E.symm (E x) ∈ Gpull (E.symm (E x)) := by
+    simpa [Gpull, E] using hxGpull
+  have hmem : E x ∈ equivConjugate E Gpull (E x) := by
+    simpa using (mem_equivConjugate_iff.mpr hxG)
+  simpa [Gpull, E, equivConjugate] using hmem
+
+theorem kakutaniFixedPointProperty_image_continuousAffineEquiv_iff
+    [TopologicalSpace X] [TopologicalSpace Y]
+    [AddCommGroup X] [AddCommGroup Y] [Module ℝ X] [Module ℝ Y]
+    (e : X ≃ᴬ[ℝ] Y) (K : Set X) :
+    KakutaniFixedPointProperty (e '' K) ↔ KakutaniFixedPointProperty K := by
+  constructor
+  · intro hK
+    simpa using hK.image_continuousAffineEquiv e.symm
+  · intro hK
+    exact hK.image_continuousAffineEquiv e
 
 theorem KakutaniFixedPointProperty.hasFixedPointOn
     [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
