@@ -1,4 +1,5 @@
 import EcoLean.GameTheory.MathLanguage.SetsFunctionsCorrespondences
+import EcoLean.GameTheory.MathLanguage.Sperner
 import Mathlib.Data.Set.Basic
 
 namespace EcoLean.GameTheory
