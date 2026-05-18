@@ -1,6 +1,8 @@
 import EcoLean.GameTheory.MathLanguage.SetsFunctionsCorrespondences
 import Mathlib.Analysis.SpecificLimits.Basic
+import Mathlib.Combinatorics.SimpleGraph.DegreeSum
 import Mathlib.Data.Fintype.Pi
+import Mathlib.Data.List.Chain
 import Mathlib.Topology.Sequences
 
 namespace EcoLean.GameTheory
@@ -283,6 +285,61 @@ theorem fullyLabeledOn_iff [DecidableEq ι]
     L.FullyLabeledOn cell ↔ ∀ i : ι, ∃ a ∈ cell, L.label a = i := by
   simp [FullyLabeledOn]
 
+/--
+A finite family of grid vertices contains every label except possibly
+`missing`.
+
+This is the label pattern counted by the usual Sperner pivot/parity proof.
+It intentionally does not assert that `missing` is absent: fully labeled cells
+also satisfy this predicate.
+-/
+def AlmostFullyLabeledOn [DecidableEq ι] (L : GridSpernerLabeling ι N)
+    (cell : Finset (SimplexGrid ι N)) (missing : ι) : Prop :=
+  ∀ i : ι, i ≠ missing → i ∈ L.labelsOn cell
+
+theorem almostFullyLabeledOn_iff [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) (cell : Finset (SimplexGrid ι N))
+    (missing : ι) :
+    L.AlmostFullyLabeledOn cell missing ↔
+      ∀ i : ι, i ≠ missing → ∃ a ∈ cell, L.label a = i := by
+  simp [AlmostFullyLabeledOn]
+
+theorem FullyLabeledOn.almostFullyLabeledOn [DecidableEq ι]
+    {L : GridSpernerLabeling ι N} {cell : Finset (SimplexGrid ι N)}
+    (hfull : L.FullyLabeledOn cell) (missing : ι) :
+    L.AlmostFullyLabeledOn cell missing := by
+  intro i _hi
+  exact hfull i
+
+theorem fullyLabeledOn_iff_almostFullyLabeledOn_and_missing [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) (cell : Finset (SimplexGrid ι N))
+    (missing : ι) :
+    L.FullyLabeledOn cell ↔
+      L.AlmostFullyLabeledOn cell missing ∧ missing ∈ L.labelsOn cell := by
+  constructor
+  · intro hfull
+    exact ⟨hfull.almostFullyLabeledOn missing, hfull missing⟩
+  · intro h i
+    by_cases hi : i = missing
+    · simpa [hi] using h.2
+    · exact h.1 i hi
+
+theorem AlmostFullyLabeledOn.fullyLabeledOn_of_missing_mem [DecidableEq ι]
+    {L : GridSpernerLabeling ι N} {cell : Finset (SimplexGrid ι N)}
+    {missing : ι} (halmost : L.AlmostFullyLabeledOn cell missing)
+    (hmissing : missing ∈ L.labelsOn cell) :
+    L.FullyLabeledOn cell :=
+  (fullyLabeledOn_iff_almostFullyLabeledOn_and_missing
+    L cell missing).mpr ⟨halmost, hmissing⟩
+
+theorem AlmostFullyLabeledOn.fullyLabeledOn_or_missing_notMem [DecidableEq ι]
+    {L : GridSpernerLabeling ι N} {cell : Finset (SimplexGrid ι N)}
+    {missing : ι} (halmost : L.AlmostFullyLabeledOn cell missing) :
+    L.FullyLabeledOn cell ∨ missing ∉ L.labelsOn cell := by
+  by_cases hmissing : missing ∈ L.labelsOn cell
+  · exact Or.inl (halmost.fullyLabeledOn_of_missing_mem hmissing)
+  · exact Or.inr hmissing
+
 theorem label_ne_of_coord_eq_zero (L : GridSpernerLabeling ι N)
     (a : SimplexGrid ι N) {i : ι} (hi : a.1 i = 0) :
     L.label a ≠ i := by
@@ -381,6 +438,14 @@ instance : Coe (GridSmallCell ι N) (Finset (SimplexGrid ι N)) :=
     a ∈ (cell : Finset (SimplexGrid ι N)) ↔ a ∈ cell.vertices :=
   Iff.rfl
 
+@[ext] theorem ext {cell cell' : GridSmallCell ι N}
+    (hvertices : cell.vertices = cell'.vertices) :
+    cell = cell' := by
+  cases cell
+  cases cell'
+  cases hvertices
+  congr
+
 /-- A small cell is fully labeled when its vertices see every label. -/
 def FullyLabeled [DecidableEq ι] (cell : GridSmallCell ι N)
     (L : GridSpernerLabeling ι N) : Prop :=
@@ -390,6 +455,87 @@ theorem fullyLabeled_iff [DecidableEq ι] (cell : GridSmallCell ι N)
     (L : GridSpernerLabeling ι N) :
     cell.FullyLabeled L ↔ ∀ i : ι, ∃ a ∈ cell.vertices, L.label a = i := by
   exact GridSpernerLabeling.fullyLabeledOn_iff L cell.vertices
+
+/-- A small cell contains every label except possibly `missing`. -/
+def AlmostFullyLabeled [DecidableEq ι] (cell : GridSmallCell ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι) : Prop :=
+  L.AlmostFullyLabeledOn cell.vertices missing
+
+theorem almostFullyLabeled_iff [DecidableEq ι] (cell : GridSmallCell ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι) :
+    cell.AlmostFullyLabeled L missing ↔
+      ∀ i : ι, i ≠ missing → ∃ a ∈ cell.vertices, L.label a = i := by
+  exact GridSpernerLabeling.almostFullyLabeledOn_iff L cell.vertices missing
+
+theorem FullyLabeled.almostFullyLabeled [DecidableEq ι]
+    {cell : GridSmallCell ι N} {L : GridSpernerLabeling ι N}
+    (hfull : cell.FullyLabeled L) (missing : ι) :
+    cell.AlmostFullyLabeled L missing :=
+  hfull.almostFullyLabeledOn missing
+
+theorem fullyLabeled_iff_almostFullyLabeled_and_missing [DecidableEq ι]
+    (cell : GridSmallCell ι N) (L : GridSpernerLabeling ι N)
+    (missing : ι) :
+    cell.FullyLabeled L ↔
+      cell.AlmostFullyLabeled L missing ∧
+        missing ∈ L.labelsOn cell.vertices := by
+  exact GridSpernerLabeling.fullyLabeledOn_iff_almostFullyLabeledOn_and_missing
+    L cell.vertices missing
+
+theorem AlmostFullyLabeled.fullyLabeled_of_missing_mem [DecidableEq ι]
+    {cell : GridSmallCell ι N} {L : GridSpernerLabeling ι N}
+    {missing : ι} (halmost : cell.AlmostFullyLabeled L missing)
+    (hmissing : missing ∈ L.labelsOn cell.vertices) :
+    cell.FullyLabeled L :=
+  (fullyLabeled_iff_almostFullyLabeled_and_missing cell L missing).mpr
+    ⟨halmost, hmissing⟩
+
+theorem AlmostFullyLabeled.fullyLabeled_or_missing_notMem [DecidableEq ι]
+    {cell : GridSmallCell ι N} {L : GridSpernerLabeling ι N}
+    {missing : ι} (halmost : cell.AlmostFullyLabeled L missing) :
+    cell.FullyLabeled L ∨ missing ∉ L.labelsOn cell.vertices := by
+  by_cases hmissing : missing ∈ L.labelsOn cell.vertices
+  · exact Or.inl (halmost.fullyLabeled_of_missing_mem hmissing)
+  · exact Or.inr hmissing
+
+/-- A finite face shared by two small grid cells. -/
+structure SharedFace (cell cell' : GridSmallCell ι N)
+    (face : Finset (SimplexGrid ι N)) : Prop where
+  nonempty : face.Nonempty
+  subset_left : face ⊆ cell.vertices
+  subset_right : face ⊆ cell'.vertices
+
+namespace SharedFace
+
+variable {cell cell' : GridSmallCell ι N}
+    {face : Finset (SimplexGrid ι N)}
+
+/-- Shared faces are symmetric in the two cells. -/
+theorem symm (h : SharedFace cell cell' face) :
+    SharedFace cell' cell face where
+  nonempty := h.nonempty
+  subset_left := h.subset_right
+  subset_right := h.subset_left
+
+end SharedFace
+
+/--
+Two distinct cells share a pivot face for the label `missing` if they have a
+common nonempty face containing every label except possibly `missing`.
+-/
+def SharesAlmostFullyLabeledFace [DecidableEq ι]
+    (cell cell' : GridSmallCell ι N) (L : GridSpernerLabeling ι N)
+    (missing : ι) : Prop :=
+  cell ≠ cell' ∧ ∃ face : Finset (SimplexGrid ι N),
+    cell.SharedFace cell' face ∧ L.AlmostFullyLabeledOn face missing
+
+theorem SharesAlmostFullyLabeledFace.symm [DecidableEq ι]
+    {cell cell' : GridSmallCell ι N} {L : GridSpernerLabeling ι N}
+    {missing : ι}
+    (h : cell.SharesAlmostFullyLabeledFace cell' L missing) :
+    cell'.SharesAlmostFullyLabeledFace cell L missing := by
+  rcases h with ⟨hne, face, hface, halmost⟩
+  exact ⟨fun hcell => hne hcell.symm, face, hface.symm, halmost⟩
 
 theorem exists_vertex (cell : GridSmallCell ι N) :
     ∃ a, a ∈ cell.vertices :=
@@ -516,6 +662,508 @@ theorem mem_toSmallCell_vertices_iff (S : GridCubeSlice ι N) {a : SimplexGrid �
     a ∈ S.toSmallCell.vertices ↔
       ∀ i : ι, a.1 i = (S.lower i : ℕ) ∨ a.1 i = (S.lower i : ℕ) + 1 :=
   mem_cubeSliceVertices_iff
+
+/-- The coordinates where a cube-slice vertex is at the upper endpoint. -/
+def raisedSet (S : GridCubeSlice ι N) (a : SimplexGrid ι N) : Finset ι :=
+  Finset.univ.filter fun i => a.1 i = (S.lower i : ℕ) + 1
+
+@[simp] theorem mem_raisedSet_iff (S : GridCubeSlice ι N)
+    (a : SimplexGrid ι N) {i : ι} :
+    i ∈ S.raisedSet a ↔ a.1 i = (S.lower i : ℕ) + 1 := by
+  simp [raisedSet]
+
+theorem coord_eq_lower_of_not_mem_raisedSet (S : GridCubeSlice ι N)
+    {a : SimplexGrid ι N} (ha : a ∈ S.toSmallCell.vertices) {i : ι}
+    (hi : i ∉ S.raisedSet a) :
+    a.1 i = (S.lower i : ℕ) := by
+  rcases (S.mem_toSmallCell_vertices_iff.mp ha i) with hcoord | hcoord
+  · exact hcoord
+  · exact False.elim (hi ((S.mem_raisedSet_iff a).mpr hcoord))
+
+theorem coord_eq_lower_add_raised_indicator [DecidableEq ι] (S : GridCubeSlice ι N)
+    {a : SimplexGrid ι N} (ha : a ∈ S.toSmallCell.vertices) (i : ι) :
+    a.1 i = (S.lower i : ℕ) + if i ∈ S.raisedSet a then 1 else 0 := by
+  by_cases hi : i ∈ S.raisedSet a
+  · rw [(S.mem_raisedSet_iff a).mp hi]
+    simp [hi]
+  · rw [S.coord_eq_lower_of_not_mem_raisedSet ha hi]
+    simp [hi]
+
+/-- The sum of the lower corner coordinates of a cube slice. -/
+def lowerSum (S : GridCubeSlice ι N) : ℕ :=
+  ∑ i, (S.lower i : ℕ)
+
+theorem lowerSum_add_raisedSet_card_eq [DecidableEq ι] (S : GridCubeSlice ι N)
+    {a : SimplexGrid ι N} (ha : a ∈ S.toSmallCell.vertices) :
+    S.lowerSum + (S.raisedSet a).card = N := by
+  classical
+  have hsum :
+      (∑ i, a.1 i) =
+        ∑ i, ((S.lower i : ℕ) +
+          if i ∈ S.raisedSet a then 1 else 0) := by
+    exact Finset.sum_congr rfl fun i _ =>
+      S.coord_eq_lower_add_raised_indicator ha i
+  have hindicator :
+      (∑ i, (if i ∈ S.raisedSet a then 1 else 0 : ℕ)) =
+        (S.raisedSet a).card := by
+    calc
+      (∑ i, (if i ∈ S.raisedSet a then 1 else 0 : ℕ))
+          = ((Finset.univ : Finset ι).filter fun i => i ∈ S.raisedSet a).card := by
+            simpa only [Finset.mem_univ, true_and] using
+              (Finset.sum_boole (fun i => i ∈ S.raisedSet a)
+                (Finset.univ : Finset ι) : (∑ i ∈ (Finset.univ : Finset ι),
+                  if i ∈ S.raisedSet a then (1 : ℕ) else 0) =
+                    ((Finset.univ : Finset ι).filter fun i => i ∈ S.raisedSet a).card)
+      _ = (S.raisedSet a).card := by
+            congr 1
+            ext i
+            simp [raisedSet]
+  calc
+    S.lowerSum + (S.raisedSet a).card
+        = (∑ i, (S.lower i : ℕ)) +
+            ∑ i, (if i ∈ S.raisedSet a then 1 else 0 : ℕ) := by
+          rw [lowerSum, hindicator]
+    _ = ∑ i, ((S.lower i : ℕ) +
+          if i ∈ S.raisedSet a then 1 else 0) := by
+          rw [Finset.sum_add_distrib]
+    _ = ∑ i, a.1 i := hsum.symm
+    _ = N := a.2
+
+/-- The number of raised coordinates in every vertex of a cube slice. -/
+def rank (S : GridCubeSlice ι N) : ℕ :=
+  N - S.lowerSum
+
+theorem lowerSum_le_mesh [DecidableEq ι] (S : GridCubeSlice ι N) :
+    S.lowerSum ≤ N := by
+  rcases S.nonempty_vertices with ⟨a, ha⟩
+  have haCell : a ∈ S.toSmallCell.vertices := by
+    simpa [GridCubeSlice.toSmallCell] using ha
+  have hsum := S.lowerSum_add_raisedSet_card_eq haCell
+  omega
+
+theorem lowerSum_add_rank_eq [DecidableEq ι] (S : GridCubeSlice ι N) :
+    S.lowerSum + S.rank = N := by
+  rw [rank]
+  exact Nat.add_sub_of_le S.lowerSum_le_mesh
+
+theorem raisedSet_card_eq_rank [DecidableEq ι] (S : GridCubeSlice ι N)
+    {a : SimplexGrid ι N} (ha : a ∈ S.toSmallCell.vertices) :
+    (S.raisedSet a).card = S.rank := by
+  have hsum := S.lowerSum_add_raisedSet_card_eq ha
+  have hrank := S.lowerSum_add_rank_eq
+  omega
+
+theorem rank_le_card [DecidableEq ι] (S : GridCubeSlice ι N) :
+    S.rank ≤ Fintype.card ι := by
+  rcases S.nonempty_vertices with ⟨a, ha⟩
+  have haCell : a ∈ S.toSmallCell.vertices := by
+    simpa [GridCubeSlice.toSmallCell] using ha
+  rw [← S.raisedSet_card_eq_rank haCell]
+  exact Finset.card_le_univ _
+
+theorem raisedSet_card_eq_of_mem [DecidableEq ι] (S : GridCubeSlice ι N)
+    {a b : SimplexGrid ι N}
+    (ha : a ∈ S.toSmallCell.vertices) (hb : b ∈ S.toSmallCell.vertices) :
+    (S.raisedSet a).card = (S.raisedSet b).card := by
+  have ha' := S.lowerSum_add_raisedSet_card_eq ha
+  have hb' := S.lowerSum_add_raisedSet_card_eq hb
+  omega
+
+theorem ext_of_raisedSet_eq [DecidableEq ι] (S : GridCubeSlice ι N)
+    {a b : SimplexGrid ι N}
+    (ha : a ∈ S.toSmallCell.vertices) (hb : b ∈ S.toSmallCell.vertices)
+    (hsets : S.raisedSet a = S.raisedSet b) :
+    a = b := by
+  apply Subtype.ext
+  funext i
+  by_cases hi : i ∈ S.raisedSet a
+  · have hi' : i ∈ S.raisedSet b := by simpa [hsets] using hi
+    exact ((S.mem_raisedSet_iff a).mp hi).trans
+      (((S.mem_raisedSet_iff b).mp hi').symm)
+  · have hi' : i ∉ S.raisedSet b := by simpa [hsets] using hi
+    rw [S.coord_eq_lower_of_not_mem_raisedSet ha hi,
+      S.coord_eq_lower_of_not_mem_raisedSet hb hi']
+
+/--
+The cube-slice vertex associated to a set of raised coordinates of the
+correct rank.
+-/
+noncomputable def vertexOfRaisedSet [DecidableEq ι]
+    (S : GridCubeSlice ι N) (R : Finset ι) (hR : S.lowerSum + R.card = N) :
+    SimplexGrid ι N := by
+  refine ⟨fun i => (S.lower i : ℕ) + if i ∈ R then 1 else 0, ?_⟩
+  classical
+  have hindicator :
+      (∑ i, (if i ∈ R then 1 else 0 : ℕ)) = R.card := by
+    calc
+      (∑ i, (if i ∈ R then 1 else 0 : ℕ))
+          = ((Finset.univ : Finset ι).filter fun i => i ∈ R).card := by
+            simpa only [Finset.mem_univ, true_and] using
+              (Finset.sum_boole (fun i => i ∈ R)
+                (Finset.univ : Finset ι) : (∑ i ∈ (Finset.univ : Finset ι),
+                  if i ∈ R then (1 : ℕ) else 0) =
+                    ((Finset.univ : Finset ι).filter fun i => i ∈ R).card)
+      _ = R.card := by
+            congr 1
+            ext i
+            simp
+  calc
+    (∑ i, ((S.lower i : ℕ) + if i ∈ R then 1 else 0))
+        = (∑ i, (S.lower i : ℕ)) +
+            ∑ i, (if i ∈ R then 1 else 0 : ℕ) := by
+          rw [Finset.sum_add_distrib]
+    _ = S.lowerSum + R.card := by
+          rw [lowerSum, hindicator]
+    _ = N := hR
+
+theorem vertexOfRaisedSet_apply [DecidableEq ι]
+    (S : GridCubeSlice ι N) (R : Finset ι) (hR : S.lowerSum + R.card = N)
+    (i : ι) :
+    (S.vertexOfRaisedSet R hR).1 i =
+      (S.lower i : ℕ) + if i ∈ R then 1 else 0 :=
+  rfl
+
+theorem vertexOfRaisedSet_mem_vertices [DecidableEq ι]
+    (S : GridCubeSlice ι N) (R : Finset ι) (hR : S.lowerSum + R.card = N) :
+    S.vertexOfRaisedSet R hR ∈ S.toSmallCell.vertices := by
+  rw [GridCubeSlice.toSmallCell_vertices, mem_cubeSliceVertices_iff]
+  intro i
+  by_cases hi : i ∈ R
+  · exact Or.inr (by simp [vertexOfRaisedSet_apply, hi])
+  · exact Or.inl (by simp [vertexOfRaisedSet_apply, hi])
+
+@[simp] theorem raisedSet_vertexOfRaisedSet [DecidableEq ι]
+    (S : GridCubeSlice ι N) (R : Finset ι) (hR : S.lowerSum + R.card = N) :
+    S.raisedSet (S.vertexOfRaisedSet R hR) = R := by
+  ext i
+  by_cases hi : i ∈ R
+  · simp [hi, vertexOfRaisedSet_apply]
+  · simp [hi, vertexOfRaisedSet_apply]
+
+theorem vertexOfRaisedSet_raisedSet [DecidableEq ι]
+    (S : GridCubeSlice ι N) {a : SimplexGrid ι N}
+    (ha : a ∈ S.toSmallCell.vertices) :
+    S.vertexOfRaisedSet (S.raisedSet a)
+      (S.lowerSum_add_raisedSet_card_eq ha) = a := by
+  apply Subtype.ext
+  funext i
+  rw [vertexOfRaisedSet_apply]
+  exact (S.coord_eq_lower_add_raised_indicator ha i).symm
+
+/--
+Vertices of a cube slice are equivalently subsets of coordinates of the
+slice rank. This is the hypersimplex model used by Freudenthal/Kuhn-style
+triangulations.
+-/
+noncomputable def vertexEquivRankedSubsets [DecidableEq ι]
+    (S : GridCubeSlice ι N) :
+    {a : SimplexGrid ι N // a ∈ S.toSmallCell.vertices} ≃
+      {R : Finset ι // R.card = S.rank} where
+  toFun a := ⟨S.raisedSet a.1, S.raisedSet_card_eq_rank a.2⟩
+  invFun R :=
+    ⟨S.vertexOfRaisedSet R.1 (by
+        rw [R.2]
+        exact S.lowerSum_add_rank_eq),
+      S.vertexOfRaisedSet_mem_vertices R.1 (by
+        rw [R.2]
+        exact S.lowerSum_add_rank_eq)⟩
+  left_inv a := by
+    apply Subtype.ext
+    exact S.vertexOfRaisedSet_raisedSet a.2
+  right_inv R := by
+    apply Subtype.ext
+    simp
+
+/--
+A directed elementary move between ranked subsets: drop one coordinate and add
+one coordinate. These are the edges used by path/alcove descriptions of
+Freudenthal/Kuhn cells inside a cube slice.
+-/
+def RankedSubsetStep [DecidableEq ι] (R Q : Finset ι) : Prop :=
+  ∃ drop, drop ∈ R ∧ ∃ add, add ∉ R ∧ Q = insert add (R.erase drop)
+
+omit [Fintype ι] in
+theorem rankedSubsetStep_card_eq [DecidableEq ι] {R Q : Finset ι}
+    (h : RankedSubsetStep R Q) :
+    Q.card = R.card := by
+  rcases h with ⟨drop, hdrop, add, hadd, rfl⟩
+  have haddErase : add ∉ R.erase drop := by
+    simp [hadd]
+  rw [Finset.card_insert_of_notMem haddErase, Finset.card_erase_of_mem hdrop]
+  have hRpos : 0 < R.card := Finset.card_pos.mpr ⟨drop, hdrop⟩
+  omega
+
+omit [Fintype ι] in
+theorem rankedSubsetStep_symm [DecidableEq ι] {R Q : Finset ι}
+    (h : RankedSubsetStep R Q) :
+    RankedSubsetStep Q R := by
+  rcases h with ⟨drop, hdrop, add, hadd, rfl⟩
+  have hne : drop ≠ add := by
+    intro hdropadd
+    exact hadd (hdropadd ▸ hdrop)
+  have haddErase : add ∉ R.erase drop := by
+    simp [hadd]
+  refine ⟨add, ?_, drop, ?_, ?_⟩
+  · simp
+  · simp [Finset.mem_erase, hne, hdrop]
+  · rw [Finset.erase_insert haddErase, Finset.insert_erase hdrop]
+
+omit [Fintype ι] in
+theorem rankedSubsetStep_target_mem_iff [DecidableEq ι]
+    {R : Finset ι} {drop add k : ι} :
+    k ∈ insert add (R.erase drop) ↔
+      k = add ∨ (k ∈ R ∧ k ≠ drop) := by
+  simp [Finset.mem_erase, and_comm]
+
+theorem vertexOfRaisedSet_swap_drop_apply [DecidableEq ι]
+    (S : GridCubeSlice ι N) {R : Finset ι} {drop add : ι}
+    (hdrop : drop ∈ R) (hadd : add ∉ R)
+    (hQ : S.lowerSum + (insert add (R.erase drop)).card = N) :
+    (S.vertexOfRaisedSet (insert add (R.erase drop)) hQ).1 drop =
+      (S.lower drop : ℕ) := by
+  have hne : drop ≠ add := by
+    intro hdropadd
+    exact hadd (hdropadd ▸ hdrop)
+  rw [vertexOfRaisedSet_apply]
+  simp [hne, hdrop]
+
+theorem vertexOfRaisedSet_swap_add_apply [DecidableEq ι]
+    (S : GridCubeSlice ι N) {R : Finset ι} {drop add : ι}
+    (_hdrop : drop ∈ R) (_hadd : add ∉ R)
+    (hQ : S.lowerSum + (insert add (R.erase drop)).card = N) :
+    (S.vertexOfRaisedSet (insert add (R.erase drop)) hQ).1 add =
+      (S.lower add : ℕ) + 1 := by
+  rw [vertexOfRaisedSet_apply]
+  simp
+
+theorem vertexOfRaisedSet_swap_apply_of_ne [DecidableEq ι]
+    (S : GridCubeSlice ι N) {R : Finset ι} {drop add k : ι}
+    (_hdrop : drop ∈ R) (_hadd : add ∉ R)
+    (hkdrop : k ≠ drop) (hkadd : k ≠ add)
+    (hR : S.lowerSum + R.card = N)
+    (hQ : S.lowerSum + (insert add (R.erase drop)).card = N) :
+    (S.vertexOfRaisedSet (insert add (R.erase drop)) hQ).1 k =
+      (S.vertexOfRaisedSet R hR).1 k := by
+  rw [vertexOfRaisedSet_apply, vertexOfRaisedSet_apply]
+  have htarget :
+      k ∈ insert add (R.erase drop) ↔ k ∈ R := by
+    rw [rankedSubsetStep_target_mem_iff]
+    constructor
+    · intro hk
+      rcases hk with hk | ⟨hkR, _⟩
+      · exact False.elim (hkadd hk)
+      · exact hkR
+    · intro hkR
+      exact Or.inr ⟨hkR, hkdrop⟩
+  by_cases hkR : k ∈ R <;> simp [hkR, htarget]
+
+/--
+A combinatorial cell inside a cube slice, described as a finite nonempty
+family of ranked subsets. Freudenthal/Kuhn cells will be instances of this
+structure.
+-/
+structure RankedSubsetCell (S : GridCubeSlice ι N) where
+  subsets : Finset {R : Finset ι // R.card = S.rank}
+  nonempty : subsets.Nonempty
+
+/--
+A path-shaped ranked-subset cell. This is not yet the full Freudenthal/Kuhn
+construction, but it gives that construction a concrete target: a noduplicate
+nonempty list of ranked subsets whose consecutive vertices differ by one
+elementary swap.
+-/
+structure RankedSubsetPathCell [DecidableEq ι] (S : GridCubeSlice ι N) where
+  chain : List {R : Finset ι // R.card = S.rank}
+  nonempty : chain ≠ []
+  nodup : chain.Nodup
+  step_chain :
+    chain.IsChain fun R Q => RankedSubsetStep R.1 Q.1
+
+namespace RankedSubsetPathCell
+
+variable [DecidableEq ι] {S : GridCubeSlice ι N}
+
+/-- Forget the ordering data of a path cell and keep its ranked-subset cell. -/
+noncomputable def toRankedSubsetCell
+    (P : RankedSubsetPathCell S) : RankedSubsetCell S where
+  subsets := P.chain.toFinset
+  nonempty := by
+    exact (List.toFinset_nonempty_iff P.chain).mpr P.nonempty
+
+@[simp] theorem toRankedSubsetCell_subsets
+    (P : RankedSubsetPathCell S) :
+    P.toRankedSubsetCell.subsets = P.chain.toFinset :=
+  rfl
+
+theorem chain_subset_toRankedSubsetCell
+    (P : RankedSubsetPathCell S) {R : {R : Finset ι // R.card = S.rank}}
+    (hR : R ∈ P.chain) :
+    R ∈ P.toRankedSubsetCell.subsets := by
+  simpa [toRankedSubsetCell] using hR
+
+end RankedSubsetPathCell
+
+namespace RankedSubsetCell
+
+variable {S : GridCubeSlice ι N}
+
+/-- Interpret a ranked-subset cell as a small grid cell. -/
+noncomputable def toSmallCell [DecidableEq ι]
+    (C : RankedSubsetCell S) : GridSmallCell ι N where
+  vertices := C.subsets.image fun R =>
+    S.vertexOfRaisedSet R.1 (by
+      rw [R.2]
+      exact S.lowerSum_add_rank_eq)
+  nonempty := by
+    rcases C.nonempty with ⟨R, hR⟩
+    exact ⟨S.vertexOfRaisedSet R.1 (by
+      rw [R.2]
+      exact S.lowerSum_add_rank_eq), Finset.mem_image.mpr ⟨R, hR, rfl⟩⟩
+  coordinate_span_le_one := by
+    classical
+    intro a ha b hb i
+    rcases Finset.mem_image.mp ha with ⟨R, hR, rfl⟩
+    rcases Finset.mem_image.mp hb with ⟨Q, hQ, rfl⟩
+    rw [S.vertexOfRaisedSet_apply, S.vertexOfRaisedSet_apply]
+    by_cases hiR : i ∈ R.1 <;> by_cases hiQ : i ∈ Q.1 <;>
+      simp [hiR, hiQ] <;> omega
+
+@[simp] theorem toSmallCell_vertices [DecidableEq ι]
+    (C : RankedSubsetCell S) :
+    C.toSmallCell.vertices = C.subsets.image fun R =>
+      S.vertexOfRaisedSet R.1 (by
+        rw [R.2]
+        exact S.lowerSum_add_rank_eq) :=
+  rfl
+
+theorem toSmallCell_vertices_subset_cubeSlice [DecidableEq ι]
+    (C : RankedSubsetCell S) :
+    C.toSmallCell.vertices ⊆ S.toSmallCell.vertices := by
+  classical
+  intro a ha
+  rcases Finset.mem_image.mp ha with ⟨R, hR, rfl⟩
+  exact S.vertexOfRaisedSet_mem_vertices R.1 (by
+    rw [R.2]
+    exact S.lowerSum_add_rank_eq)
+
+theorem fullyLabeled_toSmallCell_iff [DecidableEq ι]
+    (C : RankedSubsetCell S) (L : GridSpernerLabeling ι N) :
+    C.toSmallCell.FullyLabeled L ↔
+      ∀ i : ι, ∃ R ∈ C.subsets,
+        L.label (S.vertexOfRaisedSet R.1 (by
+          rw [R.2]
+          exact S.lowerSum_add_rank_eq)) = i := by
+  classical
+  rw [GridSmallCell.fullyLabeled_iff]
+  constructor
+  · intro hfull i
+    rcases hfull i with ⟨a, ha, hlabel⟩
+    rw [toSmallCell_vertices] at ha
+    rcases Finset.mem_image.mp ha with ⟨R, hR, haeq⟩
+    refine ⟨R, hR, ?_⟩
+    simpa [haeq] using hlabel
+  · intro hfull i
+    rcases hfull i with ⟨R, hR, hlabel⟩
+    refine ⟨S.vertexOfRaisedSet R.1 (by
+      rw [R.2]
+      exact S.lowerSum_add_rank_eq), ?_, hlabel⟩
+    rw [toSmallCell_vertices]
+    exact Finset.mem_image.mpr ⟨R, hR, rfl⟩
+
+theorem almostFullyLabeled_toSmallCell_iff [DecidableEq ι]
+    (C : RankedSubsetCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) :
+    C.toSmallCell.AlmostFullyLabeled L missing ↔
+      ∀ i : ι, i ≠ missing → ∃ R ∈ C.subsets,
+        L.label (S.vertexOfRaisedSet R.1 (by
+          rw [R.2]
+          exact S.lowerSum_add_rank_eq)) = i := by
+  classical
+  rw [GridSmallCell.almostFullyLabeled_iff]
+  constructor
+  · intro halmost i hi
+    rcases halmost i hi with ⟨a, ha, hlabel⟩
+    rw [toSmallCell_vertices] at ha
+    rcases Finset.mem_image.mp ha with ⟨R, hR, haeq⟩
+    refine ⟨R, hR, ?_⟩
+    simpa [haeq] using hlabel
+  · intro halmost i hi
+    rcases halmost i hi with ⟨R, hR, hlabel⟩
+    refine ⟨S.vertexOfRaisedSet R.1 (by
+      rw [R.2]
+      exact S.lowerSum_add_rank_eq), ?_, hlabel⟩
+    rw [toSmallCell_vertices]
+    exact Finset.mem_image.mpr ⟨R, hR, rfl⟩
+
+/-- The ranked-subset cell containing every vertex of a cube slice. -/
+noncomputable def full [DecidableEq ι] (S : GridCubeSlice ι N) :
+    RankedSubsetCell S where
+  subsets := Finset.univ
+  nonempty := by
+    rcases S.nonempty_vertices with ⟨a, ha⟩
+    have haCell : a ∈ S.toSmallCell.vertices := by
+      simpa [GridCubeSlice.toSmallCell] using ha
+    exact ⟨⟨S.raisedSet a, S.raisedSet_card_eq_rank haCell⟩, Finset.mem_univ _⟩
+
+theorem full_toSmallCell_vertices [DecidableEq ι] (S : GridCubeSlice ι N) :
+    (full S).toSmallCell.vertices = S.toSmallCell.vertices := by
+  classical
+  ext a
+  constructor
+  · intro ha
+    exact toSmallCell_vertices_subset_cubeSlice (full S) ha
+  · intro ha
+    rw [toSmallCell_vertices]
+    refine Finset.mem_image.mpr ?_
+    refine ⟨⟨S.raisedSet a, S.raisedSet_card_eq_rank ha⟩, Finset.mem_univ _, ?_⟩
+    exact S.vertexOfRaisedSet_raisedSet ha
+
+@[simp] theorem full_toSmallCell [DecidableEq ι] (S : GridCubeSlice ι N) :
+    (full S).toSmallCell = S.toSmallCell := by
+  exact GridSmallCell.ext (full_toSmallCell_vertices S)
+
+end RankedSubsetCell
+
+namespace RankedSubsetPathCell
+
+variable [DecidableEq ι] {S : GridCubeSlice ι N}
+
+theorem fullyLabeled_toSmallCell_iff
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) :
+    P.toRankedSubsetCell.toSmallCell.FullyLabeled L ↔
+      ∀ i : ι, ∃ R ∈ P.chain,
+        L.label (S.vertexOfRaisedSet R.1 (by
+          rw [R.2]
+          exact S.lowerSum_add_rank_eq)) = i := by
+  classical
+  rw [RankedSubsetCell.fullyLabeled_toSmallCell_iff]
+  constructor
+  · intro hfull i
+    rcases hfull i with ⟨R, hR, hlabel⟩
+    exact ⟨R, by simpa [toRankedSubsetCell] using hR, hlabel⟩
+  · intro hfull i
+    rcases hfull i with ⟨R, hR, hlabel⟩
+    exact ⟨R, by simpa [toRankedSubsetCell] using hR, hlabel⟩
+
+theorem almostFullyLabeled_toSmallCell_iff
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) :
+    P.toRankedSubsetCell.toSmallCell.AlmostFullyLabeled L missing ↔
+      ∀ i : ι, i ≠ missing → ∃ R ∈ P.chain,
+        L.label (S.vertexOfRaisedSet R.1 (by
+          rw [R.2]
+          exact S.lowerSum_add_rank_eq)) = i := by
+  classical
+  rw [RankedSubsetCell.almostFullyLabeled_toSmallCell_iff]
+  constructor
+  · intro halmost i hi
+    rcases halmost i hi with ⟨R, hR, hlabel⟩
+    exact ⟨R, by simpa [toRankedSubsetCell] using hR, hlabel⟩
+  · intro halmost i hi
+    rcases halmost i hi with ⟨R, hR, hlabel⟩
+    exact ⟨R, by simpa [toRankedSubsetCell] using hR, hlabel⟩
+
+end RankedSubsetPathCell
 
 /-- Reindex a cube slice along an equivalence of coordinate types. -/
 noncomputable def reindex {κ : Type v} [Fintype κ] (e : ι ≃ κ)
@@ -655,10 +1303,170 @@ namespace GridTriangulation
 
 variable {ι : Type u} [Fintype ι] {N : ℕ}
 
+@[ext] theorem ext {T T' : GridTriangulation ι N}
+    (hcells : T.cells = T'.cells) :
+    T = T' := by
+  cases T
+  cases T'
+  cases hcells
+  rfl
+
 /-- The Sperner conclusion for a chosen grid triangulation. -/
 def HasSpernerProperty [DecidableEq ι] (T : GridTriangulation ι N) : Prop :=
   ∀ L : GridSpernerLabeling ι N,
     ∃ cell ∈ T.cells, cell.FullyLabeled L
+
+/--
+The canonical pivot graph whose vertices are cells of a triangulation and
+whose edges connect distinct cells sharing an almost fully labeled face.
+
+The hard Sperner work for a concrete triangulation is to prove the local degree
+facts for this graph: one boundary endpoint is odd, and every other odd
+endpoint is fully labeled.
+-/
+def almostFacePivotGraph [DecidableEq ι] (T : GridTriangulation ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι) :
+    SimpleGraph {cell : GridSmallCell ι N // cell ∈ T.cells} where
+  Adj cell cell' :=
+    cell.1.SharesAlmostFullyLabeledFace cell'.1 L missing
+  symm := by
+    intro cell cell' h
+    exact h.symm
+  loopless := ⟨fun cell h => h.1 rfl⟩
+
+/-- The degree in `almostFacePivotGraph`, with decidability hidden classically. -/
+noncomputable def almostFacePivotDegree [DecidableEq ι]
+    (T : GridTriangulation ι N) (L : GridSpernerLabeling ι N)
+    (missing : ι) (cell : {cell : GridSmallCell ι N // cell ∈ T.cells}) :
+    ℕ := by
+  classical
+  exact (T.almostFacePivotGraph L missing).degree cell
+
+/--
+A reusable parity certificate for proving the Sperner conclusion from a pivot
+graph.
+
+The vertices of `graph` are combinatorial states carrying cells of `T`.
+There is one distinguished boundary state with odd degree. By the handshaking
+lemma, another odd-degree state exists; the final field says every such
+non-boundary state carries a fully labeled cell.
+-/
+structure PivotGraphCertificate [DecidableEq ι] (T : GridTriangulation ι N)
+    (L : GridSpernerLabeling ι N) (V : Type v) [Fintype V] where
+  graph : SimpleGraph V
+  decidableAdj : DecidableRel graph.Adj
+  cellOf : V → GridSmallCell ι N
+  cell_mem : ∀ v, cellOf v ∈ T.cells
+  boundary : V → Prop
+  start : V
+  start_boundary : boundary start
+  start_odd : Odd (graph.degree start)
+  boundary_unique : ∀ v, boundary v → v = start
+  odd_nonboundary_full :
+    ∀ v, Odd (graph.degree v) → ¬ boundary v → (cellOf v).FullyLabeled L
+
+namespace PivotGraphCertificate
+
+variable [DecidableEq ι] {T : GridTriangulation ι N}
+    {L : GridSpernerLabeling ι N} {V : Type v} [Fintype V]
+
+/--
+The abstract parity step in Sperner's lemma: an odd boundary endpoint forces
+another odd endpoint, and a pivot certificate identifies that endpoint with a
+fully labeled cell.
+-/
+theorem exists_fullyLabeled (C : PivotGraphCertificate T L V) :
+    ∃ cell ∈ T.cells, cell.FullyLabeled L := by
+  letI := C.decidableAdj
+  rcases C.graph.exists_ne_odd_degree_of_exists_odd_degree
+      C.start C.start_odd with
+    ⟨v, hv_ne, hv_odd⟩
+  have hv_not_boundary : ¬ C.boundary v := by
+    intro hv_boundary
+    exact hv_ne (C.boundary_unique v hv_boundary)
+  exact ⟨C.cellOf v, C.cell_mem v,
+    C.odd_nonboundary_full v hv_odd hv_not_boundary⟩
+
+end PivotGraphCertificate
+
+/--
+A pivot certificate specialized to the canonical almost-labeled shared-face
+graph of a triangulation.
+-/
+structure AlmostFacePivotCertificate [DecidableEq ι]
+    (T : GridTriangulation ι N) (L : GridSpernerLabeling ι N)
+    (missing : ι) where
+  boundary : {cell : GridSmallCell ι N // cell ∈ T.cells} → Prop
+  start : {cell : GridSmallCell ι N // cell ∈ T.cells}
+  start_boundary : boundary start
+  start_odd : Odd (T.almostFacePivotDegree L missing start)
+  boundary_unique : ∀ v, boundary v → v = start
+  odd_nonboundary_full :
+    ∀ v, Odd (T.almostFacePivotDegree L missing v) →
+      ¬ boundary v → v.1.FullyLabeled L
+
+namespace AlmostFacePivotCertificate
+
+variable [DecidableEq ι] {T : GridTriangulation ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+
+/-- Forget the specialized graph choice and view the data as a generic pivot certificate. -/
+noncomputable def toPivotGraphCertificate
+    (C : AlmostFacePivotCertificate T L missing) :
+    PivotGraphCertificate T L {cell : GridSmallCell ι N // cell ∈ T.cells} := by
+  classical
+  let G := T.almostFacePivotGraph L missing
+  exact
+    { graph := G
+      decidableAdj := inferInstance
+      cellOf := fun cell => cell.1
+      cell_mem := fun cell => cell.2
+      boundary := C.boundary
+      start := C.start
+      start_boundary := C.start_boundary
+      start_odd := by
+        simpa [almostFacePivotDegree, G] using C.start_odd
+      boundary_unique := C.boundary_unique
+      odd_nonboundary_full := by
+        intro v hv_odd hv_boundary
+        exact C.odd_nonboundary_full v
+          (by simpa [almostFacePivotDegree, G] using hv_odd)
+          hv_boundary }
+
+/--
+The canonical almost-face pivot certificate produces a fully labeled cell.
+-/
+theorem exists_fullyLabeled
+    (C : AlmostFacePivotCertificate T L missing) :
+    ∃ cell ∈ T.cells, cell.FullyLabeled L :=
+  C.toPivotGraphCertificate.exists_fullyLabeled
+
+end AlmostFacePivotCertificate
+
+/--
+A triangulation has pivot certificates if every Sperner labeling admits a
+finite pivot graph certificate. This is the reusable target for a constructive
+Sperner proof: later geometry only has to build the graph and verify the local
+degree facts.
+-/
+def HasPivotGraphCertificates [DecidableEq ι]
+    (T : GridTriangulation ι N) : Prop :=
+  ∀ L : GridSpernerLabeling ι N,
+    ∃ V : Type v, ∃ _ : Fintype V,
+      Nonempty (PivotGraphCertificate T L V)
+
+/--
+Any triangulation with pivot certificates satisfies Sperner's lemma.
+-/
+theorem hasSpernerProperty_of_pivotGraphCertificates [DecidableEq ι]
+    {T : GridTriangulation ι N}
+    (hT : T.HasPivotGraphCertificates) :
+    T.HasSpernerProperty := by
+  intro L
+  rcases hT L with ⟨V, hV, hC⟩
+  letI : Fintype V := hV
+  rcases hC with ⟨C⟩
+  exact C.exists_fullyLabeled
 
 /-- The cubical Sperner theorem for the integer simplex grid at mesh `N`. -/
 def CubicalSpernerProperty [DecidableEq ι] (N : ℕ) : Prop :=
@@ -706,6 +1514,247 @@ theorem cubeSlices_hasSpernerProperty_iff [DecidableEq ι] :
   · intro h L
     rcases h L with ⟨S, hfull⟩
     exact ⟨S.toSmallCell, cubeSlice_toSmallCell_mem S, hfull⟩
+
+/--
+A grid triangulation refines the cube-slice subdivision if every cell is
+contained in the vertex set of some nonempty unit-cube slice.
+-/
+def RefinesCubeSlices [DecidableEq ι] (T : GridTriangulation ι N) : Prop :=
+  ∀ cell ∈ T.cells, ∃ S : GridCubeSlice ι N,
+    cell.vertices ⊆ S.toSmallCell.vertices
+
+theorem cubeSlices_refinesCubeSlices [DecidableEq ι] :
+    (cubeSlices (ι := ι) (N := N)).RefinesCubeSlices := by
+  intro cell hcell
+  rcases (mem_cubeSlices_iff.mp hcell) with ⟨S, hS⟩
+  refine ⟨S, ?_⟩
+  intro a ha
+  simpa [hS] using ha
+
+/--
+A global subdivision whose cells are given combinatorially inside individual
+cube slices by ranked-subset cells.
+-/
+structure CubeSliceRankedSubdivision (ι : Type u) [Fintype ι] (N : ℕ) where
+  cells : Finset (Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetCell S)
+
+namespace CubeSliceRankedSubdivision
+
+variable {ι : Type u} [Fintype ι] {N : ℕ}
+
+/-- Forget the ranked-subset descriptions and keep the induced small cells. -/
+noncomputable def toTriangulation [DecidableEq ι]
+    (U : CubeSliceRankedSubdivision ι N) : GridTriangulation ι N := by
+  classical
+  exact
+    { cells := U.cells.image fun C => C.2.toSmallCell }
+
+theorem toTriangulation_refinesCubeSlices [DecidableEq ι]
+    (U : CubeSliceRankedSubdivision ι N) :
+    U.toTriangulation.RefinesCubeSlices := by
+  classical
+  intro cell hcell
+  rcases Finset.mem_image.mp hcell with ⟨C, hC, rfl⟩
+  exact ⟨C.1, C.2.toSmallCell_vertices_subset_cubeSlice⟩
+
+/-- The ranked-subset presentation of the original all-cube-slices subdivision. -/
+noncomputable def full [DecidableEq ι] : CubeSliceRankedSubdivision ι N := by
+  classical
+  exact
+    { cells := (Finset.univ : Finset (GridCubeSlice ι N)).image
+        fun S => ⟨S, GridCubeSlice.RankedSubsetCell.full S⟩ }
+
+@[simp] theorem full_toTriangulation [DecidableEq ι] :
+    (full (ι := ι) (N := N)).toTriangulation =
+      cubeSlices (ι := ι) (N := N) := by
+  classical
+  apply GridTriangulation.ext
+  ext cell
+  simp [full, toTriangulation, cubeSlices]
+
+end CubeSliceRankedSubdivision
+
+/--
+A global subdivision whose cells are path-shaped ranked-subset cells inside
+individual cube slices.
+
+This is the natural output shape for the upcoming Freudenthal/Kuhn
+construction: ordered chains carry the pivot/parity combinatorics, while the
+forgetful maps below expose the already-built geometric API.
+-/
+structure CubeSlicePathSubdivision (ι : Type u) [Fintype ι] [DecidableEq ι]
+    (N : ℕ) where
+  cells : Finset (Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S)
+
+namespace CubeSlicePathSubdivision
+
+variable {ι : Type u} [Fintype ι] [DecidableEq ι] {N : ℕ}
+
+/-- Forget path ordering data and keep the ranked-subset cells. -/
+noncomputable def toRankedSubdivision
+    (U : CubeSlicePathSubdivision ι N) : CubeSliceRankedSubdivision ι N := by
+  classical
+  exact
+    { cells := U.cells.image fun C =>
+        ⟨C.1, C.2.toRankedSubsetCell⟩ }
+
+/-- Forget all combinatorial data and keep the induced small-cell triangulation. -/
+noncomputable def toTriangulation
+    (U : CubeSlicePathSubdivision ι N) : GridTriangulation ι N :=
+  U.toRankedSubdivision.toTriangulation
+
+theorem toTriangulation_refinesCubeSlices
+    (U : CubeSlicePathSubdivision ι N) :
+    U.toTriangulation.RefinesCubeSlices :=
+  U.toRankedSubdivision.toTriangulation_refinesCubeSlices
+
+end CubeSlicePathSubdivision
+
+/--
+Any Sperner triangulation refining the cube-slice subdivision proves the
+cubical Sperner theorem.
+-/
+theorem cubicalSpernerProperty_of_refining_triangulation [DecidableEq ι]
+    (T : GridTriangulation ι N) (hT : T.HasSpernerProperty)
+    (hrefine : T.RefinesCubeSlices) :
+    CubicalSpernerProperty (ι := ι) N := by
+  intro L
+  rcases hT L with ⟨cell, hcell, hfull⟩
+  rcases hrefine cell hcell with ⟨S, hsubset⟩
+  refine ⟨S, ?_⟩
+  rw [GridSmallCell.fullyLabeled_iff] at hfull ⊢
+  intro i
+  rcases hfull i with ⟨a, ha, hlabel⟩
+  exact ⟨a, hsubset ha, hlabel⟩
+
+/--
+A refining triangulation with pivot certificates proves cubical Sperner.
+-/
+theorem cubicalSpernerProperty_of_refining_pivotGraphCertificates [DecidableEq ι]
+    (T : GridTriangulation ι N) (hT : T.HasPivotGraphCertificates)
+    (hrefine : T.RefinesCubeSlices) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_refining_triangulation
+    T (hasSpernerProperty_of_pivotGraphCertificates hT) hrefine
+
+/--
+All-mesh version of `cubicalSpernerProperty_of_refining_triangulation`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_refining_triangulations
+    [DecidableEq ι]
+    (T : ∀ N : ℕ, 0 < N → GridTriangulation ι N)
+    (hT : ∀ N hN, (T N hN).HasSpernerProperty)
+    (hrefine : ∀ N hN, (T N hN).RefinesCubeSlices) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_refining_triangulation
+    (T N hN) (hT N hN) (hrefine N hN)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_refining_pivotGraphCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_refining_pivotGraphCertificates
+    [DecidableEq ι]
+    (T : ∀ N : ℕ, 0 < N → GridTriangulation ι N)
+    (hT : ∀ N hN, (T N hN).HasPivotGraphCertificates)
+    (hrefine : ∀ N hN, (T N hN).RefinesCubeSlices) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_refining_pivotGraphCertificates
+    (T N hN) (hT N hN) (hrefine N hN)
+
+/--
+A ranked-subset subdivision proves cubical Sperner as soon as its induced
+small-cell triangulation satisfies Sperner's lemma.
+-/
+theorem cubicalSpernerProperty_of_ranked_subdivision [DecidableEq ι]
+    (U : CubeSliceRankedSubdivision ι N)
+    (hU : U.toTriangulation.HasSpernerProperty) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_refining_triangulation
+    U.toTriangulation hU U.toTriangulation_refinesCubeSlices
+
+/-- All-mesh version of `cubicalSpernerProperty_of_ranked_subdivision`. -/
+theorem cubicalSpernerPropertyAllMeshes_of_ranked_subdivisions
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasSpernerProperty) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_ranked_subdivision
+    (U N hN) (hU N hN)
+
+/--
+A ranked-subset subdivision proves cubical Sperner as soon as its induced
+small-cell triangulation has pivot certificates.
+-/
+theorem cubicalSpernerProperty_of_ranked_subdivision_pivotGraphCertificates
+    [DecidableEq ι]
+    (U : CubeSliceRankedSubdivision ι N)
+    (hU : U.toTriangulation.HasPivotGraphCertificates) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_ranked_subdivision U
+    (hasSpernerProperty_of_pivotGraphCertificates hU)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_ranked_subdivision_pivotGraphCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_pivotGraphCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasPivotGraphCertificates) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_ranked_subdivision_pivotGraphCertificates
+    (U N hN) (hU N hN)
+
+/--
+A path-shaped ranked-subset subdivision proves cubical Sperner as soon as its
+induced small-cell triangulation satisfies Sperner's lemma.
+-/
+theorem cubicalSpernerProperty_of_path_subdivision [DecidableEq ι]
+    (U : CubeSlicePathSubdivision ι N)
+    (hU : U.toTriangulation.HasSpernerProperty) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_ranked_subdivision
+    U.toRankedSubdivision hU
+
+/-- All-mesh version of `cubicalSpernerProperty_of_path_subdivision`. -/
+theorem cubicalSpernerPropertyAllMeshes_of_path_subdivisions
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasSpernerProperty) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_path_subdivision
+    (U N hN) (hU N hN)
+
+/--
+A path-shaped ranked-subset subdivision proves cubical Sperner as soon as its
+induced small-cell triangulation has pivot certificates.
+-/
+theorem cubicalSpernerProperty_of_path_subdivision_pivotGraphCertificates
+    [DecidableEq ι]
+    (U : CubeSlicePathSubdivision ι N)
+    (hU : U.toTriangulation.HasPivotGraphCertificates) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_path_subdivision U
+    (hasSpernerProperty_of_pivotGraphCertificates hU)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_path_subdivision_pivotGraphCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_path_subdivision_pivotGraphCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasPivotGraphCertificates) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_path_subdivision_pivotGraphCertificates
+    (U N hN) (hU N hN)
 
 /-- The zero-dimensional/nonempty subsingleton case of cubical Sperner. -/
 theorem cubicalSpernerProperty_subsingleton [DecidableEq ι]
@@ -1116,6 +2165,202 @@ theorem brouwerFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
   brouwerFixedPointProperty_stdSimplex_of_kkm
     (stdSimplexKKMProperty_of_cubicalSpernerPropertyAllMeshes
       (ι := ι) hCubicalSperner)
+
+/--
+Cubical Sperner plus approximate selections for every Kakutani correspondence
+imply Kakutani's fixed-point property on the standard simplex.
+
+The remaining analytic task is precisely the construction of the approximate
+selections from Kakutani's hypotheses.
+-/
+theorem kakutaniFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (hCubicalSperner : CubicalSpernerPropertyAllMeshes (ι := ι))
+    (hApprox :
+      ∀ F : Correspondence (ι → ℝ) (ι → ℝ),
+        KakutaniPremises (stdSimplex ℝ ι) F →
+          ∀ n : ℕ,
+            ApproximateKakutaniSelection
+              (stdSimplex ℝ ι) F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    KakutaniFixedPointProperty (stdSimplex ℝ ι) :=
+  KakutaniFixedPointProperty.of_brouwer_approximateSelections
+    (brouwerFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+      (ι := ι) hCubicalSperner)
+    hApprox
+
+/--
+All-mesh ranked-subset subdivisions with Sperner's lemma imply the closed KKM
+property on the standard simplex.
+-/
+theorem stdSimplexKKMProperty_of_ranked_subdivisions
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasSpernerProperty) :
+    StdSimplexKKMProperty ι :=
+  stdSimplexKKMProperty_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivisions U hU)
+
+/--
+All-mesh ranked-subset subdivisions with Sperner's lemma imply Brouwer's
+fixed-point property on the standard simplex.
+-/
+theorem brouwerFixedPointProperty_stdSimplex_of_ranked_subdivisions
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasSpernerProperty) :
+    BrouwerFixedPointProperty (stdSimplex ℝ ι) :=
+  brouwerFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivisions U hU)
+
+/--
+Ranked-subset subdivisions with Sperner's lemma plus approximate selections
+imply Kakutani's fixed-point property on the standard simplex.
+-/
+theorem kakutaniFixedPointProperty_stdSimplex_of_ranked_subdivisions
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasSpernerProperty)
+    (hApprox :
+      ∀ F : Correspondence (ι → ℝ) (ι → ℝ),
+        KakutaniPremises (stdSimplex ℝ ι) F →
+          ∀ n : ℕ,
+            ApproximateKakutaniSelection
+              (stdSimplex ℝ ι) F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    KakutaniFixedPointProperty (stdSimplex ℝ ι) :=
+  kakutaniFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivisions U hU)
+    hApprox
+
+/--
+All-mesh ranked-subset subdivisions with pivot certificates imply the closed
+KKM property on the standard simplex.
+-/
+theorem stdSimplexKKMProperty_of_ranked_subdivision_pivotGraphCertificates
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasPivotGraphCertificates) :
+    StdSimplexKKMProperty ι :=
+  stdSimplexKKMProperty_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_pivotGraphCertificates
+      U hU)
+
+/--
+All-mesh ranked-subset subdivisions with pivot certificates imply Brouwer's
+fixed-point property on the standard simplex.
+-/
+theorem brouwerFixedPointProperty_stdSimplex_of_ranked_subdivision_pivotGraphCertificates
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasPivotGraphCertificates) :
+    BrouwerFixedPointProperty (stdSimplex ℝ ι) :=
+  brouwerFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_pivotGraphCertificates
+      U hU)
+
+/--
+Ranked-subset subdivisions with pivot certificates plus approximate selections
+imply Kakutani's fixed-point property on the standard simplex.
+-/
+theorem kakutaniFixedPointProperty_stdSimplex_of_ranked_subdivision_pivotGraphCertificates
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasPivotGraphCertificates)
+    (hApprox :
+      ∀ F : Correspondence (ι → ℝ) (ι → ℝ),
+        KakutaniPremises (stdSimplex ℝ ι) F →
+          ∀ n : ℕ,
+            ApproximateKakutaniSelection
+              (stdSimplex ℝ ι) F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    KakutaniFixedPointProperty (stdSimplex ℝ ι) :=
+  kakutaniFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_pivotGraphCertificates
+      U hU)
+    hApprox
+
+set_option linter.unusedSectionVars false
+
+/--
+All-mesh path-shaped ranked-subset subdivisions with Sperner's lemma imply the
+closed KKM property on the standard simplex.
+-/
+theorem stdSimplexKKMProperty_of_path_subdivisions [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasSpernerProperty) :
+    StdSimplexKKMProperty ι :=
+  stdSimplexKKMProperty_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivisions U hU)
+
+/--
+All-mesh path-shaped ranked-subset subdivisions with Sperner's lemma imply
+Brouwer's fixed-point property on the standard simplex.
+-/
+theorem brouwerFixedPointProperty_stdSimplex_of_path_subdivisions [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasSpernerProperty) :
+    BrouwerFixedPointProperty (stdSimplex ℝ ι) :=
+  brouwerFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivisions U hU)
+
+/--
+Path-shaped ranked-subset subdivisions with Sperner's lemma plus approximate
+selections imply Kakutani's fixed-point property on the standard simplex.
+-/
+theorem kakutaniFixedPointProperty_stdSimplex_of_path_subdivisions
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasSpernerProperty)
+    (hApprox :
+      ∀ F : Correspondence (ι → ℝ) (ι → ℝ),
+        KakutaniPremises (stdSimplex ℝ ι) F →
+          ∀ n : ℕ,
+            ApproximateKakutaniSelection
+              (stdSimplex ℝ ι) F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    KakutaniFixedPointProperty (stdSimplex ℝ ι) :=
+  kakutaniFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivisions U hU)
+    hApprox
+
+/--
+All-mesh path-shaped ranked-subset subdivisions with pivot certificates imply
+the closed KKM property on the standard simplex.
+-/
+theorem stdSimplexKKMProperty_of_path_subdivision_pivotGraphCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasPivotGraphCertificates) :
+    StdSimplexKKMProperty ι :=
+  stdSimplexKKMProperty_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivision_pivotGraphCertificates
+      U hU)
+
+/--
+All-mesh path-shaped ranked-subset subdivisions with pivot certificates imply
+Brouwer's fixed-point property on the standard simplex.
+-/
+theorem brouwerFixedPointProperty_stdSimplex_of_path_subdivision_pivotGraphCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasPivotGraphCertificates) :
+    BrouwerFixedPointProperty (stdSimplex ℝ ι) :=
+  brouwerFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivision_pivotGraphCertificates
+      U hU)
+
+/--
+Path-shaped ranked-subset subdivisions with pivot certificates plus
+approximate selections imply Kakutani's fixed-point property on the standard
+simplex.
+-/
+theorem kakutaniFixedPointProperty_stdSimplex_of_path_subdivision_pivotGraphCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasPivotGraphCertificates)
+    (hApprox :
+      ∀ F : Correspondence (ι → ℝ) (ι → ℝ),
+        KakutaniPremises (stdSimplex ℝ ι) F →
+          ∀ n : ℕ,
+            ApproximateKakutaniSelection
+              (stdSimplex ℝ ι) F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    KakutaniFixedPointProperty (stdSimplex ℝ ι) :=
+  kakutaniFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivision_pivotGraphCertificates
+      U hU)
+    hApprox
+
+set_option linter.unusedSectionVars true
 
 end GridTriangulation
 

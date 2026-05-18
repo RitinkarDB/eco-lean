@@ -1,6 +1,7 @@
 import Mathlib.Analysis.Convex.Basic
 import Mathlib.Analysis.Convex.Quasiconvex
 import Mathlib.Analysis.Convex.StdSimplex
+import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Topology.Constructions.SumProd
 import Mathlib.Topology.Connected.Clopen
 import Mathlib.Topology.ContinuousOn
@@ -10,6 +11,7 @@ import Mathlib.Topology.Instances.Real.Lemmas
 import Mathlib.Topology.Semicontinuity.Hemicontinuity
 import Mathlib.Topology.Order.Compact
 import Mathlib.Topology.Order.Real
+import Mathlib.Topology.Sequences
 
 namespace EcoLean.GameTheory
 
@@ -1961,11 +1963,132 @@ theorem KakutaniPremises.of_argmax
       closed_graph :=
         argmax_closedGraphOn hKcompact.isClosed hFclosed hFlhc hu }
 
+/--
+An approximate continuous selection for a correspondence on a carrier.
+
+The map `toFun` is continuous on `K`, maps `K` into itself, and its value at
+each `x ∈ K` lies within `ε` of a graph point `(z, y)` whose base `z` is also
+within `ε` of `x`. This is the reusable compactness interface for proving a
+Kakutani fixed point from Brouwer plus approximate selections.
+-/
+structure ApproximateKakutaniSelection [PseudoMetricSpace X]
+    (K : Set X) (F : Correspondence X X) (ε : ℝ) where
+  toFun : X → X
+  mapsTo_domain : Set.MapsTo toFun K K
+  continuousOn : ContinuousOn toFun K
+  approximate_graph :
+    ∀ x ∈ K, ∃ z ∈ K, ∃ y ∈ F z,
+      dist x z ≤ ε ∧ dist (toFun x) y ≤ ε
+
+/--
+Compactness step in the Brouwer-to-Kakutani route.
+
+If every mesh `1 / (n + 1)` has a continuous approximate selection, Brouwer
+provides approximate fixed points. Compactness extracts a convergent
+subsequence, and closedness of the graph turns the limiting approximate graph
+point into an actual fixed point.
+-/
+theorem BrouwerFixedPointProperty.hasFixedPointOn_of_approximateKakutaniSelections
+    [PseudoMetricSpace X] {K : Set X} {F : Correspondence X X}
+    (hB : BrouwerFixedPointProperty K)
+    (hKcompact : IsCompact K) (hFclosed : ClosedGraphOn F K)
+    (hSel : ∀ n : ℕ,
+      ApproximateKakutaniSelection K F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    HasFixedPointOn F K := by
+  classical
+  let ε : ℕ → ℝ := fun n => (1 : ℝ) / ((n.succ : ℕ) : ℝ)
+  let A : (n : ℕ) → ApproximateKakutaniSelection K F (ε n) := fun n => hSel n
+  have hFixed :
+      ∀ n : ℕ, ∃ x ∈ K, (A n).toFun x = x := by
+    intro n
+    exact hB (A n).toFun (A n).mapsTo_domain (A n).continuousOn
+  let x : ℕ → X := fun n => Classical.choose (hFixed n)
+  have hxSpec :
+      ∀ n : ℕ, x n ∈ K ∧ (A n).toFun (x n) = x n := by
+    intro n
+    exact Classical.choose_spec (hFixed n)
+  let hApprox :
+      ∀ n : ℕ, ∃ z ∈ K, ∃ y ∈ F z,
+        dist (x n) z ≤ ε n ∧ dist ((A n).toFun (x n)) y ≤ ε n := by
+    intro n
+    exact (A n).approximate_graph (x n) (hxSpec n).1
+  let z : ℕ → X := fun n => Classical.choose (hApprox n)
+  have hzSpec :
+      ∀ n : ℕ, z n ∈ K ∧ ∃ y ∈ F (z n),
+        dist (x n) (z n) ≤ ε n ∧
+          dist ((A n).toFun (x n)) y ≤ ε n := by
+    intro n
+    exact Classical.choose_spec (hApprox n)
+  let y : ℕ → X := fun n => Classical.choose (hzSpec n).2
+  have hySpec :
+      ∀ n : ℕ, y n ∈ F (z n) ∧
+        dist (x n) (z n) ≤ ε n ∧
+          dist ((A n).toFun (x n)) (y n) ≤ ε n := by
+    intro n
+    exact Classical.choose_spec (hzSpec n).2
+  rcases hKcompact.tendsto_subseq (x := x) (fun n => (hxSpec n).1) with
+    ⟨x₀, hx₀K, φ, hφmono, hx_tendsto⟩
+  have hε_tendsto :
+      Filter.Tendsto (fun n => ε (φ n)) Filter.atTop (nhds 0) := by
+    have hbase :=
+      (tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)).comp
+        hφmono.tendsto_atTop
+    simpa [ε, Nat.cast_succ] using hbase
+  have hxz_dist_zero :
+      Filter.Tendsto (fun n => dist (x (φ n)) (z (φ n)))
+        Filter.atTop (nhds 0) := by
+    refine squeeze_zero (fun n => dist_nonneg) ?_ hε_tendsto
+    intro n
+    exact (hySpec (φ n)).2.1
+  have hz_tendsto :
+      Filter.Tendsto (fun n => z (φ n)) Filter.atTop (nhds x₀) :=
+    hx_tendsto.congr_dist hxz_dist_zero
+  have hxy_dist_zero :
+      Filter.Tendsto (fun n => dist (x (φ n)) (y (φ n)))
+        Filter.atTop (nhds 0) := by
+    refine squeeze_zero (fun n => dist_nonneg) ?_ hε_tendsto
+    intro n
+    have hclose := (hySpec (φ n)).2.2
+    simpa [(hxSpec (φ n)).2] using hclose
+  have hy_tendsto :
+      Filter.Tendsto (fun n => y (φ n)) Filter.atTop (nhds x₀) :=
+    hx_tendsto.congr_dist hxy_dist_zero
+  have hGraph_mem :
+      ∀ n : ℕ, (z (φ n), y (φ n)) ∈ graphOn F K := by
+    intro n
+    rw [mem_graphOn_iff]
+    exact ⟨(hzSpec (φ n)).1, (hySpec (φ n)).1⟩
+  have hGraph_lim : (x₀, x₀) ∈ graphOn F K :=
+    hFclosed.mem_of_tendsto
+      (hz_tendsto.prodMk_nhds hy_tendsto)
+      (Filter.Eventually.of_forall hGraph_mem)
+  rw [mem_graphOn_iff] at hGraph_lim
+  exact ⟨x₀, hGraph_lim.1, hGraph_lim.2⟩
+
 /-- A carrier satisfies Kakutani when every correspondence satisfying the
 Kakutani hypotheses has a fixed point on that carrier. -/
 def KakutaniFixedPointProperty [TopologicalSpace X] [AddCommMonoid X] [Module ℝ X]
     (K : Set X) : Prop :=
   ∀ F : Correspondence X X, KakutaniPremises K F → HasFixedPointOn F K
+
+/--
+Brouwer plus approximate selections for every Kakutani correspondence imply
+the Kakutani fixed-point property.
+
+This isolates the remaining analytic construction: future work only has to
+build the approximate selections from compactness, convexity, and closed graph
+hypotheses; the limiting fixed-point argument is already packaged here.
+-/
+theorem KakutaniFixedPointProperty.of_brouwer_approximateSelections
+    [PseudoMetricSpace X] [AddCommMonoid X] [Module ℝ X]
+    {K : Set X} (hB : BrouwerFixedPointProperty K)
+    (hApprox : ∀ F : Correspondence X X, KakutaniPremises K F →
+      ∀ n : ℕ,
+        ApproximateKakutaniSelection K F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    KakutaniFixedPointProperty K := by
+  intro F hF
+  exact hB.hasFixedPointOn_of_approximateKakutaniSelections
+    hF.compact_domain hF.closed_graph (hApprox F hF)
 
 theorem KakutaniFixedPointProperty.image_continuousAffineEquiv
     [TopologicalSpace X] [TopologicalSpace Y]
