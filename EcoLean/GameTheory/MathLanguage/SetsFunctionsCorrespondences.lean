@@ -2,6 +2,7 @@ import Mathlib.Analysis.Convex.Basic
 import Mathlib.Analysis.Convex.Quasiconvex
 import Mathlib.Analysis.Convex.StdSimplex
 import Mathlib.Topology.Constructions.SumProd
+import Mathlib.Topology.Connected.Clopen
 import Mathlib.Topology.ContinuousOn
 import Mathlib.Topology.Algebra.ContinuousAffineEquiv
 import Mathlib.Topology.Algebra.Module.Equiv
@@ -1308,6 +1309,459 @@ theorem brouwerFixedPointProperty_stdSimplex_fin_two :
   have hI : BrouwerFixedPointProperty unitInterval :=
     brouwerFixedPointProperty_Icc (α := ℝ) (a := 0) (b := 1) zero_le_one
   exact hI.of_subtype_homeomorph stdSimplexHomeomorphUnitInterval.symm
+
+/--
+The face of a standard simplex whose nonzero coordinates are supported on
+the finite index set `J`.
+
+This is the carrier-set version of the usual notation
+`conv {e i | i ∈ J}` for a coordinate face.
+-/
+def stdSimplexFace {ι : Type u} [Fintype ι] (J : Finset ι) :
+    Set (stdSimplex ℝ ι) :=
+  {x | ∀ i, x i ≠ 0 → i ∈ J}
+
+@[simp] theorem mem_stdSimplexFace_iff {ι : Type u} [Fintype ι]
+    {J : Finset ι} {x : stdSimplex ℝ ι} :
+    x ∈ stdSimplexFace J ↔ ∀ i, x i ≠ 0 → i ∈ J :=
+  Iff.rfl
+
+theorem mem_stdSimplexFace_iff_eq_zero_of_not_mem {ι : Type u} [Fintype ι]
+    {J : Finset ι} {x : stdSimplex ℝ ι} :
+    x ∈ stdSimplexFace J ↔ ∀ i, i ∉ J → x i = 0 := by
+  constructor
+  · intro hx i hiJ
+    by_contra hxi
+    exact hiJ (hx i hxi)
+  · intro hx i hxi
+    by_contra hiJ
+    exact hxi (hx i hiJ)
+
+theorem stdSimplexFace_mono {ι : Type u} [Fintype ι]
+    {J K : Finset ι} (hJK : J ⊆ K) :
+    stdSimplexFace J ⊆ stdSimplexFace K := by
+  intro x hx i hxi
+  exact hJK (hx i hxi)
+
+@[simp] theorem stdSimplexFace_univ {ι : Type u} [Fintype ι] :
+    stdSimplexFace (Finset.univ : Finset ι) = Set.univ := by
+  ext x
+  simp [stdSimplexFace]
+
+theorem vertex_mem_stdSimplexFace {ι : Type u} [Fintype ι] [DecidableEq ι]
+    {J : Finset ι} {i : ι} (hi : i ∈ J) :
+    stdSimplex.vertex (S := ℝ) i ∈ stdSimplexFace J := by
+  intro j hj
+  have hji : j = i := by
+    by_contra hne
+    have hzero : stdSimplex.vertex (S := ℝ) i j = 0 := by
+      simp [stdSimplex.vertex, Pi.single_eq_of_ne hne]
+    exact hj hzero
+  simpa [hji] using hi
+
+theorem nonempty_stdSimplexFace {ι : Type u} [Fintype ι] [DecidableEq ι]
+    {J : Finset ι} (hJ : J.Nonempty) :
+    (stdSimplexFace J).Nonempty := by
+  rcases hJ with ⟨i, hi⟩
+  exact ⟨stdSimplex.vertex (S := ℝ) i, vertex_mem_stdSimplexFace hi⟩
+
+theorem isClosed_stdSimplexFace {ι : Type u} [Fintype ι]
+    (J : Finset ι) : IsClosed (stdSimplexFace J) := by
+  rw [show stdSimplexFace J =
+      Set.iInter (fun i : Subtype (fun i : ι => i ∉ J) =>
+        {x : stdSimplex ℝ ι | x (i : ι) = 0}) by
+    ext x
+    simp only [Set.mem_iInter, Set.mem_setOf_eq]
+    constructor
+    · intro hx i
+      exact (mem_stdSimplexFace_iff_eq_zero_of_not_mem.mp hx) i i.2
+    · intro hx
+      exact mem_stdSimplexFace_iff_eq_zero_of_not_mem.mpr fun i hiJ => hx ⟨i, hiJ⟩]
+  exact isClosed_iInter fun i =>
+    isClosed_eq ((continuous_apply (i : ι)).comp continuous_subtype_val) continuous_const
+
+theorem isCompact_stdSimplexFace {ι : Type u} [Fintype ι]
+    (J : Finset ι) : IsCompact (stdSimplexFace J) :=
+  (isClosed_stdSimplexFace J).isCompact
+
+/--
+The canonical parametrization of a coordinate face by a lower-dimensional
+standard simplex.
+
+An element of `stdSimplex ℝ {i // i ∈ J}` is extended by zero outside `J`.
+-/
+noncomputable def stdSimplexFaceMap {ι : Type u} [Fintype ι] [DecidableEq ι]
+    (J : Finset ι) : stdSimplex ℝ {i // i ∈ J} → stdSimplex ℝ ι :=
+  stdSimplex.map (S := ℝ) (fun i : {i // i ∈ J} => (i : ι))
+
+@[simp] theorem stdSimplexFaceMap_apply_of_mem {ι : Type u}
+    [Fintype ι] [DecidableEq ι] (J : Finset ι)
+    (x : stdSimplex ℝ {i // i ∈ J}) {i : ι} (hi : i ∈ J) :
+    stdSimplexFaceMap J x i = x ⟨i, hi⟩ := by
+  classical
+  change (FunOnFinite.linearMap ℝ ℝ (fun j : {i // i ∈ J} => (j : ι)) x) i =
+    x ⟨i, hi⟩
+  rw [FunOnFinite.linearMap_apply_apply]
+  have hfilter :
+      Finset.univ.filter (fun j : {i // i ∈ J} => (j : ι) = i) = {⟨i, hi⟩} := by
+    ext j
+    simp [Subtype.ext_iff]
+  rw [hfilter]
+  simp
+
+@[simp] theorem stdSimplexFaceMap_apply_of_not_mem {ι : Type u}
+    [Fintype ι] [DecidableEq ι] (J : Finset ι)
+    (x : stdSimplex ℝ {i // i ∈ J}) {i : ι} (hi : i ∉ J) :
+    stdSimplexFaceMap J x i = 0 := by
+  classical
+  change (FunOnFinite.linearMap ℝ ℝ (fun j : {i // i ∈ J} => (j : ι)) x) i = 0
+  rw [FunOnFinite.linearMap_apply_apply]
+  have hfilter :
+      Finset.univ.filter (fun j : {i // i ∈ J} => (j : ι) = i) = ∅ := by
+    ext j
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    constructor
+    · intro hji
+      exact (hi (by simpa [hji] using j.2)).elim
+    · intro hfalse
+      simp at hfalse
+  rw [hfilter]
+  simp
+
+theorem stdSimplexFaceMap_mem {ι : Type u} [Fintype ι] [DecidableEq ι]
+    (J : Finset ι) (x : stdSimplex ℝ {i // i ∈ J}) :
+    stdSimplexFaceMap J x ∈ stdSimplexFace J := by
+  rw [mem_stdSimplexFace_iff_eq_zero_of_not_mem]
+  intro i hi
+  exact stdSimplexFaceMap_apply_of_not_mem J x hi
+
+theorem continuous_stdSimplexFaceMap {ι : Type u} [Fintype ι] [DecidableEq ι]
+    (J : Finset ι) : Continuous (stdSimplexFaceMap J) :=
+  stdSimplex.continuous_map (S := ℝ) (fun i : {i // i ∈ J} => (i : ι))
+
+/-- Restrict a point of a coordinate face to the coordinates that support it. -/
+noncomputable def stdSimplexFaceRestrict {ι : Type u} [Fintype ι]
+    [DecidableEq ι] (J : Finset ι) :
+    stdSimplexFace J → stdSimplex ℝ {i // i ∈ J} := by
+  intro x
+  refine ⟨fun i => (x : stdSimplex ℝ ι) (i : ι), ?_, ?_⟩
+  · intro i
+    exact stdSimplex.zero_le (x : stdSimplex ℝ ι) (i : ι)
+  · calc
+      (∑ i : {i // i ∈ J}, (x : stdSimplex ℝ ι) (i : ι))
+          = ∑ i ∈ J, (x : stdSimplex ℝ ι) i := by
+            simpa using
+              (Finset.sum_finset_coe (fun i => (x : stdSimplex ℝ ι) i) J)
+      _ = ∑ i, (x : stdSimplex ℝ ι) i := by
+        exact Finset.sum_subset (Finset.subset_univ J) fun i _hi hiJ =>
+          (mem_stdSimplexFace_iff_eq_zero_of_not_mem.mp x.2) i hiJ
+      _ = 1 := stdSimplex.sum_eq_one (x : stdSimplex ℝ ι)
+
+@[simp] theorem stdSimplexFaceRestrict_apply {ι : Type u}
+    [Fintype ι] [DecidableEq ι] (J : Finset ι)
+    (x : stdSimplexFace J) (i : {i // i ∈ J}) :
+    stdSimplexFaceRestrict J x i = (x : stdSimplex ℝ ι) (i : ι) :=
+  rfl
+
+theorem continuous_stdSimplexFaceRestrict {ι : Type u}
+    [Fintype ι] [DecidableEq ι] (J : Finset ι) :
+    Continuous (stdSimplexFaceRestrict J) := by
+  refine Continuous.subtype_mk ?_ _
+  exact continuous_pi fun i =>
+    (continuous_apply (i : ι)).comp (continuous_subtype_val.comp continuous_subtype_val)
+
+/--
+A coordinate face of the standard simplex is homeomorphic to the standard
+simplex on its supporting index subtype.
+-/
+noncomputable def stdSimplexFaceHomeomorph {ι : Type u}
+    [Fintype ι] [DecidableEq ι] (J : Finset ι) :
+    stdSimplex ℝ {i // i ∈ J} ≃ₜ stdSimplexFace J where
+  toFun x := ⟨stdSimplexFaceMap J x, stdSimplexFaceMap_mem J x⟩
+  invFun x := stdSimplexFaceRestrict J x
+  left_inv x := by
+    ext i
+    exact stdSimplexFaceMap_apply_of_mem J x i.2
+  right_inv x := by
+    apply Subtype.ext
+    ext i
+    by_cases hi : i ∈ J
+    · exact stdSimplexFaceMap_apply_of_mem J (stdSimplexFaceRestrict J x) hi
+    · have hxi : (x : stdSimplex ℝ ι) i = 0 :=
+        (mem_stdSimplexFace_iff_eq_zero_of_not_mem.mp x.2) i hi
+      calc
+        stdSimplexFaceMap J (stdSimplexFaceRestrict J x) i = 0 :=
+          stdSimplexFaceMap_apply_of_not_mem J (stdSimplexFaceRestrict J x) hi
+        _ = (x : stdSimplex ℝ ι) i := hxi.symm
+  continuous_toFun := by
+    exact (continuous_stdSimplexFaceMap J).subtype_mk (stdSimplexFaceMap_mem J)
+  continuous_invFun := continuous_stdSimplexFaceRestrict J
+
+/--
+The finite-dimensional KKM covering condition on the standard simplex.
+
+For every nonempty coordinate face indexed by `J`, the face is covered by
+the corresponding subfamily `(C i)_{i ∈ J}`.
+-/
+def StdSimplexKKMCondition {ι : Type u} [Fintype ι]
+    (C : ι → Set (stdSimplex ℝ ι)) : Prop :=
+  ∀ J : Finset ι, J.Nonempty →
+    ∀ x : stdSimplex ℝ ι, x ∈ stdSimplexFace J → ∃ i ∈ J, x ∈ C i
+
+theorem StdSimplexKKMCondition.mono {ι : Type u} [Fintype ι]
+    {C D : ι → Set (stdSimplex ℝ ι)}
+    (hC : StdSimplexKKMCondition C) (hCD : ∀ i, C i ⊆ D i) :
+    StdSimplexKKMCondition D := by
+  intro J hJ x hxFace
+  rcases hC J hJ x hxFace with ⟨i, hiJ, hxi⟩
+  exact ⟨i, hiJ, hCD i hxi⟩
+
+theorem StdSimplexKKMCondition.exists_mem {ι : Type u} [Fintype ι] [Nonempty ι]
+    {C : ι → Set (stdSimplex ℝ ι)} (hC : StdSimplexKKMCondition C)
+    (x : stdSimplex ℝ ι) : ∃ i, x ∈ C i := by
+  classical
+  rcases hC Finset.univ
+      ⟨Classical.arbitrary ι, Finset.mem_univ (Classical.arbitrary ι)⟩
+      x (by simp) with
+    ⟨i, _hi, hxi⟩
+  exact ⟨i, hxi⟩
+
+theorem StdSimplexKKMCondition.vertex_mem {ι : Type u}
+    [Fintype ι] [DecidableEq ι] {C : ι → Set (stdSimplex ℝ ι)}
+    (hC : StdSimplexKKMCondition C) (i : ι) :
+    stdSimplex.vertex (S := ℝ) i ∈ C i := by
+  have hface :
+      stdSimplex.vertex (S := ℝ) i ∈ stdSimplexFace ({i} : Finset ι) :=
+    vertex_mem_stdSimplexFace (by simp)
+  rcases hC ({i} : Finset ι) (by simp) (stdSimplex.vertex (S := ℝ) i) hface with
+    ⟨j, hj, hxj⟩
+  have hji : j = i := by
+    simpa using hj
+  simpa [hji] using hxj
+
+theorem StdSimplexKKMCondition.restrict_face {ι : Type u}
+    [Fintype ι] [DecidableEq ι] {C : ι → Set (stdSimplex ℝ ι)}
+    (hC : StdSimplexKKMCondition C) (J : Finset ι) :
+    StdSimplexKKMCondition (fun i : {i // i ∈ J} =>
+      (stdSimplexFaceMap J) ⁻¹' C (i : ι)) := by
+  intro L hL x hxFace
+  let emb : {i // i ∈ J} ↪ ι := ⟨Subtype.val, Subtype.val_injective⟩
+  let K : Finset ι := L.map emb
+  have hKne : K.Nonempty := by
+    rcases hL with ⟨i, hiL⟩
+    exact ⟨(i : ι), Finset.mem_map.mpr ⟨i, hiL, rfl⟩⟩
+  have hxAmbientFace : stdSimplexFaceMap J x ∈ stdSimplexFace K := by
+    rw [mem_stdSimplexFace_iff_eq_zero_of_not_mem]
+    intro i hiK
+    by_cases hiJ : i ∈ J
+    · rw [stdSimplexFaceMap_apply_of_mem J x hiJ]
+      by_contra hxi
+      have hiL : (⟨i, hiJ⟩ : {i // i ∈ J}) ∈ L := hxFace ⟨i, hiJ⟩ hxi
+      exact hiK (Finset.mem_map.mpr ⟨⟨i, hiJ⟩, hiL, rfl⟩)
+    · exact stdSimplexFaceMap_apply_of_not_mem J x hiJ
+  rcases hC K hKne (stdSimplexFaceMap J x) hxAmbientFace with ⟨i, hiK, hiC⟩
+  rcases Finset.mem_map.mp hiK with ⟨j, hjL, hji⟩
+  refine ⟨j, hjL, ?_⟩
+  change stdSimplexFaceMap J x ∈ C (j : ι)
+  simpa [← hji] using hiC
+
+theorem isClosed_stdSimplexFaceMap_preimage {ι : Type u}
+    [Fintype ι] [DecidableEq ι] {C : ι → Set (stdSimplex ℝ ι)}
+    (hclosed : ∀ i, IsClosed (C i)) (J : Finset ι) :
+    ∀ i : {i // i ∈ J}, IsClosed ((stdSimplexFaceMap J) ⁻¹' C (i : ι)) := by
+  intro i
+  exact (hclosed (i : ι)).preimage (continuous_stdSimplexFaceMap J)
+
+/--
+The KKM intersection property for closed covers of the standard simplex.
+
+This is the reusable target for the later Sperner/KKM development: once the
+property is proved for finite index types, Brouwer follows below.
+-/
+def StdSimplexKKMProperty (ι : Type u) [Fintype ι] : Prop :=
+  ∀ C : ι → Set (stdSimplex ℝ ι),
+    (∀ i, IsClosed (C i)) →
+      StdSimplexKKMCondition C → ∃ x : stdSimplex ℝ ι, ∀ i, x ∈ C i
+
+theorem closed_iInter_nonempty_of_finiteIntersections
+    [TopologicalSpace X] [CompactSpace X] {α : Type w} {C : α → Set X}
+    (hclosed : ∀ i, IsClosed (C i))
+    (hfinite : ∀ s : Finset α, (⋂ i ∈ s, C i).Nonempty) :
+    ∃ x : X, ∀ i, x ∈ C i := by
+  rcases CompactSpace.iInter_nonempty hclosed hfinite with ⟨x, hx⟩
+  exact ⟨x, fun i => (Set.mem_iInter.mp hx) i⟩
+
+theorem stdSimplex_closed_iInter_nonempty_of_finiteIntersections
+    {ι : Type u} [Fintype ι] {α : Type w}
+    {C : α → Set (stdSimplex ℝ ι)}
+    (hclosed : ∀ i, IsClosed (C i))
+    (hfinite : ∀ s : Finset α, (⋂ i ∈ s, C i).Nonempty) :
+    ∃ x : stdSimplex ℝ ι, ∀ i, x ∈ C i :=
+  closed_iInter_nonempty_of_finiteIntersections hclosed hfinite
+
+theorem stdSimplexKKMProperty_subsingleton
+    {ι : Type u} [Fintype ι] [Nonempty ι] [Subsingleton ι] :
+    StdSimplexKKMProperty ι := by
+  classical
+  intro C _hclosed hcond
+  let i : ι := Classical.arbitrary ι
+  refine ⟨stdSimplex.vertex (S := ℝ) i, ?_⟩
+  intro j
+  have hji : j = i := Subsingleton.elim j i
+  simpa [hji] using hcond.vertex_mem i
+
+theorem StdSimplexKKMProperty.exists_mem_face_iInter {ι : Type u}
+    [Fintype ι] [DecidableEq ι] {C : ι → Set (stdSimplex ℝ ι)}
+    {J : Finset ι} (hKKM : StdSimplexKKMProperty {i // i ∈ J})
+    (hclosed : ∀ i, IsClosed (C i)) (hcond : StdSimplexKKMCondition C) :
+    ∃ x : stdSimplex ℝ ι, x ∈ stdSimplexFace J ∧ ∀ i, i ∈ J → x ∈ C i := by
+  rcases hKKM
+      (fun i : {i // i ∈ J} => (stdSimplexFaceMap J) ⁻¹' C (i : ι))
+      (isClosed_stdSimplexFaceMap_preimage hclosed J)
+      (hcond.restrict_face J) with
+    ⟨x, hx⟩
+  refine ⟨stdSimplexFaceMap J x, stdSimplexFaceMap_mem J x, ?_⟩
+  intro i hiJ
+  exact hx ⟨i, hiJ⟩
+
+theorem nonempty_inter_of_isClosed_union_eq_univ_of_nonempty
+    [TopologicalSpace X] [PreconnectedSpace X] {A B : Set X}
+    (hAclosed : IsClosed A) (hBclosed : IsClosed B)
+    (hcover : A ∪ B = Set.univ) (hAne : A.Nonempty) (hBne : B.Nonempty) :
+    (A ∩ B).Nonempty := by
+  by_contra hAB
+  have hABempty : A ∩ B = ∅ := Set.not_nonempty_iff_eq_empty.mp hAB
+  have hAeq : A = Bᶜ := by
+    ext x
+    constructor
+    · intro hxA hxB
+      have hxAB : x ∈ A ∩ B := ⟨hxA, hxB⟩
+      rw [hABempty] at hxAB
+      exact hxAB
+    · intro hxB
+      have hxcover : x ∈ A ∪ B := by
+        rw [hcover]
+        trivial
+      rcases hxcover with hxA | hxB'
+      · exact hxA
+      · exact (hxB hxB').elim
+  have hAclopen : IsClopen A := by
+    refine ⟨hAclosed, ?_⟩
+    rw [hAeq]
+    exact hBclosed.isOpen_compl
+  have hAuniv : A = Set.univ := hAclopen.eq_univ hAne
+  rcases hBne with ⟨x, hxB⟩
+  have hxA : x ∈ A := by
+    rw [hAuniv]
+    trivial
+  have hxAB : x ∈ A ∩ B := ⟨hxA, hxB⟩
+  rw [hABempty] at hxAB
+  exact hxAB
+
+theorem stdSimplexKKMProperty_fin_two : StdSimplexKKMProperty (Fin 2) := by
+  intro C hclosed hcond
+  have hcover : C 0 ∪ C 1 = Set.univ := by
+    ext x
+    constructor
+    · intro _hx
+      trivial
+    · intro _hx
+      rcases hcond.exists_mem x with ⟨i, hxi⟩
+      fin_cases i
+      · exact Or.inl hxi
+      · exact Or.inr hxi
+  have hC0ne : (C 0).Nonempty :=
+    ⟨stdSimplex.vertex (S := ℝ) (0 : Fin 2), hcond.vertex_mem 0⟩
+  have hC1ne : (C 1).Nonempty :=
+    ⟨stdSimplex.vertex (S := ℝ) (1 : Fin 2), hcond.vertex_mem 1⟩
+  rcases nonempty_inter_of_isClosed_union_eq_univ_of_nonempty
+      (hclosed 0) (hclosed 1) hcover hC0ne hC1ne with
+    ⟨x, hx0, hx1⟩
+  refine ⟨x, ?_⟩
+  intro i
+  fin_cases i
+  · exact hx0
+  · exact hx1
+
+/--
+The KKM intersection property implies Brouwer's fixed-point property on the
+standard simplex.
+
+Given a continuous self-map `f`, the usual KKM cover is
+`C i = {x | f x i ≤ x i}`. The KKM point belongs to every `C i`, so `f x ≤ x`
+coordinatewise. Since both `x` and `f x` have coordinate sum `1`, all
+coordinates are equal.
+-/
+theorem brouwerFixedPointProperty_stdSimplex_of_kkm
+    {ι : Type u} [Fintype ι] (hKKM : StdSimplexKKMProperty ι) :
+    BrouwerFixedPointProperty (stdSimplex ℝ ι) := by
+  intro f hfMap hfCont
+  let fS : stdSimplex ℝ ι → stdSimplex ℝ ι := fun x => ⟨f x, hfMap x.2⟩
+  have hfSCont : Continuous fS := by
+    have hfRestrict : Continuous ((stdSimplex ℝ ι).restrict f) := hfCont.restrict
+    exact hfRestrict.codRestrict (fun x => hfMap x.2)
+  let C : ι → Set (stdSimplex ℝ ι) := fun i => {x | fS x i ≤ x i}
+  have hclosed : ∀ i, IsClosed (C i) := by
+    intro i
+    have hleft : Continuous fun x : stdSimplex ℝ ι => fS x i :=
+      (continuous_apply i).comp (continuous_subtype_val.comp hfSCont)
+    have hright : Continuous fun x : stdSimplex ℝ ι => x i :=
+      (continuous_apply i).comp continuous_subtype_val
+    simpa [C] using isClosed_le hleft hright
+  have hcond : StdSimplexKKMCondition C := by
+    intro J hJ x hxFace
+    by_contra hnone
+    push_neg at hnone
+    have hltJ : ∀ i, i ∈ J → x i < fS x i := by
+      intro i hi
+      have hnotle : ¬ fS x i ≤ x i := by
+        simpa [C] using hnone i hi
+      exact lt_of_not_ge hnotle
+    have hleAll : ∀ i, x i ≤ fS x i := by
+      intro i
+      by_cases hi : i ∈ J
+      · exact (hltJ i hi).le
+      · have hx0 : x i = 0 := by
+          by_contra hxne
+          exact hi (hxFace i hxne)
+        have hfnonneg : 0 ≤ fS x i := stdSimplex.zero_le (fS x) i
+        rw [hx0]
+        exact hfnonneg
+    have hsum_lt : (∑ i, x i) < ∑ i, fS x i := by
+      refine Finset.sum_lt_sum (s := Finset.univ) ?_ ?_
+      · intro i _hi
+        exact hleAll i
+      · rcases hJ with ⟨i, hi⟩
+        exact ⟨i, Finset.mem_univ i, hltJ i hi⟩
+    have hltOne : (1 : ℝ) < 1 := by
+      calc
+        (1 : ℝ) = ∑ i, x i := (stdSimplex.sum_eq_one x).symm
+        _ < ∑ i, fS x i := hsum_lt
+        _ = 1 := stdSimplex.sum_eq_one (fS x)
+    exact (lt_irrefl (1 : ℝ)) hltOne
+  rcases hKKM C hclosed hcond with ⟨x, hxC⟩
+  refine ⟨x, x.2, ?_⟩
+  have hle : ∀ i, fS x i ≤ x i := by
+    intro i
+    simpa [C] using hxC i
+  have hcoord : ∀ i, fS x i = x i := by
+    intro i
+    refine le_antisymm (hle i) ?_
+    by_contra hnot
+    have hlt : fS x i < x i := lt_of_not_ge hnot
+    have hsum_lt : (∑ j, fS x j) < ∑ j, x j := by
+      refine Finset.sum_lt_sum (s := Finset.univ) ?_ ?_
+      · intro j _hj
+        exact hle j
+      · exact ⟨i, Finset.mem_univ i, hlt⟩
+    have hltOne : (1 : ℝ) < 1 := by
+      calc
+        (1 : ℝ) = ∑ j, fS x j := (stdSimplex.sum_eq_one (fS x)).symm
+        _ < ∑ j, x j := hsum_lt
+        _ = 1 := stdSimplex.sum_eq_one x
+    exact (lt_irrefl (1 : ℝ)) hltOne
+  funext i
+  simpa [fS] using hcoord i
 
 /--
 The standard closed-graph form of Kakutani's fixed-point hypotheses on a
