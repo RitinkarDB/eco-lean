@@ -2,7 +2,11 @@ import EcoLean.GameTheory.MathLanguage.SetsFunctionsCorrespondences
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Combinatorics.SimpleGraph.DegreeSum
 import Mathlib.Data.Fintype.Pi
+import Mathlib.Data.Fintype.Perm
+import Mathlib.Data.Finset.Fin
 import Mathlib.Data.List.Chain
+import Mathlib.Data.List.ChainOfFn
+import Mathlib.Data.Nat.ModEq
 import Mathlib.Topology.Sequences
 
 namespace EcoLean.GameTheory
@@ -304,6 +308,14 @@ theorem almostFullyLabeledOn_iff [DecidableEq ι]
       ∀ i : ι, i ≠ missing → ∃ a ∈ cell, L.label a = i := by
   simp [AlmostFullyLabeledOn]
 
+theorem not_almostFullyLabeledOn_empty [DecidableEq ι] [Nontrivial ι]
+    (L : GridSpernerLabeling ι N) (missing : ι) :
+    ¬ L.AlmostFullyLabeledOn ∅ missing := by
+  intro halmost
+  rcases exists_ne missing with ⟨i, hi⟩
+  have hi_labels : i ∈ L.labelsOn ∅ := halmost i hi
+  simp [labelsOn] at hi_labels
+
 theorem FullyLabeledOn.almostFullyLabeledOn [DecidableEq ι]
     {L : GridSpernerLabeling ι N} {cell : Finset (SimplexGrid ι N)}
     (hfull : L.FullyLabeledOn cell) (missing : ι) :
@@ -347,6 +359,92 @@ theorem label_ne_of_coord_eq_zero (L : GridSpernerLabeling ι N)
   have hnonzero : a.1 (L.label a) ≠ 0 :=
     SimplexGrid.mem_support_iff.mp (L.label_mem_support a)
   exact hnonzero (by simpa [hlabel] using hi)
+
+theorem label_notMem_labelsOn_of_coord_eq_zero [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) (cell : Finset (SimplexGrid ι N)) {i : ι}
+    (hzero : ∀ a ∈ cell, a.1 i = 0) :
+    i ∉ L.labelsOn cell := by
+  rw [mem_labelsOn_iff]
+  rintro ⟨a, ha, hlabel⟩
+  exact L.label_ne_of_coord_eq_zero a (hzero a ha) hlabel
+
+theorem not_fullyLabeledOn_of_coord_eq_zero [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) (cell : Finset (SimplexGrid ι N)) {i : ι}
+    (hzero : ∀ a ∈ cell, a.1 i = 0) :
+    ¬ L.FullyLabeledOn cell := by
+  intro hfull
+  exact L.label_notMem_labelsOn_of_coord_eq_zero cell hzero (hfull i)
+
+theorem labelsOn_eq_univ_of_fullyLabeledOn [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) {cell : Finset (SimplexGrid ι N)}
+    (hfull : L.FullyLabeledOn cell) :
+    L.labelsOn cell = Finset.univ := by
+  ext i
+  constructor
+  · intro _hi
+    exact Finset.mem_univ i
+  · intro _hi
+    exact hfull i
+
+theorem labelsOn_card_eq_univ_of_fullyLabeledOn [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) {cell : Finset (SimplexGrid ι N)}
+    (hfull : L.FullyLabeledOn cell) :
+    (L.labelsOn cell).card = Fintype.card ι := by
+  rw [L.labelsOn_eq_univ_of_fullyLabeledOn hfull, Finset.card_univ]
+
+theorem injOn_label_of_fullyLabeledOn_card_eq [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) {cell : Finset (SimplexGrid ι N)}
+    (hfull : L.FullyLabeledOn cell) (hcard : cell.card = Fintype.card ι) :
+    Set.InjOn L.label cell := by
+  classical
+  rw [← Finset.card_image_iff]
+  rw [← labelsOn, L.labelsOn_card_eq_univ_of_fullyLabeledOn hfull, hcard]
+
+theorem eq_of_mem_of_label_eq_of_fullyLabeledOn_card_eq [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) {cell : Finset (SimplexGrid ι N)}
+    (hfull : L.FullyLabeledOn cell) (hcard : cell.card = Fintype.card ι)
+    {a b : SimplexGrid ι N} (ha : a ∈ cell) (hb : b ∈ cell)
+    (hlabel : L.label a = L.label b) :
+    a = b :=
+  L.injOn_label_of_fullyLabeledOn_card_eq hfull hcard ha hb hlabel
+
+theorem labelsOn_eq_univ_erase_of_almostFullyLabeledOn_notMem
+    [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) {cell : Finset (SimplexGrid ι N)}
+    {missing : ι} (halmost : L.AlmostFullyLabeledOn cell missing)
+    (hmissing : missing ∉ L.labelsOn cell) :
+    L.labelsOn cell = Finset.univ.erase missing := by
+  ext i
+  constructor
+  · intro hi
+    refine Finset.mem_erase.mpr ⟨?_, Finset.mem_univ i⟩
+    intro himissing
+    exact hmissing (by simpa [himissing] using hi)
+  · intro hi
+    exact halmost i (Finset.mem_erase.mp hi).1
+
+theorem labelsOn_card_eq_univ_erase_of_almostFullyLabeledOn_notMem
+    [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) {cell : Finset (SimplexGrid ι N)}
+    {missing : ι} (halmost : L.AlmostFullyLabeledOn cell missing)
+    (hmissing : missing ∉ L.labelsOn cell) :
+    (L.labelsOn cell).card = Fintype.card ι - 1 := by
+  rw [L.labelsOn_eq_univ_erase_of_almostFullyLabeledOn_notMem halmost hmissing,
+    Finset.card_erase_of_mem (Finset.mem_univ missing), Finset.card_univ]
+
+theorem injOn_label_of_almostFullyLabeledOn_notMem_card_eq
+    [DecidableEq ι]
+    (L : GridSpernerLabeling ι N) {cell : Finset (SimplexGrid ι N)}
+    {missing : ι} (halmost : L.AlmostFullyLabeledOn cell missing)
+    (hmissing : missing ∉ L.labelsOn cell)
+    (hcard : cell.card = Fintype.card ι - 1) :
+    Set.InjOn L.label cell := by
+  classical
+  rw [← Finset.card_image_iff]
+  rw [← labelsOn,
+    L.labelsOn_card_eq_univ_erase_of_almostFullyLabeledOn_notMem
+      halmost hmissing,
+    hcard]
 
 theorem label_unitVertex [DecidableEq ι] (L : GridSpernerLabeling ι 1)
     (i : ι) :
@@ -497,6 +595,40 @@ theorem AlmostFullyLabeled.fullyLabeled_or_missing_notMem [DecidableEq ι]
   by_cases hmissing : missing ∈ L.labelsOn cell.vertices
   · exact Or.inl (halmost.fullyLabeled_of_missing_mem hmissing)
   · exact Or.inr hmissing
+
+theorem label_notMem_of_coord_eq_zero [DecidableEq ι]
+    (cell : GridSmallCell ι N) (L : GridSpernerLabeling ι N) {i : ι}
+    (hzero : ∀ a ∈ cell.vertices, a.1 i = 0) :
+    i ∉ L.labelsOn cell.vertices :=
+  L.label_notMem_labelsOn_of_coord_eq_zero cell.vertices hzero
+
+theorem not_fullyLabeled_of_coord_eq_zero [DecidableEq ι]
+    (cell : GridSmallCell ι N) (L : GridSpernerLabeling ι N) {i : ι}
+    (hzero : ∀ a ∈ cell.vertices, a.1 i = 0) :
+    ¬ cell.FullyLabeled L :=
+  L.not_fullyLabeledOn_of_coord_eq_zero cell.vertices hzero
+
+theorem labelsOn_eq_univ_of_fullyLabeled [DecidableEq ι]
+    (cell : GridSmallCell ι N) (L : GridSpernerLabeling ι N)
+    (hfull : cell.FullyLabeled L) :
+    L.labelsOn cell.vertices = Finset.univ :=
+  L.labelsOn_eq_univ_of_fullyLabeledOn hfull
+
+theorem injOn_label_of_fullyLabeled_card_eq [DecidableEq ι]
+    (cell : GridSmallCell ι N) (L : GridSpernerLabeling ι N)
+    (hfull : cell.FullyLabeled L)
+    (hcard : cell.vertices.card = Fintype.card ι) :
+    Set.InjOn L.label cell.vertices :=
+  L.injOn_label_of_fullyLabeledOn_card_eq hfull hcard
+
+theorem eq_of_mem_of_label_eq_of_fullyLabeled_card_eq [DecidableEq ι]
+    (cell : GridSmallCell ι N) (L : GridSpernerLabeling ι N)
+    (hfull : cell.FullyLabeled L)
+    (hcard : cell.vertices.card = Fintype.card ι)
+    {a b : SimplexGrid ι N} (ha : a ∈ cell.vertices) (hb : b ∈ cell.vertices)
+    (hlabel : L.label a = L.label b) :
+    a = b :=
+  cell.injOn_label_of_fullyLabeled_card_eq L hfull hcard ha hb hlabel
 
 /-- A finite face shared by two small grid cells. -/
 structure SharedFace (cell cell' : GridSmallCell ι N)
@@ -823,6 +955,14 @@ theorem vertexOfRaisedSet_apply [DecidableEq ι]
       (S.lower i : ℕ) + if i ∈ R then 1 else 0 :=
   rfl
 
+theorem vertexOfRaisedSet_coord_eq_zero_of_lower_eq_zero_of_not_mem
+    [DecidableEq ι]
+    (S : GridCubeSlice ι N) {R : Finset ι} {hR : S.lowerSum + R.card = N}
+    {i : ι} (hlower : (S.lower i : ℕ) = 0) (hi : i ∉ R) :
+    (S.vertexOfRaisedSet R hR).1 i = 0 := by
+  rw [vertexOfRaisedSet_apply, hlower]
+  simp [hi]
+
 theorem vertexOfRaisedSet_mem_vertices [DecidableEq ι]
     (S : GridCubeSlice ι N) (R : Finset ι) (hR : S.lowerSum + R.card = N) :
     S.vertexOfRaisedSet R hR ∈ S.toSmallCell.vertices := by
@@ -875,12 +1015,422 @@ noncomputable def vertexEquivRankedSubsets [DecidableEq ι]
     simp
 
 /--
+The grid vertices associated to a finite family of ranked subsets of a cube
+slice.
+
+This is the common-face representation used by path-cell pivot arguments.
+-/
+noncomputable def verticesOfRankedSubsets [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    (subsets : Finset {R : Finset ι // R.card = S.rank}) :
+    Finset (SimplexGrid ι N) := by
+  classical
+  exact subsets.image fun R =>
+    S.vertexOfRaisedSet R.1 (by
+      rw [R.2]
+      exact S.lowerSum_add_rank_eq)
+
+theorem mem_verticesOfRankedSubsets_iff [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    (subsets : Finset {R : Finset ι // R.card = S.rank})
+    {a : SimplexGrid ι N} :
+    a ∈ S.verticesOfRankedSubsets subsets ↔
+      ∃ R ∈ subsets,
+        S.vertexOfRaisedSet R.1 (by
+          rw [R.2]
+          exact S.lowerSum_add_rank_eq) = a := by
+  classical
+  simp [verticesOfRankedSubsets]
+
+theorem vertexOfRankedSubset_mem_verticesOfRankedSubsets [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    {subsets : Finset {R : Finset ι // R.card = S.rank}}
+    {R : {R : Finset ι // R.card = S.rank}} (hR : R ∈ subsets) :
+    S.vertexOfRaisedSet R.1 (by
+      rw [R.2]
+      exact S.lowerSum_add_rank_eq) ∈ S.verticesOfRankedSubsets subsets := by
+  classical
+  rw [mem_verticesOfRankedSubsets_iff]
+  exact ⟨R, hR, rfl⟩
+
+theorem mem_of_vertexOfRankedSubset_mem_verticesOfRankedSubsets [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    {subsets : Finset {R : Finset ι // R.card = S.rank}}
+    {R : {R : Finset ι // R.card = S.rank}}
+    (hR :
+      S.vertexOfRaisedSet R.1 (by
+        rw [R.2]
+        exact S.lowerSum_add_rank_eq) ∈ S.verticesOfRankedSubsets subsets) :
+    R ∈ subsets := by
+  classical
+  rw [mem_verticesOfRankedSubsets_iff] at hR
+  rcases hR with ⟨Q, hQ, hQR⟩
+  have hsets := congrArg S.raisedSet hQR
+  have hQR' : Q = R := by
+    apply Subtype.ext
+    simpa using hsets
+  simpa [hQR'] using hQ
+
+theorem verticesOfRankedSubsets_eq_iff [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    (subsets subsets' : Finset {R : Finset ι // R.card = S.rank}) :
+    S.verticesOfRankedSubsets subsets = S.verticesOfRankedSubsets subsets' ↔
+      subsets = subsets' := by
+  classical
+  constructor
+  · intro hvertices
+    ext R
+    constructor
+    · intro hR
+      exact S.mem_of_vertexOfRankedSubset_mem_verticesOfRankedSubsets
+        (by
+          rw [← hvertices]
+          exact S.vertexOfRankedSubset_mem_verticesOfRankedSubsets hR)
+    · intro hR
+      exact S.mem_of_vertexOfRankedSubset_mem_verticesOfRankedSubsets
+        (by
+          rw [hvertices]
+          exact S.vertexOfRankedSubset_mem_verticesOfRankedSubsets hR)
+  · intro h
+    rw [h]
+
+theorem verticesOfRankedSubsets_coord_eq_zero_of_lower_eq_zero_of_not_mem
+    [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    {subsets : Finset {R : Finset ι // R.card = S.rank}} {i : ι}
+    (hlower : (S.lower i : ℕ) = 0)
+    (hnot : ∀ R ∈ subsets, i ∉ R.1) :
+    ∀ a ∈ S.verticesOfRankedSubsets subsets, a.1 i = 0 := by
+  classical
+  intro a ha
+  rw [mem_verticesOfRankedSubsets_iff] at ha
+  rcases ha with ⟨R, hR, rfl⟩
+  exact S.vertexOfRaisedSet_coord_eq_zero_of_lower_eq_zero_of_not_mem
+    hlower (hnot R hR)
+
+theorem verticesOfRankedSubsets_nonempty [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    {subsets : Finset {R : Finset ι // R.card = S.rank}}
+    (hsubsets : subsets.Nonempty) :
+    (S.verticesOfRankedSubsets subsets).Nonempty := by
+  classical
+  rcases hsubsets with ⟨R, hR⟩
+  refine ⟨S.vertexOfRaisedSet R.1 (by
+    rw [R.2]
+    exact S.lowerSum_add_rank_eq), ?_⟩
+  rw [mem_verticesOfRankedSubsets_iff]
+  exact ⟨R, hR, rfl⟩
+
+theorem verticesOfRankedSubsets_subset_toSmallCell [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    (subsets : Finset {R : Finset ι // R.card = S.rank}) :
+    S.verticesOfRankedSubsets subsets ⊆ S.toSmallCell.vertices := by
+  classical
+  intro a ha
+  rw [mem_verticesOfRankedSubsets_iff] at ha
+  rcases ha with ⟨R, _hR, rfl⟩
+  exact S.vertexOfRaisedSet_mem_vertices R.1 (by
+    rw [R.2]
+    exact S.lowerSum_add_rank_eq)
+
+theorem verticesOfRankedSubsets_card_eq [DecidableEq ι]
+    (S : GridCubeSlice ι N)
+    (subsets : Finset {R : Finset ι // R.card = S.rank}) :
+    (S.verticesOfRankedSubsets subsets).card = subsets.card := by
+  classical
+  rw [verticesOfRankedSubsets]
+  refine Finset.card_image_of_injective _ ?_
+  intro R Q hRQ
+  apply Subtype.ext
+  have hsets := congrArg S.raisedSet hRQ
+  simpa using hsets
+
+/--
 A directed elementary move between ranked subsets: drop one coordinate and add
 one coordinate. These are the edges used by path/alcove descriptions of
 Freudenthal/Kuhn cells inside a cube slice.
 -/
 def RankedSubsetStep [DecidableEq ι] (R Q : Finset ι) : Prop :=
   ∃ drop, drop ∈ R ∧ ∃ add, add ∉ R ∧ Q = insert add (R.erase drop)
+
+/--
+The cyclic embedding `k ↦ start + k (mod d)` from `Fin r` into `Fin d`.
+
+For `r ≤ d`, this enumerates a cyclic block of length `r` without repetition.
+These cyclic blocks are the ranked subsets used by the standard
+Freudenthal/Kuhn alcove triangulation of a hypersimplex.
+-/
+def cyclicIndexEmbedding (d r start : ℕ) (hd : 0 < d) (hr : r ≤ d) :
+    Fin r ↪ Fin d where
+  toFun k := ⟨(start + k.1) % d, Nat.mod_lt _ hd⟩
+  inj' := by
+    intro k l hkl
+    apply Fin.ext
+    have hval :
+        (start + k.1) % d = (start + l.1) % d := by
+      exact congrArg Fin.val hkl
+    have hmod :
+        start + k.1 ≡ start + l.1 [MOD d] := by
+      exact hval
+    have hklmod : k.1 ≡ l.1 [MOD d] :=
+      Nat.ModEq.add_left_cancel' start hmod
+    exact hklmod.eq_of_lt_of_lt
+      (lt_of_lt_of_le k.2 hr) (lt_of_lt_of_le l.2 hr)
+
+/--
+The cyclic interval of length `r` in `Fin d` starting at `start`.
+-/
+def cyclicWindow (d r start : ℕ) (hd : 0 < d) (hr : r ≤ d) :
+    Finset (Fin d) :=
+  (Finset.univ : Finset (Fin r)).map (cyclicIndexEmbedding d r start hd hr)
+
+theorem mem_cyclicWindow_iff (d r start : ℕ) (hd : 0 < d) (hr : r ≤ d)
+    {i : Fin d} :
+    i ∈ cyclicWindow d r start hd hr ↔
+      ∃ k : ℕ, k < r ∧ i.1 = (start + k) % d := by
+  constructor
+  · intro hi
+    rw [cyclicWindow] at hi
+    rcases Finset.mem_map.mp hi with ⟨k, _hk, hk⟩
+    refine ⟨k.1, k.2, ?_⟩
+    exact (congrArg Fin.val hk).symm
+  · rintro ⟨k, hk, hi⟩
+    rw [cyclicWindow]
+    refine Finset.mem_map.mpr ⟨⟨k, hk⟩, Finset.mem_univ _, ?_⟩
+    exact Fin.ext hi.symm
+
+@[simp] theorem card_cyclicWindow (d r start : ℕ)
+    (hd : 0 < d) (hr : r ≤ d) :
+    (cyclicWindow d r start hd hr).card = r := by
+  simp [cyclicWindow]
+
+theorem cyclicWindow_start_mem (d r start : ℕ)
+    (hd : 0 < d) (hr : r ≤ d) (hrpos : 0 < r) :
+    (⟨start % d, Nat.mod_lt _ hd⟩ : Fin d) ∈
+      cyclicWindow d r start hd hr := by
+  rw [mem_cyclicWindow_iff]
+  exact ⟨0, hrpos, by simp⟩
+
+theorem cyclicWindow_end_notMem (d r start : ℕ)
+    (hd : 0 < d) (hrlt : r < d) :
+    (⟨(start + r) % d, Nat.mod_lt _ hd⟩ : Fin d) ∉
+      cyclicWindow d r start hd hrlt.le := by
+  intro hend
+  rw [mem_cyclicWindow_iff] at hend
+  rcases hend with ⟨k, hk, hval⟩
+  have hmod :
+      start + r ≡ start + k [MOD d] := by
+    exact hval
+  have hrk : r ≡ k [MOD d] :=
+    Nat.ModEq.add_left_cancel' start hmod
+  have hklt : k < d := lt_trans hk hrlt
+  have hEq : r = k := hrk.eq_of_lt_of_lt hrlt hklt
+  omega
+
+/--
+A cyclic window, bundled as a ranked subset of a `Fin d` cube slice.
+-/
+noncomputable def cyclicWindowRankedSubset
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d) (start : ℕ) :
+    {R : Finset (Fin d) // R.card = S.rank} := by
+  classical
+  have hr : S.rank ≤ d := by
+    simpa [Fintype.card_fin] using S.rank_le_card
+  exact ⟨cyclicWindow d S.rank start hd hr, card_cyclicWindow d S.rank start hd hr⟩
+
+/--
+The cyclic-window chain associated to a `Fin d` cube slice.
+
+In the interior-rank case `0 < S.rank < d`, successive entries are elementary
+ranked-subset steps. Proving this chain has no duplicates is the remaining
+piece needed to package it as a maximal Kuhn path cell.
+-/
+noncomputable def cyclicWindowChain
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d) :
+    List {R : Finset (Fin d) // R.card = S.rank} :=
+  List.ofFn fun t : Fin d => S.cyclicWindowRankedSubset hd t.1
+
+@[simp] theorem length_cyclicWindowChain
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d) :
+    (S.cyclicWindowChain hd).length = d := by
+  simp [cyclicWindowChain]
+
+theorem cyclicWindowChain_nonempty
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d) :
+    S.cyclicWindowChain hd ≠ [] := by
+  intro hnil
+  have hlen := congrArg List.length hnil
+  simp [length_cyclicWindowChain S hd, Nat.ne_of_gt hd] at hlen
+
+theorem cyclicWindowRankedSubset_mem_chain
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (t : Fin d) :
+    S.cyclicWindowRankedSubset hd t.1 ∈ S.cyclicWindowChain hd := by
+  classical
+  simp [cyclicWindowChain]
+
+/--
+Successive cyclic windows differ by one elementary ranked-subset step.
+
+This is the local combinatorial move followed by the Freudenthal/Kuhn pivot
+path.
+-/
+theorem rankedSubsetStep_cyclicWindow (d r start : ℕ)
+    (hd : 0 < d) (hrpos : 0 < r) (hrlt : r < d) :
+    RankedSubsetStep
+      (cyclicWindow d r start hd hrlt.le)
+      (cyclicWindow d r (start + 1) hd hrlt.le) := by
+  classical
+  let drop : Fin d := ⟨start % d, Nat.mod_lt _ hd⟩
+  let add : Fin d := ⟨(start + r) % d, Nat.mod_lt _ hd⟩
+  refine ⟨drop, ?_, add, ?_, ?_⟩
+  · exact cyclicWindow_start_mem d r start hd hrlt.le hrpos
+  · exact cyclicWindow_end_notMem d r start hd hrlt
+  · ext i
+    constructor
+    · intro hi
+      rw [Finset.mem_insert, Finset.mem_erase]
+      rw [mem_cyclicWindow_iff] at hi
+      rcases hi with ⟨k, hk, hi⟩
+      by_cases hlast : k + 1 = r
+      · left
+        apply Fin.ext
+        calc
+          i.1 = (start + 1 + k) % d := hi
+          _ = (start + r) % d := by
+                congr 1
+                omega
+      · right
+        have hkstep : k + 1 < r := by omega
+        constructor
+        · intro hidrop
+          have hval := congrArg Fin.val hidrop
+          have hmod :
+              start + (k + 1) ≡ start + 0 [MOD d] := by
+            calc
+              (start + (k + 1)) % d = (start + 1 + k) % d := by
+                    congr 1
+                    omega
+              _ = i.1 := hi.symm
+              _ = start % d := hval
+              _ = (start + 0) % d := by simp
+          have hkmod : k + 1 ≡ 0 [MOD d] :=
+            Nat.ModEq.add_left_cancel' start hmod
+          have hklt : k + 1 < d := lt_trans hkstep hrlt
+          have hzero : k + 1 = 0 :=
+            hkmod.eq_of_lt_of_lt hklt hd
+          omega
+        · rw [mem_cyclicWindow_iff]
+          refine ⟨k + 1, hkstep, ?_⟩
+          calc
+            i.1 = (start + 1 + k) % d := hi
+            _ = (start + (k + 1)) % d := by
+                  congr 1
+                  omega
+    · intro hi
+      rw [Finset.mem_insert, Finset.mem_erase] at hi
+      rcases hi with hadd | ⟨hidrop, hiR⟩
+      · rw [mem_cyclicWindow_iff]
+        refine ⟨r - 1, by omega, ?_⟩
+        have hval := congrArg Fin.val hadd
+        calc
+          i.1 = (start + r) % d := hval
+          _ = (start + 1 + (r - 1)) % d := by
+                congr 1
+                omega
+      · rw [mem_cyclicWindow_iff] at hiR
+        rcases hiR with ⟨k, hk, hi⟩
+        have hkpos : 0 < k := by
+          by_contra hkzero
+          have hk0 : k = 0 := Nat.eq_zero_of_not_pos hkzero
+          apply hidrop
+          apply Fin.ext
+          calc
+            i.1 = (start + k) % d := hi
+            _ = start % d := by simp [hk0]
+        rw [mem_cyclicWindow_iff]
+        refine ⟨k - 1, by omega, ?_⟩
+        calc
+          i.1 = (start + k) % d := hi
+          _ = (start + 1 + (k - 1)) % d := by
+                congr 1
+                omega
+
+theorem cyclicWindowChain_isChain
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    (S.cyclicWindowChain hd).IsChain fun R Q =>
+      RankedSubsetStep R.1 Q.1 := by
+  classical
+  rw [cyclicWindowChain, List.isChain_ofFn]
+  intro i hi
+  have hstep :=
+    rankedSubsetStep_cyclicWindow d S.rank i hd hrpos hrlt
+  simpa [cyclicWindowRankedSubset] using hstep
+
+theorem cyclicWindowRankedSubset_injective
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    Function.Injective fun t : Fin d => S.cyclicWindowRankedSubset hd t.1 := by
+  classical
+  intro a b hab
+  apply Fin.ext
+  have hset :
+      cyclicWindow d S.rank a.1 hd hrlt.le =
+        cyclicWindow d S.rank b.1 hd hrlt.le :=
+    congrArg Subtype.val hab
+  let startB : Fin d := ⟨b.1 % d, Nat.mod_lt _ hd⟩
+  have hbmemB :
+      startB ∈ cyclicWindow d S.rank b.1 hd hrlt.le :=
+    cyclicWindow_start_mem d S.rank b.1 hd hrlt.le hrpos
+  have hbmemA :
+      startB ∈ cyclicWindow d S.rank a.1 hd hrlt.le := by
+    simpa [hset] using hbmemB
+  rw [mem_cyclicWindow_iff] at hbmemA
+  rcases hbmemA with ⟨k, hk, hbk⟩
+  by_cases hk0 : k = 0
+  · have hbval : b.1 = a.1 := by
+      have hbmod : b.1 % d = b.1 := Nat.mod_eq_of_lt b.2
+      have hbk' : b.1 = (a.1 + 0) % d := by
+        simpa [startB, hbmod, hk0] using hbk
+      calc
+        b.1 = (a.1 + 0) % d := hbk'
+        _ = a.1 := by simpa using Nat.mod_eq_of_lt a.2
+    exact hbval.symm
+  · have hkpos : 0 < k := Nat.pos_of_ne_zero hk0
+    let endA : Fin d := ⟨(a.1 + S.rank) % d, Nat.mod_lt _ hd⟩
+    have hnotA :
+        endA ∉ cyclicWindow d S.rank a.1 hd hrlt.le :=
+      cyclicWindow_end_notMem d S.rank a.1 hd hrlt
+    have hnotB :
+        endA ∉ cyclicWindow d S.rank b.1 hd hrlt.le := by
+      intro hendB
+      exact hnotA (by simpa [hset] using hendB)
+    have hbMod : b.1 ≡ a.1 + k [MOD d] := by
+      have hbmod : b.1 % d = b.1 := Nat.mod_eq_of_lt b.2
+      change b.1 % d = (a.1 + k) % d
+      simpa [startB, hbmod] using hbk
+    have hendB :
+        endA ∈ cyclicWindow d S.rank b.1 hd hrlt.le := by
+      rw [mem_cyclicWindow_iff]
+      refine ⟨S.rank - k, by omega, ?_⟩
+      have hsumMod :
+          b.1 + (S.rank - k) ≡ a.1 + S.rank [MOD d] := by
+        have h1 := hbMod.add_right (S.rank - k)
+        have hright : (a.1 + k) + (S.rank - k) = a.1 + S.rank := by
+          omega
+        simpa [hright, Nat.add_assoc] using h1
+      exact hsumMod.symm
+    exact False.elim (hnotB hendB)
+
+theorem cyclicWindowChain_nodup
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    (S.cyclicWindowChain hd).Nodup := by
+  classical
+  rw [cyclicWindowChain]
+  exact List.nodup_ofFn_ofInjective
+    (cyclicWindowRankedSubset_injective S hd hrpos hrlt)
 
 omit [Fintype ι] in
 theorem rankedSubsetStep_card_eq [DecidableEq ι] {R Q : Finset ι}
@@ -907,6 +1457,29 @@ theorem rankedSubsetStep_symm [DecidableEq ι] {R Q : Finset ι}
   · simp
   · simp [Finset.mem_erase, hne, hdrop]
   · rw [Finset.erase_insert haddErase, Finset.insert_erase hdrop]
+
+omit [Fintype ι] in
+theorem rankedSubsetStep_ne [DecidableEq ι] {R Q : Finset ι}
+    (h : RankedSubsetStep R Q) :
+    R ≠ Q := by
+  rcases h with ⟨drop, hdrop, add, hadd, rfl⟩
+  intro hsame
+  have haddTarget : add ∈ insert add (R.erase drop) := Finset.mem_insert_self _ _
+  have haddR : add ∈ R := by
+    rw [hsame]
+    exact haddTarget
+  exact hadd haddR
+
+omit [Fintype ι] in
+theorem rankedSubsetStep_map {κ : Type v} [DecidableEq ι] [DecidableEq κ]
+    (e : ι ↪ κ) {R Q : Finset ι}
+    (h : RankedSubsetStep R Q) :
+    RankedSubsetStep (R.map e) (Q.map e) := by
+  rcases h with ⟨drop, hdrop, add, hadd, rfl⟩
+  refine ⟨e drop, Finset.mem_map_of_mem e hdrop, e add, ?_, ?_⟩
+  · intro hmem
+    exact hadd ((Finset.mem_map' e).mp hmem)
+  · simp
 
 omit [Fintype ι] in
 theorem rankedSubsetStep_target_mem_iff [DecidableEq ι]
@@ -1001,6 +1574,67 @@ theorem chain_subset_toRankedSubsetCell
     R ∈ P.toRankedSubsetCell.subsets := by
   simpa [toRankedSubsetCell] using hR
 
+/-- The one-vertex path cell associated to a ranked subset. -/
+def singleton
+    (S : GridCubeSlice ι N)
+    (R : {R : Finset ι // R.card = S.rank}) :
+    RankedSubsetPathCell S where
+  chain := [R]
+  nonempty := by simp
+  nodup := by simp
+  step_chain := by simp
+
+@[simp] theorem singleton_chain_length
+    (S : GridCubeSlice ι N)
+    (R : {R : Finset ι // R.card = S.rank}) :
+    (singleton S R).chain.length = 1 := by
+  simp [singleton]
+
+/-- The two-vertex path cell associated to one elementary ranked-subset step. -/
+def pair
+    (S : GridCubeSlice ι N)
+    (R Q : {R : Finset ι // R.card = S.rank})
+    (hstep : RankedSubsetStep R.1 Q.1) :
+    RankedSubsetPathCell S where
+  chain := [R, Q]
+  nonempty := by simp
+  nodup := by
+    have hne : R ≠ Q := by
+      intro hRQ
+      exact rankedSubsetStep_ne hstep (congrArg Subtype.val hRQ)
+    simp [hne]
+  step_chain := by
+    simp [hstep]
+
+/--
+The identity cyclic-window Freudenthal/Kuhn path cell in an interior-rank
+`Fin d` cube slice.
+
+Permuting coordinates will give the remaining cells of the standard
+Freudenthal/Kuhn triangulation.
+-/
+noncomputable def cyclicWindow
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    RankedSubsetPathCell S where
+  chain := S.cyclicWindowChain hd
+  nonempty := S.cyclicWindowChain_nonempty hd
+  nodup := S.cyclicWindowChain_nodup hd hrpos hrlt
+  step_chain := S.cyclicWindowChain_isChain hd hrpos hrlt
+
+@[simp] theorem cyclicWindow_chain_length
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    (cyclicWindow S hd hrpos hrlt).chain.length = d := by
+  simp [cyclicWindow, GridCubeSlice.length_cyclicWindowChain]
+
+theorem cyclicWindow_chain_mem
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) (t : Fin d) :
+    S.cyclicWindowRankedSubset hd t.1 ∈
+      (cyclicWindow S hd hrpos hrlt).chain := by
+  exact S.cyclicWindowRankedSubset_mem_chain hd t
+
 end RankedSubsetPathCell
 
 namespace RankedSubsetCell
@@ -1045,6 +1679,26 @@ theorem toSmallCell_vertices_subset_cubeSlice [DecidableEq ι]
   exact S.vertexOfRaisedSet_mem_vertices R.1 (by
     rw [R.2]
     exact S.lowerSum_add_rank_eq)
+
+theorem sharedFace_of_commonSubsets [DecidableEq ι]
+    (C D : RankedSubsetCell S)
+    {subsets : Finset {R : Finset ι // R.card = S.rank}}
+    (hsubsets : subsets.Nonempty)
+    (hC : subsets ⊆ C.subsets) (hD : subsets ⊆ D.subsets) :
+    GridSmallCell.SharedFace C.toSmallCell D.toSmallCell
+      (S.verticesOfRankedSubsets subsets) := by
+  classical
+  refine ⟨S.verticesOfRankedSubsets_nonempty hsubsets, ?_, ?_⟩
+  · intro a ha
+    rw [GridCubeSlice.mem_verticesOfRankedSubsets_iff] at ha
+    rcases ha with ⟨R, hR, rfl⟩
+    rw [toSmallCell_vertices]
+    exact Finset.mem_image.mpr ⟨R, hC hR, rfl⟩
+  · intro a ha
+    rw [GridCubeSlice.mem_verticesOfRankedSubsets_iff] at ha
+    rcases ha with ⟨R, hR, rfl⟩
+    rw [toSmallCell_vertices]
+    exact Finset.mem_image.mpr ⟨R, hD hR, rfl⟩
 
 theorem fullyLabeled_toSmallCell_iff [DecidableEq ι]
     (C : RankedSubsetCell S) (L : GridSpernerLabeling ι N) :
@@ -1128,6 +1782,1119 @@ namespace RankedSubsetPathCell
 
 variable [DecidableEq ι] {S : GridCubeSlice ι N}
 
+/-- The vertices of the induced small cell, expressed directly from the chain. -/
+noncomputable def vertices
+    (P : RankedSubsetPathCell S) : Finset (SimplexGrid ι N) :=
+  S.verticesOfRankedSubsets P.chain.toFinset
+
+@[simp] theorem vertices_eq_toSmallCell_vertices
+    (P : RankedSubsetPathCell S) :
+    P.vertices = P.toRankedSubsetCell.toSmallCell.vertices := by
+  classical
+  ext a
+  simp [vertices, GridCubeSlice.mem_verticesOfRankedSubsets_iff,
+    RankedSubsetCell.toSmallCell_vertices, toRankedSubsetCell]
+
+/-- A path cell has as many geometric vertices as entries in its chain. -/
+theorem vertices_card_eq_chain_length
+    (P : RankedSubsetPathCell S) :
+    P.vertices.card = P.chain.length := by
+  classical
+  rw [vertices, GridCubeSlice.verticesOfRankedSubsets_card_eq]
+  exact List.toFinset_card_of_nodup P.nodup
+
+theorem toSmallCell_vertices_card_eq_chain_length
+    (P : RankedSubsetPathCell S) :
+    P.toRankedSubsetCell.toSmallCell.vertices.card = P.chain.length := by
+  rw [← P.vertices_eq_toSmallCell_vertices, P.vertices_card_eq_chain_length]
+
+theorem injOn_label_vertices_of_fullyLabeled_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (hfull : P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι) :
+    Set.InjOn L.label P.vertices := by
+  classical
+  have hfull_vertices : L.FullyLabeledOn P.vertices := by
+    simpa [P.vertices_eq_toSmallCell_vertices] using hfull
+  have hcard : P.vertices.card = Fintype.card ι := by
+    rw [P.vertices_card_eq_chain_length, hlen]
+  exact L.injOn_label_of_fullyLabeledOn_card_eq hfull_vertices hcard
+
+theorem eq_of_mem_vertices_of_label_eq_of_fullyLabeled_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (hfull : P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι)
+    {a b : SimplexGrid ι N} (ha : a ∈ P.vertices) (hb : b ∈ P.vertices)
+    (hlabel : L.label a = L.label b) :
+    a = b :=
+  P.injOn_label_vertices_of_fullyLabeled_chain_length_eq_card
+    L hfull hlen ha hb hlabel
+
+/-- The `i`th ranked subset in a path cell. -/
+def chainVertex
+    (P : RankedSubsetPathCell S) (i : Fin P.chain.length) :
+    {R : Finset ι // R.card = S.rank} :=
+  P.chain.get i
+
+theorem chainVertex_mem
+    (P : RankedSubsetPathCell S) (i : Fin P.chain.length) :
+    P.chainVertex i ∈ P.chain := by
+  exact List.get_mem _ _
+
+theorem chainVertex_injective
+    (P : RankedSubsetPathCell S) :
+    Function.Injective P.chainVertex := by
+  intro i j hij
+  exact P.nodup.injective_get hij
+
+@[simp] theorem cyclicWindow_chainVertex
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d)
+    (i : Fin (cyclicWindow S hd hrpos hrlt).chain.length) :
+    (cyclicWindow S hd hrpos hrlt).chainVertex i =
+      S.cyclicWindowRankedSubset hd i.1 := by
+  simp [chainVertex, cyclicWindow, GridCubeSlice.cyclicWindowChain]
+
+theorem exists_chainVertex_eq_of_mem
+    (P : RankedSubsetPathCell S)
+    {R : {R : Finset ι // R.card = S.rank}} (hR : R ∈ P.chain) :
+    ∃ i : Fin P.chain.length, P.chainVertex i = R := by
+  rw [List.mem_iff_get] at hR
+  rcases hR with ⟨i, hi⟩
+  exact ⟨i, hi⟩
+
+theorem mem_vertices_iff_exists_chainVertex
+    (P : RankedSubsetPathCell S) {a : SimplexGrid ι N} :
+    a ∈ P.vertices ↔
+      ∃ i : Fin P.chain.length,
+        S.vertexOfRaisedSet (P.chainVertex i).1 (by
+          rw [(P.chainVertex i).2]
+          exact S.lowerSum_add_rank_eq) = a := by
+  classical
+  constructor
+  · intro ha
+    rw [vertices, GridCubeSlice.mem_verticesOfRankedSubsets_iff] at ha
+    rcases ha with ⟨R, hR, hvertex⟩
+    have hRchain : R ∈ P.chain := by simpa using hR
+    rcases P.exists_chainVertex_eq_of_mem hRchain with ⟨i, hi⟩
+    refine ⟨i, ?_⟩
+    simpa [hi] using hvertex
+  · rintro ⟨i, hvertex⟩
+    rw [vertices, GridCubeSlice.mem_verticesOfRankedSubsets_iff]
+    refine ⟨P.chainVertex i, ?_, hvertex⟩
+    simpa using P.chainVertex_mem i
+
+/-- Ranked subsets common to two path cells in the same cube slice. -/
+noncomputable def commonSubsets
+    (P Q : RankedSubsetPathCell S) :
+    Finset {R : Finset ι // R.card = S.rank} :=
+  P.chain.toFinset ∩ Q.chain.toFinset
+
+@[simp] theorem mem_commonSubsets_iff
+    (P Q : RankedSubsetPathCell S)
+    {R : {R : Finset ι // R.card = S.rank}} :
+    R ∈ P.commonSubsets Q ↔ R ∈ P.chain ∧ R ∈ Q.chain := by
+  classical
+  simp [commonSubsets]
+
+theorem commonSubsets_subset_left
+    (P Q : RankedSubsetPathCell S) :
+    P.commonSubsets Q ⊆ P.toRankedSubsetCell.subsets := by
+  classical
+  intro R hR
+  rw [toRankedSubsetCell_subsets]
+  simpa using ((P.mem_commonSubsets_iff Q).mp hR).1
+
+theorem commonSubsets_subset_right
+    (P Q : RankedSubsetPathCell S) :
+    P.commonSubsets Q ⊆ Q.toRankedSubsetCell.subsets := by
+  classical
+  intro R hR
+  rw [toRankedSubsetCell_subsets]
+  simpa using ((P.mem_commonSubsets_iff Q).mp hR).2
+
+theorem sharedFace_of_subsets
+    (P Q : RankedSubsetPathCell S)
+    {subsets : Finset {R : Finset ι // R.card = S.rank}}
+    (hsubsets : subsets.Nonempty)
+    (hP : subsets ⊆ P.chain.toFinset)
+    (hQ : subsets ⊆ Q.chain.toFinset) :
+    GridSmallCell.SharedFace
+      P.toRankedSubsetCell.toSmallCell Q.toRankedSubsetCell.toSmallCell
+      (S.verticesOfRankedSubsets subsets) := by
+  classical
+  exact RankedSubsetCell.sharedFace_of_commonSubsets
+    P.toRankedSubsetCell Q.toRankedSubsetCell hsubsets
+    (by intro R hR; simpa [toRankedSubsetCell] using hP hR)
+    (by intro R hR; simpa [toRankedSubsetCell] using hQ hR)
+
+theorem sharedFace_of_commonSubsets
+    (P Q : RankedSubsetPathCell S)
+    (hcommon : (P.commonSubsets Q).Nonempty) :
+    GridSmallCell.SharedFace
+      P.toRankedSubsetCell.toSmallCell Q.toRankedSubsetCell.toSmallCell
+      (S.verticesOfRankedSubsets (P.commonSubsets Q)) :=
+  RankedSubsetCell.sharedFace_of_commonSubsets
+    P.toRankedSubsetCell Q.toRankedSubsetCell hcommon
+    (P.commonSubsets_subset_left Q) (P.commonSubsets_subset_right Q)
+
+theorem sharesAlmostFullyLabeledFace_of_commonSubsets
+    (P Q : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι)
+    (hne :
+      P.toRankedSubsetCell.toSmallCell ≠ Q.toRankedSubsetCell.toSmallCell)
+    (hcommon : (P.commonSubsets Q).Nonempty)
+    (halmost :
+      L.AlmostFullyLabeledOn
+        (S.verticesOfRankedSubsets (P.commonSubsets Q)) missing) :
+    P.toRankedSubsetCell.toSmallCell.SharesAlmostFullyLabeledFace
+      Q.toRankedSubsetCell.toSmallCell L missing := by
+  exact ⟨hne, S.verticesOfRankedSubsets (P.commonSubsets Q),
+    P.sharedFace_of_commonSubsets Q hcommon, halmost⟩
+
+/-- The ranked subsets left after deleting one chain vertex. -/
+noncomputable def deleteSubsets
+    (P : RankedSubsetPathCell S)
+    (R : {R : Finset ι // R.card = S.rank}) :
+    Finset {R : Finset ι // R.card = S.rank} :=
+  P.chain.toFinset.erase R
+
+theorem deleteSubsets_subset_chain
+    (P : RankedSubsetPathCell S)
+    (R : {R : Finset ι // R.card = S.rank}) :
+    P.deleteSubsets R ⊆ P.chain.toFinset := by
+  classical
+  intro Q hQ
+  exact (Finset.mem_erase.mp hQ).2
+
+theorem deleteSubsets_card_eq
+    (P : RankedSubsetPathCell S)
+    {R : {R : Finset ι // R.card = S.rank}}
+    (hR : R ∈ P.chain) :
+    (P.deleteSubsets R).card = P.chain.length - 1 := by
+  classical
+  rw [deleteSubsets, Finset.card_erase_of_mem]
+  · rw [List.toFinset_card_of_nodup P.nodup]
+  · simpa using hR
+
+theorem deleteSubsets_nonempty_of_one_lt_length
+    (P : RankedSubsetPathCell S)
+    {R : {R : Finset ι // R.card = S.rank}}
+    (hR : R ∈ P.chain) (hlen : 1 < P.chain.length) :
+    (P.deleteSubsets R).Nonempty := by
+  classical
+  rw [← Finset.card_pos]
+  rw [P.deleteSubsets_card_eq hR]
+  omega
+
+theorem deleteSubsets_eq_iff
+    (P : RankedSubsetPathCell S)
+    {R R' : {R : Finset ι // R.card = S.rank}}
+    (hR : R ∈ P.chain) :
+    P.deleteSubsets R = P.deleteSubsets R' ↔ R = R' := by
+  classical
+  constructor
+  · intro hdelete
+    by_contra hne
+    have hmemR' : R ∈ P.deleteSubsets R' := by
+      rw [deleteSubsets]
+      exact Finset.mem_erase.mpr ⟨hne, by simpa using hR⟩
+    have hmemR : R ∈ P.deleteSubsets R := by
+      simpa [hdelete] using hmemR'
+    simp [deleteSubsets] at hmemR
+  · intro h
+    rw [h]
+
+/-- The face of a path cell obtained by deleting one chain vertex. -/
+noncomputable def faceAfterDeleting
+    (P : RankedSubsetPathCell S)
+    (R : {R : Finset ι // R.card = S.rank}) :
+    Finset (SimplexGrid ι N) :=
+  S.verticesOfRankedSubsets (P.deleteSubsets R)
+
+theorem faceAfterDeleting_eq_iff
+    (P : RankedSubsetPathCell S)
+    (R R' : {R : Finset ι // R.card = S.rank}) :
+    P.faceAfterDeleting R = P.faceAfterDeleting R' ↔
+      P.deleteSubsets R = P.deleteSubsets R' := by
+  rw [faceAfterDeleting, faceAfterDeleting,
+    S.verticesOfRankedSubsets_eq_iff]
+
+theorem faceAfterDeleting_subset_toSmallCell
+    (P : RankedSubsetPathCell S)
+    (R : {R : Finset ι // R.card = S.rank}) :
+    P.faceAfterDeleting R ⊆ P.toRankedSubsetCell.toSmallCell.vertices := by
+  classical
+  intro a ha
+  rw [faceAfterDeleting, GridCubeSlice.mem_verticesOfRankedSubsets_iff] at ha
+  rcases ha with ⟨Q, hQ, rfl⟩
+  rw [RankedSubsetCell.toSmallCell_vertices]
+  refine Finset.mem_image.mpr ⟨Q, ?_, rfl⟩
+  rw [toRankedSubsetCell_subsets]
+  exact P.deleteSubsets_subset_chain R hQ
+
+theorem faceAfterDeleting_card_eq
+    (P : RankedSubsetPathCell S)
+    {R : {R : Finset ι // R.card = S.rank}}
+    (hR : R ∈ P.chain) :
+    (P.faceAfterDeleting R).card = P.chain.length - 1 := by
+  classical
+  rw [faceAfterDeleting, GridCubeSlice.verticesOfRankedSubsets_card_eq,
+    P.deleteSubsets_card_eq hR]
+
+theorem faceAfterDeleting_nonempty_of_one_lt_length
+    (P : RankedSubsetPathCell S)
+    {R : {R : Finset ι // R.card = S.rank}}
+    (hR : R ∈ P.chain) (hlen : 1 < P.chain.length) :
+    (P.faceAfterDeleting R).Nonempty := by
+  classical
+  rw [← Finset.card_pos]
+  rw [P.faceAfterDeleting_card_eq hR]
+  omega
+
+theorem faceAfterDeleting_chainVertex_card_eq
+    (P : RankedSubsetPathCell S) (i : Fin P.chain.length) :
+    (P.faceAfterDeleting (P.chainVertex i)).card = P.chain.length - 1 :=
+  P.faceAfterDeleting_card_eq (P.chainVertex_mem i)
+
+theorem faceAfterDeleting_chainVertex_nonempty_of_one_lt_length
+    (P : RankedSubsetPathCell S) (i : Fin P.chain.length)
+    (hlen : 1 < P.chain.length) :
+    (P.faceAfterDeleting (P.chainVertex i)).Nonempty :=
+  P.faceAfterDeleting_nonempty_of_one_lt_length (P.chainVertex_mem i) hlen
+
+/--
+A codimension-one face of a path cell, represented by the index of the chain
+vertex that is omitted.
+-/
+structure DeletionFacet (P : RankedSubsetPathCell S) where
+  omitted : Fin P.chain.length
+
+instance instDecidableEqDeletionFacet (P : RankedSubsetPathCell S) :
+    DecidableEq (DeletionFacet P) := by
+  intro F G
+  by_cases h : F.omitted = G.omitted
+  · exact isTrue (by
+      cases F
+      cases G
+      simp at h ⊢
+      exact h)
+  · exact isFalse fun hFG => h (congrArg DeletionFacet.omitted hFG)
+
+namespace DeletionFacet
+
+variable {P : RankedSubsetPathCell S}
+
+/-- Deletion facets are equivalent to the finite index set of chain vertices. -/
+def equivFin (P : RankedSubsetPathCell S) :
+    DeletionFacet P ≃ Fin P.chain.length where
+  toFun F := F.omitted
+  invFun i := ⟨i⟩
+  left_inv F := by
+    cases F
+    rfl
+  right_inv i := rfl
+
+noncomputable instance instFintype (P : RankedSubsetPathCell S) :
+    Fintype (DeletionFacet P) :=
+  Fintype.ofEquiv (Fin P.chain.length) (equivFin P).symm
+
+@[simp] theorem card_fintype (P : RankedSubsetPathCell S) :
+    Fintype.card (DeletionFacet P) = P.chain.length := by
+  classical
+  rw [← Fintype.card_fin P.chain.length]
+  exact Fintype.card_congr (equivFin P)
+
+/-- The ranked subset omitted from this facet. -/
+def omittedSubset (F : DeletionFacet P) :
+    {R : Finset ι // R.card = S.rank} :=
+  P.chainVertex F.omitted
+
+@[simp] theorem cyclicWindow_omittedSubset
+    {d : ℕ} {S : GridCubeSlice (Fin d) N}
+    {hd : 0 < d} {hrpos : 0 < S.rank} {hrlt : S.rank < d}
+    (F : DeletionFacet (cyclicWindow S hd hrpos hrlt)) :
+    F.omittedSubset = S.cyclicWindowRankedSubset hd F.omitted.1 := by
+  simp [omittedSubset]
+
+/-- The grid vertex opposite this deletion facet. -/
+noncomputable def omittedVertex (F : DeletionFacet P) :
+    SimplexGrid ι N :=
+  S.vertexOfRaisedSet F.omittedSubset.1 (by
+    rw [F.omittedSubset.2]
+    exact S.lowerSum_add_rank_eq)
+
+theorem omittedVertex_mem_cell (F : DeletionFacet P) :
+    F.omittedVertex ∈ P.toRankedSubsetCell.toSmallCell.vertices := by
+  classical
+  rw [omittedVertex, RankedSubsetCell.toSmallCell_vertices]
+  refine Finset.mem_image.mpr ⟨F.omittedSubset, ?_, rfl⟩
+  rw [toRankedSubsetCell_subsets]
+  simpa using P.chainVertex_mem F.omitted
+
+theorem omittedVertex_mem_vertices (F : DeletionFacet P) :
+    F.omittedVertex ∈ P.vertices := by
+  simpa [P.vertices_eq_toSmallCell_vertices] using F.omittedVertex_mem_cell
+
+theorem eq_of_omittedVertex_eq (F G : DeletionFacet P)
+    (homitted : F.omittedVertex = G.omittedVertex) :
+    F = G := by
+  classical
+  have hsubsets : F.omittedSubset = G.omittedSubset := by
+    apply Subtype.ext
+    have hraised := congrArg S.raisedSet homitted
+    simpa [omittedVertex, omittedSubset] using hraised
+  have hindex : F.omitted = G.omitted :=
+    P.chainVertex_injective hsubsets
+  cases F
+  cases G
+  simp at hindex ⊢
+  exact hindex
+
+/-- The ranked subsets remaining in this facet. -/
+noncomputable def subsets (F : DeletionFacet P) :
+    Finset {R : Finset ι // R.card = S.rank} :=
+  P.deleteSubsets F.omittedSubset
+
+@[simp] theorem cyclicWindow_subsets
+    {d : ℕ} {S : GridCubeSlice (Fin d) N}
+    {hd : 0 < d} {hrpos : 0 < S.rank} {hrlt : S.rank < d}
+    (F : DeletionFacet (cyclicWindow S hd hrpos hrlt)) :
+    F.subsets =
+      (cyclicWindow S hd hrpos hrlt).chain.toFinset.erase
+        (S.cyclicWindowRankedSubset hd F.omitted.1) := by
+  simp [subsets, deleteSubsets]
+
+/-- In a fixed path cell, a deletion facet is determined by its ranked subsets. -/
+theorem subsets_eq_iff (F G : DeletionFacet P) :
+    F.subsets = G.subsets ↔ F = G := by
+  classical
+  constructor
+  · intro hsubsets
+    have homitted : F.omittedSubset = G.omittedSubset :=
+      (P.deleteSubsets_eq_iff (P.chainVertex_mem F.omitted)).mp
+        (by simpa [subsets, omittedSubset] using hsubsets)
+    have hindex : F.omitted = G.omitted :=
+      P.chainVertex_injective homitted
+    cases F
+    cases G
+    simp at hindex ⊢
+    exact hindex
+  · intro h
+    rw [h]
+
+/-- The grid vertices of this facet. -/
+noncomputable def vertices (F : DeletionFacet P) :
+    Finset (SimplexGrid ι N) :=
+  P.faceAfterDeleting F.omittedSubset
+
+theorem mem_vertices_of_mem_cell_vertices_ne_omitted
+    (F : DeletionFacet P) {a : SimplexGrid ι N}
+    (ha : a ∈ P.vertices) (hne : a ≠ F.omittedVertex) :
+    a ∈ F.vertices := by
+  classical
+  rw [RankedSubsetPathCell.vertices,
+    GridCubeSlice.mem_verticesOfRankedSubsets_iff] at ha
+  rcases ha with ⟨R, hR, hvertex⟩
+  rw [vertices, faceAfterDeleting, GridCubeSlice.mem_verticesOfRankedSubsets_iff]
+  refine ⟨R, ?_, hvertex⟩
+  rw [deleteSubsets]
+  refine Finset.mem_erase.mpr ⟨?_, hR⟩
+  intro hRomit
+  have homitted : F.omittedVertex = a := by
+    simpa [omittedVertex, omittedSubset, hRomit] using hvertex
+  exact hne homitted.symm
+
+theorem omittedVertex_notMem_vertices (F : DeletionFacet P) :
+    F.omittedVertex ∉ F.vertices := by
+  classical
+  intro hmem
+  rw [vertices, faceAfterDeleting,
+    GridCubeSlice.mem_verticesOfRankedSubsets_iff] at hmem
+  rcases hmem with ⟨R, hR, hvertex⟩
+  have hRomitted : R = F.omittedSubset := by
+    apply Subtype.ext
+    have hraised := congrArg S.raisedSet hvertex
+    simpa [omittedVertex, omittedSubset] using hraised
+  have hnot : R ≠ F.omittedSubset := (Finset.mem_erase.mp hR).1
+  exact hnot hRomitted
+
+/-- Boundary-coordinate criterion for all vertices of a deletion facet. -/
+theorem vertices_coord_eq_zero_of_lower_eq_zero_of_not_mem
+    (F : DeletionFacet P) {i : ι}
+    (hlower : (S.lower i : ℕ) = 0)
+    (hnot : ∀ R ∈ F.subsets, i ∉ R.1) :
+    ∀ a ∈ F.vertices, a.1 i = 0 := by
+  classical
+  simpa [vertices, faceAfterDeleting, subsets] using
+    S.verticesOfRankedSubsets_coord_eq_zero_of_lower_eq_zero_of_not_mem
+      hlower hnot
+
+/-- A Sperner label is absent from a deletion facet lying in `i = 0`. -/
+theorem label_notMem_of_boundary_coord
+    (F : DeletionFacet P) (L : GridSpernerLabeling ι N) {i : ι}
+    (hlower : (S.lower i : ℕ) = 0)
+    (hnot : ∀ R ∈ F.subsets, i ∉ R.1) :
+    i ∉ L.labelsOn F.vertices :=
+  L.label_notMem_labelsOn_of_coord_eq_zero F.vertices
+    (F.vertices_coord_eq_zero_of_lower_eq_zero_of_not_mem hlower hnot)
+
+/--
+For path cells in the same cube slice, deletion facets have the same geometric
+face exactly when their remaining ranked subsets agree.
+-/
+theorem vertices_eq_iff_subsets_eq_same_slice
+    {P Q : RankedSubsetPathCell S}
+    (F : DeletionFacet P) (G : DeletionFacet Q) :
+    F.vertices = G.vertices ↔ F.subsets = G.subsets := by
+  rw [vertices, vertices, faceAfterDeleting, faceAfterDeleting,
+    subsets, subsets, S.verticesOfRankedSubsets_eq_iff]
+
+/-- In a fixed path cell, a deletion facet is determined by its grid face. -/
+theorem vertices_eq_iff (F G : DeletionFacet P) :
+    F.vertices = G.vertices ↔ F = G := by
+  classical
+  constructor
+  · intro hvertices
+    have hsubsets : F.subsets = G.subsets := by
+      have hdelete :
+          P.deleteSubsets F.omittedSubset =
+            P.deleteSubsets G.omittedSubset :=
+        (P.faceAfterDeleting_eq_iff F.omittedSubset G.omittedSubset).mp
+          (by simpa [vertices] using hvertices)
+      simpa [subsets] using hdelete
+    exact (subsets_eq_iff F G).mp hsubsets
+  · intro h
+    rw [h]
+
+theorem subsets_card_eq (F : DeletionFacet P) :
+    F.subsets.card = P.chain.length - 1 :=
+  P.deleteSubsets_card_eq (P.chainVertex_mem F.omitted)
+
+theorem subsets_nonempty_of_one_lt_length
+    (F : DeletionFacet P) (hlen : 1 < P.chain.length) :
+    F.subsets.Nonempty := by
+  classical
+  rw [← Finset.card_pos]
+  rw [F.subsets_card_eq]
+  omega
+
+theorem vertices_card_eq (F : DeletionFacet P) :
+    F.vertices.card = P.chain.length - 1 :=
+  P.faceAfterDeleting_chainVertex_card_eq F.omitted
+
+theorem vertices_subset_cell (F : DeletionFacet P) :
+    F.vertices ⊆ P.toRankedSubsetCell.toSmallCell.vertices :=
+  P.faceAfterDeleting_subset_toSmallCell F.omittedSubset
+
+theorem vertices_nonempty_of_one_lt_length
+    (F : DeletionFacet P) (hlen : 1 < P.chain.length) :
+    F.vertices.Nonempty :=
+  P.faceAfterDeleting_chainVertex_nonempty_of_one_lt_length F.omitted hlen
+
+theorem sharedFace_self
+    (F : DeletionFacet P) (hlen : 1 < P.chain.length) :
+    GridSmallCell.SharedFace
+      P.toRankedSubsetCell.toSmallCell P.toRankedSubsetCell.toSmallCell
+      F.vertices where
+  nonempty := F.vertices_nonempty_of_one_lt_length hlen
+  subset_left := F.vertices_subset_cell
+  subset_right := F.vertices_subset_cell
+
+/-- A deletion facet contains every label except possibly `missing`. -/
+def AlmostFullyLabeled
+    (F : DeletionFacet P) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Prop :=
+  L.AlmostFullyLabeledOn F.vertices missing
+
+theorem not_almostFullyLabeled_of_chain_length_eq_one [Nontrivial ι]
+    (F : DeletionFacet P) (L : GridSpernerLabeling ι N) (missing : ι)
+    (hlen : P.chain.length = 1) :
+    ¬ F.AlmostFullyLabeled L missing := by
+  classical
+  intro halmost
+  have hcard : F.vertices.card = 0 := by
+    rw [F.vertices_card_eq, hlen]
+  have hempty : F.vertices = ∅ := Finset.card_eq_zero.mp hcard
+  exact L.not_almostFullyLabeledOn_empty missing (by
+    simpa [AlmostFullyLabeled, hempty] using halmost)
+
+/-- The deletion facets of a path cell that are almost fully labeled. -/
+noncomputable def almostFullyLabeledFacets
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Finset (DeletionFacet P) := by
+  classical
+  exact Finset.univ.filter fun F => F.AlmostFullyLabeled L missing
+
+theorem mem_almostFullyLabeledFacets_iff
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι)
+    {F : DeletionFacet P} :
+    F ∈ almostFullyLabeledFacets P L missing ↔
+      F.AlmostFullyLabeled L missing := by
+  classical
+  simp [almostFullyLabeledFacets]
+
+/-- Number of almost fully labeled deletion facets in a path cell. -/
+noncomputable def almostFullyLabeledFacetCount
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι) :
+    ℕ :=
+  (almostFullyLabeledFacets P L missing).card
+
+theorem almostFullyLabeledFacetCount_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι) :
+    almostFullyLabeledFacetCount P L missing =
+      (almostFullyLabeledFacets P L missing).card :=
+  rfl
+
+theorem fullyLabeled_cell_of_almostFullyLabeled_omitted_label
+    (F : DeletionFacet P) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : F.AlmostFullyLabeled L missing)
+    (hlabel : L.label F.omittedVertex = missing) :
+    P.toRankedSubsetCell.toSmallCell.FullyLabeled L := by
+  classical
+  rw [GridSmallCell.fullyLabeled_iff]
+  intro i
+  by_cases hi : i = missing
+  · refine ⟨F.omittedVertex, F.omittedVertex_mem_cell, ?_⟩
+    simpa [hi] using hlabel
+  · rcases (GridSpernerLabeling.almostFullyLabeledOn_iff
+      L F.vertices missing).mp halmost i hi with
+      ⟨a, ha, hlabela⟩
+    exact ⟨a, F.vertices_subset_cell ha, hlabela⟩
+
+theorem omitted_label_ne_of_almostFullyLabeled_not_full
+    (F : DeletionFacet P) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : F.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ P.toRankedSubsetCell.toSmallCell.FullyLabeled L) :
+    L.label F.omittedVertex ≠ missing := by
+  intro hlabel
+  exact hnot_full
+    (F.fullyLabeled_cell_of_almostFullyLabeled_omitted_label
+      L missing halmost hlabel)
+
+theorem missing_notMem_labelsOn_of_almostFullyLabeled_not_full
+    (F : DeletionFacet P) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : F.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ P.toRankedSubsetCell.toSmallCell.FullyLabeled L) :
+    missing ∉ L.labelsOn F.vertices := by
+  intro hmissing
+  have hfullFacet :
+      L.FullyLabeledOn F.vertices :=
+    halmost.fullyLabeledOn_of_missing_mem hmissing
+  exact hnot_full (by
+    rw [GridSmallCell.fullyLabeled_iff]
+    intro i
+    rcases (GridSpernerLabeling.fullyLabeledOn_iff
+        L F.vertices).mp hfullFacet i with
+      ⟨a, ha, hlabela⟩
+    exact ⟨a, F.vertices_subset_cell ha, hlabela⟩)
+
+theorem injOn_label_vertices_of_almostFullyLabeled_not_full_chain_length_eq_card
+    (F : DeletionFacet P) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : F.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι) :
+    Set.InjOn L.label F.vertices := by
+  classical
+  have hmissing :=
+    F.missing_notMem_labelsOn_of_almostFullyLabeled_not_full
+      L missing halmost hnot_full
+  have hcard : F.vertices.card = Fintype.card ι - 1 := by
+    rw [F.vertices_card_eq, hlen]
+  exact L.injOn_label_of_almostFullyLabeledOn_notMem_card_eq
+    halmost hmissing hcard
+
+theorem sharedFace_of_subsets_eq
+    {P Q : RankedSubsetPathCell S}
+    (F : DeletionFacet P) (G : DeletionFacet Q)
+    (hne : F.subsets.Nonempty)
+    (hsubsets : F.subsets = G.subsets) :
+    GridSmallCell.SharedFace
+      P.toRankedSubsetCell.toSmallCell Q.toRankedSubsetCell.toSmallCell
+      F.vertices := by
+  classical
+  rw [vertices, faceAfterDeleting]
+  exact P.sharedFace_of_subsets Q hne
+    (by
+      intro A hA
+      simpa [subsets, omittedSubset] using
+        P.deleteSubsets_subset_chain F.omittedSubset hA)
+    (by
+      intro A hA
+      have hAG : A ∈ G.subsets := by
+        simpa [← hsubsets] using hA
+      simpa [subsets, omittedSubset] using
+        Q.deleteSubsets_subset_chain G.omittedSubset hAG)
+
+theorem sharedFace_of_subsets_eq_of_one_lt_length
+    {P Q : RankedSubsetPathCell S}
+    (F : DeletionFacet P) (G : DeletionFacet Q)
+    (hlen : 1 < P.chain.length)
+    (hsubsets : F.subsets = G.subsets) :
+    GridSmallCell.SharedFace
+      P.toRankedSubsetCell.toSmallCell Q.toRankedSubsetCell.toSmallCell
+      F.vertices :=
+  F.sharedFace_of_subsets_eq G
+    (F.subsets_nonempty_of_one_lt_length hlen) hsubsets
+
+theorem sharesAlmostFullyLabeledFace_of_subsets_eq
+    {P Q : RankedSubsetPathCell S}
+    (F : DeletionFacet P) (G : DeletionFacet Q)
+    (L : GridSpernerLabeling ι N) (missing : ι)
+    (hne_cells :
+      P.toRankedSubsetCell.toSmallCell ≠ Q.toRankedSubsetCell.toSmallCell)
+    (hne : F.subsets.Nonempty)
+    (hsubsets : F.subsets = G.subsets)
+    (halmost : L.AlmostFullyLabeledOn F.vertices missing) :
+    P.toRankedSubsetCell.toSmallCell.SharesAlmostFullyLabeledFace
+      Q.toRankedSubsetCell.toSmallCell L missing := by
+  classical
+  exact ⟨hne_cells, F.vertices,
+    F.sharedFace_of_subsets_eq G hne hsubsets, halmost⟩
+
+end DeletionFacet
+
+/-- The deletion facets of a path cell that are almost fully labeled. -/
+noncomputable abbrev almostFullyLabeledFacets
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Finset (DeletionFacet P) :=
+  DeletionFacet.almostFullyLabeledFacets P L missing
+
+theorem mem_almostFullyLabeledFacets_iff
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι)
+    {F : DeletionFacet P} :
+    F ∈ P.almostFullyLabeledFacets L missing ↔
+      F.AlmostFullyLabeled L missing :=
+  DeletionFacet.mem_almostFullyLabeledFacets_iff P L missing
+
+/-- Number of almost fully labeled deletion facets in a path cell. -/
+noncomputable abbrev almostFullyLabeledFacetCount
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι) :
+    ℕ :=
+  DeletionFacet.almostFullyLabeledFacetCount P L missing
+
+theorem almostFullyLabeledFacetCount_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι) :
+    P.almostFullyLabeledFacetCount L missing =
+      (P.almostFullyLabeledFacets L missing).card :=
+  rfl
+
+theorem exists_almostFullyLabeledFacet_omitted_label
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) (missing : ι)
+    (hfull : P.toRankedSubsetCell.toSmallCell.FullyLabeled L) :
+    ∃ F : DeletionFacet P,
+      F.AlmostFullyLabeled L missing ∧ L.label F.omittedVertex = missing := by
+  classical
+  rcases (GridSmallCell.fullyLabeled_iff
+      P.toRankedSubsetCell.toSmallCell L).mp hfull missing with
+    ⟨a, haCell, hlabela⟩
+  have haVertices : a ∈ P.vertices := by
+    simpa [P.vertices_eq_toSmallCell_vertices] using haCell
+  rcases P.mem_vertices_iff_exists_chainVertex.mp haVertices with ⟨i, hvertex⟩
+  let F : DeletionFacet P := ⟨i⟩
+  have homitted : F.omittedVertex = a := by
+    simpa [F, DeletionFacet.omittedVertex, DeletionFacet.omittedSubset] using hvertex
+  have hlabel_omitted : L.label F.omittedVertex = missing := by
+    simpa [homitted] using hlabela
+  refine ⟨F, ?_, hlabel_omitted⟩
+  rw [DeletionFacet.AlmostFullyLabeled,
+    GridSpernerLabeling.almostFullyLabeledOn_iff]
+  intro j hj
+  rcases (GridSmallCell.fullyLabeled_iff
+      P.toRankedSubsetCell.toSmallCell L).mp hfull j with
+    ⟨b, hbCell, hlabelb⟩
+  have hbVertices : b ∈ P.vertices := by
+    simpa [P.vertices_eq_toSmallCell_vertices] using hbCell
+  have hb_ne : b ≠ F.omittedVertex := by
+    intro hb_eq
+    have hlabel_missing : L.label b = missing := by
+      simpa [hb_eq] using hlabel_omitted
+    exact hj (hlabelb.symm.trans hlabel_missing)
+  exact ⟨b, F.mem_vertices_of_mem_cell_vertices_ne_omitted hbVertices hb_ne,
+    hlabelb⟩
+
+theorem deletionFacet_eq_of_omitted_label_eq_of_fullyLabeled_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (hfull : P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι)
+    {F G : DeletionFacet P} {label : ι}
+    (hF : L.label F.omittedVertex = label)
+    (hG : L.label G.omittedVertex = label) :
+    F = G := by
+  classical
+  have homitted :
+      F.omittedVertex = G.omittedVertex :=
+    P.eq_of_mem_vertices_of_label_eq_of_fullyLabeled_chain_length_eq_card
+      L hfull hlen F.omittedVertex_mem_vertices G.omittedVertex_mem_vertices
+      (hF.trans hG.symm)
+  exact F.eq_of_omittedVertex_eq G homitted
+
+theorem omitted_label_eq_of_almostFullyLabeled_of_fullyLabeled_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι)
+    (hfull : P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι)
+    {F : DeletionFacet P} (halmost : F.AlmostFullyLabeled L missing) :
+    L.label F.omittedVertex = missing := by
+  classical
+  by_contra hne
+  rcases (GridSpernerLabeling.almostFullyLabeledOn_iff
+      L F.vertices missing).mp halmost (L.label F.omittedVertex) hne with
+    ⟨a, haF, hlabela⟩
+  have haP : a ∈ P.vertices := by
+    have haCell : a ∈ P.toRankedSubsetCell.toSmallCell.vertices :=
+      F.vertices_subset_cell haF
+    simpa [P.vertices_eq_toSmallCell_vertices] using haCell
+  have ha_omitted :
+      a = F.omittedVertex :=
+    P.eq_of_mem_vertices_of_label_eq_of_fullyLabeled_chain_length_eq_card
+      L hfull hlen haP F.omittedVertex_mem_vertices hlabela
+  exact F.omittedVertex_notMem_vertices (by simpa [ha_omitted] using haF)
+
+theorem deletionFacet_eq_of_almostFullyLabeled_of_fullyLabeled_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι)
+    (hfull : P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι)
+    {F G : DeletionFacet P}
+    (hF : F.AlmostFullyLabeled L missing)
+    (hG : G.AlmostFullyLabeled L missing) :
+    F = G := by
+  classical
+  exact P.deletionFacet_eq_of_omitted_label_eq_of_fullyLabeled_chain_length_eq_card
+    L hfull hlen
+    (P.omitted_label_eq_of_almostFullyLabeled_of_fullyLabeled_chain_length_eq_card
+      L missing hfull hlen hF)
+    (P.omitted_label_eq_of_almostFullyLabeled_of_fullyLabeled_chain_length_eq_card
+      L missing hfull hlen hG)
+
+theorem almostFullyLabeledFacetCount_eq_one_of_fullyLabeled_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι)
+    (hfull : P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι) :
+    P.almostFullyLabeledFacetCount L missing = 1 := by
+  classical
+  rcases P.exists_almostFullyLabeledFacet_omitted_label L missing hfull with
+    ⟨F, hF, _hlabelF⟩
+  have hfacets : P.almostFullyLabeledFacets L missing = {F} := by
+    ext G
+    rw [mem_almostFullyLabeledFacets_iff]
+    constructor
+    · intro hG
+      exact Finset.mem_singleton.mpr
+        (P.deletionFacet_eq_of_almostFullyLabeled_of_fullyLabeled_chain_length_eq_card
+          L missing hfull hlen hG hF)
+    · intro hG
+      have hGF : G = F := Finset.mem_singleton.mp hG
+      simpa [hGF] using hF
+  rw [almostFullyLabeledFacetCount_eq_card, hfacets, Finset.card_singleton]
+
+theorem exists_ne_almostFullyLabeledFacet_of_almostFullyLabeled_not_full
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) {F : DeletionFacet P}
+    (halmost : F.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ P.toRankedSubsetCell.toSmallCell.FullyLabeled L) :
+    ∃ G : DeletionFacet P, G ≠ F ∧ G.AlmostFullyLabeled L missing := by
+  classical
+  let repeatedLabel := L.label F.omittedVertex
+  have hrepeated_ne_missing : repeatedLabel ≠ missing :=
+    F.omitted_label_ne_of_almostFullyLabeled_not_full
+      L missing halmost hnot_full
+  rcases (GridSpernerLabeling.almostFullyLabeledOn_iff
+      L F.vertices missing).mp halmost repeatedLabel hrepeated_ne_missing with
+    ⟨a, haF, hlabela⟩
+  have haP : a ∈ P.vertices := by
+    have haCell : a ∈ P.toRankedSubsetCell.toSmallCell.vertices :=
+      F.vertices_subset_cell haF
+    simpa [P.vertices_eq_toSmallCell_vertices] using haCell
+  rcases P.mem_vertices_iff_exists_chainVertex.mp haP with ⟨i, hvertex⟩
+  let G : DeletionFacet P := ⟨i⟩
+  have hG_omitted : G.omittedVertex = a := by
+    simpa [G, DeletionFacet.omittedVertex, DeletionFacet.omittedSubset] using hvertex
+  have hF_omitted_ne_a : F.omittedVertex ≠ a := by
+    intro hFa
+    exact F.omittedVertex_notMem_vertices (by simpa [hFa] using haF)
+  have hG_ne_F : G ≠ F := by
+    intro hGF
+    exact hF_omitted_ne_a (by simpa [hGF] using hG_omitted)
+  refine ⟨G, hG_ne_F, ?_⟩
+  rw [DeletionFacet.AlmostFullyLabeled,
+    GridSpernerLabeling.almostFullyLabeledOn_iff]
+  intro j hj
+  by_cases hjrepeated : j = repeatedLabel
+  · refine ⟨F.omittedVertex, ?_, ?_⟩
+    · exact G.mem_vertices_of_mem_cell_vertices_ne_omitted
+        F.omittedVertex_mem_vertices (by
+          intro hEq
+          exact hF_omitted_ne_a (by simpa [hG_omitted] using hEq))
+    · simp [repeatedLabel, hjrepeated]
+  · rcases (GridSpernerLabeling.almostFullyLabeledOn_iff
+      L F.vertices missing).mp halmost j hj with
+      ⟨b, hbF, hlabelb⟩
+    have hbP : b ∈ P.vertices := by
+      have hbCell : b ∈ P.toRankedSubsetCell.toSmallCell.vertices :=
+        F.vertices_subset_cell hbF
+      simpa [P.vertices_eq_toSmallCell_vertices] using hbCell
+    refine ⟨b, ?_, hlabelb⟩
+    exact G.mem_vertices_of_mem_cell_vertices_ne_omitted hbP (by
+      intro hbG
+      have hb_a : b = a := by simpa [hG_omitted] using hbG
+      have hj_eq_repeated : j = repeatedLabel := by
+        calc
+          j = L.label b := hlabelb.symm
+          _ = L.label a := by rw [hb_a]
+          _ = repeatedLabel := hlabela
+      exact hjrepeated hj_eq_repeated)
+
+theorem omitted_label_eq_of_almostFullyLabeled_of_reference_not_full_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) {F H : DeletionFacet P}
+    (hF : F.AlmostFullyLabeled L missing)
+    (hH : H.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι) :
+    L.label H.omittedVertex = L.label F.omittedVertex := by
+  classical
+  by_contra hne
+  have hH_label_ne_missing : L.label H.omittedVertex ≠ missing :=
+    H.omitted_label_ne_of_almostFullyLabeled_not_full
+      L missing hH hnot_full
+  rcases (GridSpernerLabeling.almostFullyLabeledOn_iff
+      L H.vertices missing).mp hH
+      (L.label H.omittedVertex) hH_label_ne_missing with
+    ⟨a, haH, hlabela⟩
+  have haP : a ∈ P.vertices := by
+    have haCell : a ∈ P.toRankedSubsetCell.toSmallCell.vertices :=
+      H.vertices_subset_cell haH
+    simpa [P.vertices_eq_toSmallCell_vertices] using haCell
+  have hH_omitted_ne_F : H.omittedVertex ≠ F.omittedVertex := by
+    intro hEq
+    exact hne (by simp [hEq])
+  have ha_ne_F : a ≠ F.omittedVertex := by
+    intro hEq
+    exact hne (by
+      calc
+        L.label H.omittedVertex = L.label a := hlabela.symm
+        _ = L.label F.omittedVertex := by rw [hEq])
+  have hH_in_F : H.omittedVertex ∈ F.vertices :=
+    F.mem_vertices_of_mem_cell_vertices_ne_omitted
+      H.omittedVertex_mem_vertices hH_omitted_ne_F
+  have ha_in_F : a ∈ F.vertices :=
+    F.mem_vertices_of_mem_cell_vertices_ne_omitted haP ha_ne_F
+  have hinj :=
+    F.injOn_label_vertices_of_almostFullyLabeled_not_full_chain_length_eq_card
+      L missing hF hnot_full hlen
+  have ha_eq_H : a = H.omittedVertex :=
+    hinj ha_in_F hH_in_F hlabela
+  exact H.omittedVertex_notMem_vertices (by simpa [ha_eq_H] using haH)
+
+theorem two_le_almostFullyLabeledFacetCount_of_almostFullyLabeled_not_full
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) {F : DeletionFacet P}
+    (halmost : F.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ P.toRankedSubsetCell.toSmallCell.FullyLabeled L) :
+    2 ≤ P.almostFullyLabeledFacetCount L missing := by
+  classical
+  rcases P.exists_ne_almostFullyLabeledFacet_of_almostFullyLabeled_not_full
+      L missing halmost hnot_full with
+    ⟨G, hG_ne_F, hG⟩
+  have hpair_subset :
+      ({F, G} : Finset (DeletionFacet P)) ⊆
+        P.almostFullyLabeledFacets L missing := by
+    intro H hH
+    rw [Finset.mem_insert, Finset.mem_singleton] at hH
+    rw [mem_almostFullyLabeledFacets_iff]
+    rcases hH with hHF | hHG
+    · simpa [hHF] using halmost
+    · simpa [hHG] using hG
+  have hpair_card : ({F, G} : Finset (DeletionFacet P)).card = 2 := by
+    simp [hG_ne_F.symm]
+  have hle :=
+    Finset.card_le_card hpair_subset
+  rw [hpair_card] at hle
+  simpa [almostFullyLabeledFacetCount_eq_card] using hle
+
+theorem almostFullyLabeledFacetCount_eq_two_of_almostFullyLabeled_not_full_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) {F : DeletionFacet P}
+    (halmost : F.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ P.toRankedSubsetCell.toSmallCell.FullyLabeled L)
+    (hlen : P.chain.length = Fintype.card ι) :
+    P.almostFullyLabeledFacetCount L missing = 2 := by
+  classical
+  rcases P.exists_ne_almostFullyLabeledFacet_of_almostFullyLabeled_not_full
+      L missing halmost hnot_full with
+    ⟨G, hG_ne_F, hG⟩
+  have hF_ne_G : F ≠ G := fun hFG => hG_ne_F hFG.symm
+  have hfacets :
+      P.almostFullyLabeledFacets L missing = {F, G} := by
+    ext H
+    rw [mem_almostFullyLabeledFacets_iff]
+    constructor
+    · intro hH
+      rw [Finset.mem_insert, Finset.mem_singleton]
+      by_cases hH_eq_F : H = F
+      · exact Or.inl hH_eq_F
+      · right
+        have hH_omitted_ne_F : H.omittedVertex ≠ F.omittedVertex := by
+          intro hvertex
+          exact hH_eq_F (H.eq_of_omittedVertex_eq F hvertex)
+        have hG_omitted_ne_F : G.omittedVertex ≠ F.omittedVertex := by
+          intro hvertex
+          exact hG_ne_F (G.eq_of_omittedVertex_eq F hvertex)
+        have hH_in_F : H.omittedVertex ∈ F.vertices :=
+          F.mem_vertices_of_mem_cell_vertices_ne_omitted
+            H.omittedVertex_mem_vertices hH_omitted_ne_F
+        have hG_in_F : G.omittedVertex ∈ F.vertices :=
+          F.mem_vertices_of_mem_cell_vertices_ne_omitted
+            G.omittedVertex_mem_vertices hG_omitted_ne_F
+        have hHlabel :
+            L.label H.omittedVertex = L.label F.omittedVertex :=
+          P.omitted_label_eq_of_almostFullyLabeled_of_reference_not_full_chain_length_eq_card
+            L missing halmost hH hnot_full hlen
+        have hGlabel :
+            L.label G.omittedVertex = L.label F.omittedVertex :=
+          P.omitted_label_eq_of_almostFullyLabeled_of_reference_not_full_chain_length_eq_card
+            L missing halmost hG hnot_full hlen
+        have hinj :=
+          F.injOn_label_vertices_of_almostFullyLabeled_not_full_chain_length_eq_card
+            L missing halmost hnot_full hlen
+        have hvertices : H.omittedVertex = G.omittedVertex :=
+          hinj hH_in_F hG_in_F (hHlabel.trans hGlabel.symm)
+        exact H.eq_of_omittedVertex_eq G hvertices
+    · intro hH
+      rw [Finset.mem_insert, Finset.mem_singleton] at hH
+      rcases hH with hHF | hHG
+      · simpa [hHF] using halmost
+      · simpa [hHG] using hG
+  rw [almostFullyLabeledFacetCount_eq_card, hfacets]
+  simp [hF_ne_G]
+
+theorem fullyLabeled_of_almostFullyLabeledFacetCount_eq_one
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι)
+    (hcount : P.almostFullyLabeledFacetCount L missing = 1) :
+    P.toRankedSubsetCell.toSmallCell.FullyLabeled L := by
+  classical
+  by_contra hnot_full
+  have hpos : 0 < (P.almostFullyLabeledFacets L missing).card := by
+    rw [← P.almostFullyLabeledFacetCount_eq_card L missing, hcount]
+    norm_num
+  rcases Finset.card_pos.mp hpos with ⟨F, hFmem⟩
+  have halmost : F.AlmostFullyLabeled L missing :=
+    (P.mem_almostFullyLabeledFacets_iff L missing).mp hFmem
+  have htwo :=
+    P.two_le_almostFullyLabeledFacetCount_of_almostFullyLabeled_not_full
+      L missing halmost hnot_full
+  omega
+
+theorem fullyLabeled_iff_almostFullyLabeledFacetCount_eq_one_of_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) (hlen : P.chain.length = Fintype.card ι) :
+    P.toRankedSubsetCell.toSmallCell.FullyLabeled L ↔
+      P.almostFullyLabeledFacetCount L missing = 1 := by
+  constructor
+  · intro hfull
+    exact P.almostFullyLabeledFacetCount_eq_one_of_fullyLabeled_chain_length_eq_card
+      L missing hfull hlen
+  · intro hcount
+    exact P.fullyLabeled_of_almostFullyLabeledFacetCount_eq_one
+      L missing hcount
+
+theorem fullyLabeled_of_odd_almostFullyLabeledFacetCount_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) (hlen : P.chain.length = Fintype.card ι)
+    (hodd : Odd (P.almostFullyLabeledFacetCount L missing)) :
+    P.toRankedSubsetCell.toSmallCell.FullyLabeled L := by
+  classical
+  by_contra hnot_full
+  by_cases hpos : 0 < P.almostFullyLabeledFacetCount L missing
+  · have hfacet_pos : 0 < (P.almostFullyLabeledFacets L missing).card := by
+      simpa [P.almostFullyLabeledFacetCount_eq_card L missing] using hpos
+    rcases Finset.card_pos.mp hfacet_pos with ⟨F, hFmem⟩
+    have hF : F.AlmostFullyLabeled L missing :=
+      (P.mem_almostFullyLabeledFacets_iff L missing).mp hFmem
+    have htwo :=
+      P.almostFullyLabeledFacetCount_eq_two_of_almostFullyLabeled_not_full_chain_length_eq_card
+        L missing hF hnot_full hlen
+    rw [htwo] at hodd
+    rcases hodd with ⟨k, hk⟩
+    omega
+  · have hzero : P.almostFullyLabeledFacetCount L missing = 0 := by
+      omega
+    rw [hzero] at hodd
+    rcases hodd with ⟨k, hk⟩
+    omega
+
+theorem odd_almostFullyLabeledFacetCount_iff_fullyLabeled_of_chain_length_eq_card
+    (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι) (hlen : P.chain.length = Fintype.card ι) :
+    Odd (P.almostFullyLabeledFacetCount L missing) ↔
+      P.toRankedSubsetCell.toSmallCell.FullyLabeled L := by
+  constructor
+  · intro hodd
+    exact P.fullyLabeled_of_odd_almostFullyLabeledFacetCount_chain_length_eq_card
+      L missing hlen hodd
+  · intro hfull
+    rw [P.almostFullyLabeledFacetCount_eq_one_of_fullyLabeled_chain_length_eq_card
+      L missing hfull hlen]
+    norm_num
+
+theorem cyclicWindow_faceAfterDeleting_card_eq
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) (t : Fin d) :
+    ((cyclicWindow S hd hrpos hrlt).faceAfterDeleting
+      (S.cyclicWindowRankedSubset hd t.1)).card = d - 1 := by
+  classical
+  rw [faceAfterDeleting_card_eq
+    (P := cyclicWindow S hd hrpos hrlt)
+    (R := S.cyclicWindowRankedSubset hd t.1)
+    (cyclicWindow_chain_mem S hd hrpos hrlt t)]
+  simp
+
+theorem cyclicWindow_faceAfterDeleting_nonempty
+    {d : ℕ} (S : GridCubeSlice (Fin d) N) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d)
+    (hdim : 1 < d) (t : Fin d) :
+    ((cyclicWindow S hd hrpos hrlt).faceAfterDeleting
+      (S.cyclicWindowRankedSubset hd t.1)).Nonempty := by
+  classical
+  exact (cyclicWindow S hd hrpos hrlt).faceAfterDeleting_nonempty_of_one_lt_length
+    (cyclicWindow_chain_mem S hd hrpos hrlt t) (by simpa using hdim)
+
+theorem sharedFace_of_deleteSubsets_eq
+    (P Q : RankedSubsetPathCell S)
+    {R R' : {R : Finset ι // R.card = S.rank}}
+    (hne : (P.deleteSubsets R).Nonempty)
+    (hdelete : P.deleteSubsets R = Q.deleteSubsets R') :
+    GridSmallCell.SharedFace
+      P.toRankedSubsetCell.toSmallCell Q.toRankedSubsetCell.toSmallCell
+      (P.faceAfterDeleting R) := by
+  classical
+  rw [faceAfterDeleting]
+  exact P.sharedFace_of_subsets Q hne
+    (P.deleteSubsets_subset_chain R)
+    (by
+      intro A hA
+      have hA' : A ∈ Q.deleteSubsets R' := by
+        simpa [hdelete] using hA
+      exact Q.deleteSubsets_subset_chain R' hA')
+
+theorem sharesAlmostFullyLabeledFace_of_deleteSubsets_eq
+    (P Q : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N)
+    (missing : ι)
+    {R R' : {R : Finset ι // R.card = S.rank}}
+    (hne_cells :
+      P.toRankedSubsetCell.toSmallCell ≠ Q.toRankedSubsetCell.toSmallCell)
+    (hne_face : (P.deleteSubsets R).Nonempty)
+    (hdelete : P.deleteSubsets R = Q.deleteSubsets R')
+    (halmost : L.AlmostFullyLabeledOn (P.faceAfterDeleting R) missing) :
+    P.toRankedSubsetCell.toSmallCell.SharesAlmostFullyLabeledFace
+      Q.toRankedSubsetCell.toSmallCell L missing := by
+  exact ⟨hne_cells, P.faceAfterDeleting R,
+    P.sharedFace_of_deleteSubsets_eq Q hne_face hdelete, halmost⟩
+
 theorem fullyLabeled_toSmallCell_iff
     (P : RankedSubsetPathCell S) (L : GridSpernerLabeling ι N) :
     P.toRankedSubsetCell.toSmallCell.FullyLabeled L ↔
@@ -1176,6 +2943,37 @@ noncomputable def reindex {κ : Type v} [Fintype κ] (e : ι ≃ κ)
     intro k
     simpa using ha (e.symm k)
 
+@[simp] theorem reindex_lower {κ : Type v} [Fintype κ] (e : ι ≃ κ)
+    (S : GridCubeSlice ι N) (k : κ) :
+    (S.reindex e).lower k = S.lower (e.symm k) :=
+  rfl
+
+@[simp] theorem lowerSum_reindex {κ : Type v} [Fintype κ] (e : ι ≃ κ)
+    (S : GridCubeSlice ι N) :
+    (S.reindex e).lowerSum = S.lowerSum := by
+  simpa [lowerSum] using
+    Fintype.sum_equiv e.symm
+      (fun k : κ => (S.lower (e.symm k) : ℕ))
+      (fun i : ι => (S.lower i : ℕ))
+      (by intro k; simp)
+
+@[simp] theorem rank_reindex {κ : Type v} [Fintype κ] (e : ι ≃ κ)
+    (S : GridCubeSlice ι N) :
+    (S.reindex e).rank = S.rank := by
+  simp [rank]
+
+@[simp] theorem reindex_symm_reindex {κ : Type v} [Fintype κ] (e : ι ≃ κ)
+    (S : GridCubeSlice ι N) :
+    (S.reindex e).reindex e.symm = S := by
+  cases S
+  simp [reindex]
+
+@[simp] theorem reindex_reindex_symm {κ : Type v} [Fintype κ] (e : ι ≃ κ)
+    (S : GridCubeSlice κ N) :
+    (S.reindex e.symm).reindex e = S := by
+  cases S
+  simp [reindex]
+
 theorem mem_reindex_vertices_iff {κ : Type v} [Fintype κ] (e : ι ≃ κ)
     (S : GridCubeSlice ι N) (a : SimplexGrid ι N) :
     SimplexGrid.reindex e a ∈ cubeSliceVertices N (S.reindex e).lower ↔
@@ -1186,6 +2984,175 @@ theorem mem_reindex_vertices_iff {κ : Type v} [Fintype κ] (e : ι ≃ κ)
     simpa [GridCubeSlice.reindex] using h (e i)
   · intro h k
     simpa [GridCubeSlice.reindex] using h (e.symm k)
+
+@[simp] theorem raisedSet_reindex {κ : Type v} [Fintype κ]
+    [DecidableEq ι] [DecidableEq κ] (e : ι ≃ κ)
+    (S : GridCubeSlice ι N) (a : SimplexGrid ι N) :
+    (S.reindex e).raisedSet (SimplexGrid.reindex e a) =
+      (S.raisedSet a).map e.toEmbedding := by
+  ext k
+  rw [mem_raisedSet_iff, Finset.mem_map_equiv, mem_raisedSet_iff]
+  simp
+
+/-- Transport a ranked subset of a cube slice along a coordinate equivalence. -/
+noncomputable def reindexRankedSubset {κ : Type v} [Fintype κ]
+    (e : ι ≃ κ) (S : GridCubeSlice ι N)
+    (R : {R : Finset ι // R.card = S.rank}) :
+    {R : Finset κ // R.card = (S.reindex e).rank} :=
+  ⟨R.1.map e.toEmbedding, by simp [R.2]⟩
+
+@[simp] theorem reindexRankedSubset_val {κ : Type v} [Fintype κ]
+    (e : ι ≃ κ) (S : GridCubeSlice ι N)
+    (R : {R : Finset ι // R.card = S.rank}) :
+    (S.reindexRankedSubset e R).1 = R.1.map e.toEmbedding :=
+  rfl
+
+theorem reindexRankedSubset_injective {κ : Type v} [Fintype κ]
+    (e : ι ≃ κ) (S : GridCubeSlice ι N) :
+    Function.Injective (S.reindexRankedSubset e) := by
+  intro R Q hRQ
+  apply Subtype.ext
+  have hval := congrArg Subtype.val hRQ
+  have hback :
+      ((R.1.map e.toEmbedding).map e.symm.toEmbedding) =
+        ((Q.1.map e.toEmbedding).map e.symm.toEmbedding) := by
+    simpa using congrArg (fun T : Finset κ => T.map e.symm.toEmbedding) hval
+  simpa [Finset.map_map] using hback
+
+namespace RankedSubsetPathCell
+
+variable [DecidableEq ι] {S : GridCubeSlice ι N}
+
+/-- Transport a path-shaped ranked-subset cell along a coordinate equivalence. -/
+noncomputable def reindex {κ : Type v} [Fintype κ] [DecidableEq κ]
+    (e : ι ≃ κ) (P : RankedSubsetPathCell S) :
+    RankedSubsetPathCell (S.reindex e) where
+  chain := P.chain.map (S.reindexRankedSubset e)
+  nonempty := by
+    intro hnil
+    exact P.nonempty (by simpa using hnil)
+  nodup := P.nodup.map (S.reindexRankedSubset_injective e)
+  step_chain := by
+    exact List.isChain_map_of_isChain (S.reindexRankedSubset e)
+      (fun R Q hstep => by
+        simpa using rankedSubsetStep_map e.toEmbedding hstep)
+      P.step_chain
+
+@[simp] theorem reindex_chain {κ : Type v} [Fintype κ] [DecidableEq κ]
+    (e : ι ≃ κ) (P : RankedSubsetPathCell S) :
+    (P.reindex e).chain = P.chain.map (S.reindexRankedSubset e) :=
+  rfl
+
+@[simp] theorem reindex_chain_length {κ : Type v} [Fintype κ] [DecidableEq κ]
+    (e : ι ≃ κ) (P : RankedSubsetPathCell S) :
+    (P.reindex e).chain.length = P.chain.length := by
+  simp [reindex]
+
+/--
+A canonical one-vertex path cell obtained by choosing any vertex of the cube
+slice. This supplies the degenerate rank `0` and full-rank pieces of the Kuhn
+subdivision.
+-/
+noncomputable def singletonOfSlice
+    (S : GridCubeSlice ι N) :
+    RankedSubsetPathCell S := by
+  classical
+  let a : SimplexGrid ι N := Classical.choose S.nonempty_vertices
+  have ha : a ∈ cubeSliceVertices N S.lower :=
+    Classical.choose_spec S.nonempty_vertices
+  have haCell : a ∈ S.toSmallCell.vertices := by
+    simpa [GridCubeSlice.toSmallCell] using ha
+  exact RankedSubsetPathCell.singleton S
+    ⟨S.raisedSet a, S.raisedSet_card_eq_rank haCell⟩
+
+@[simp] theorem singletonOfSlice_chain_length
+    (S : GridCubeSlice ι N) :
+    (singletonOfSlice S).chain.length = 1 := by
+  classical
+  unfold singletonOfSlice
+  simp
+
+/--
+The cyclic-window Freudenthal/Kuhn path cell associated to a chosen coordinate
+order `Fin d ≃ κ` on an interior-rank cube slice.
+-/
+noncomputable def cyclicWindowOfEquiv
+    {d : ℕ} {κ : Type v} [Fintype κ] [DecidableEq κ]
+    (S : GridCubeSlice κ N) (e : Fin d ≃ κ) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    RankedSubsetPathCell S := by
+  classical
+  let Sfin : GridCubeSlice (Fin d) N := S.reindex e.symm
+  let P : RankedSubsetPathCell Sfin :=
+    RankedSubsetPathCell.cyclicWindow Sfin hd
+      (by simpa [Sfin] using hrpos) (by simpa [Sfin] using hrlt)
+  let mapR :
+      {R : Finset (Fin d) // R.card = Sfin.rank} →
+        {R : Finset κ // R.card = S.rank} :=
+    fun R => ⟨R.1.map e.toEmbedding, by simpa [Sfin] using R.2⟩
+  have hmapR_inj : Function.Injective mapR := by
+    intro R Q hRQ
+    apply Subtype.ext
+    have hval := congrArg Subtype.val hRQ
+    have hback :
+        ((R.1.map e.toEmbedding).map e.symm.toEmbedding) =
+          ((Q.1.map e.toEmbedding).map e.symm.toEmbedding) := by
+      exact congrArg (fun T : Finset κ => T.map e.symm.toEmbedding) hval
+    simpa [Finset.map_map] using hback
+  exact
+    { chain := P.chain.map mapR
+      nonempty := by
+        intro hnil
+        exact P.nonempty (by simpa using hnil)
+      nodup := P.nodup.map hmapR_inj
+      step_chain := by
+        exact List.isChain_map_of_isChain mapR
+          (fun R Q hstep => by
+            simpa [mapR] using rankedSubsetStep_map e.toEmbedding hstep)
+          P.step_chain }
+
+@[simp] theorem cyclicWindowOfEquiv_chain_length
+    {d : ℕ} {κ : Type v} [Fintype κ] [DecidableEq κ]
+    (S : GridCubeSlice κ N) (e : Fin d ≃ κ) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    (cyclicWindowOfEquiv S e hd hrpos hrlt).chain.length = d := by
+  unfold cyclicWindowOfEquiv
+  simp
+
+@[simp] theorem cyclicWindowOfEquiv_vertices_card
+    {d : ℕ} {κ : Type v} [Fintype κ] [DecidableEq κ]
+    (S : GridCubeSlice κ N) (e : Fin d ≃ κ) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    (cyclicWindowOfEquiv S e hd hrpos hrlt).vertices.card = d := by
+  rw [vertices_card_eq_chain_length, cyclicWindowOfEquiv_chain_length]
+
+theorem cyclicWindowOfEquiv_chain_length_eq_card
+    {κ : Type v} [Fintype κ] [DecidableEq κ]
+    (S : GridCubeSlice κ N) (e : Fin (Fintype.card κ) ≃ κ)
+    (hcard : 0 < Fintype.card κ)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < Fintype.card κ) :
+    (cyclicWindowOfEquiv S e hcard hrpos hrlt).chain.length =
+      Fintype.card κ := by
+  simp [cyclicWindowOfEquiv_chain_length]
+
+theorem cyclicWindowOfEquiv_odd_almostFullyLabeledFacetCount_iff_fullyLabeled
+    {d : ℕ} {κ : Type v} [Fintype κ] [DecidableEq κ]
+    (S : GridCubeSlice κ N) (e : Fin d ≃ κ) (hd : 0 < d)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < d)
+    (L : GridSpernerLabeling κ N) (missing : κ) :
+    Odd ((cyclicWindowOfEquiv S e hd hrpos hrlt).almostFullyLabeledFacetCount
+      L missing) ↔
+      GridSmallCell.FullyLabeled
+        ((cyclicWindowOfEquiv S e hd hrpos hrlt).toRankedSubsetCell.toSmallCell)
+        L := by
+  classical
+  have hcard : d = Fintype.card κ := by
+    simpa [Fintype.card_fin] using Fintype.card_congr e
+  exact odd_almostFullyLabeledFacetCount_iff_fullyLabeled_of_chain_length_eq_card
+    (P := cyclicWindowOfEquiv S e hd hrpos hrlt)
+    L missing (by rw [cyclicWindowOfEquiv_chain_length, hcard])
+
+end RankedSubsetPathCell
 
 end GridCubeSlice
 
@@ -1444,6 +3411,15 @@ theorem exists_fullyLabeled
 end AlmostFacePivotCertificate
 
 /--
+A triangulation has canonical almost-face pivot certificates if every labeling
+admits one for some choice of pivot-missing label.
+-/
+def HasAlmostFacePivotCertificates [DecidableEq ι]
+    (T : GridTriangulation ι N) : Prop :=
+  ∀ L : GridSpernerLabeling ι N,
+    ∃ missing : ι, Nonempty (AlmostFacePivotCertificate T L missing)
+
+/--
 A triangulation has pivot certificates if every Sperner labeling admits a
 finite pivot graph certificate. This is the reusable target for a constructive
 Sperner proof: later geometry only has to build the graph and verify the local
@@ -1452,8 +3428,23 @@ degree facts.
 def HasPivotGraphCertificates [DecidableEq ι]
     (T : GridTriangulation ι N) : Prop :=
   ∀ L : GridSpernerLabeling ι N,
-    ∃ V : Type v, ∃ _ : Fintype V,
+    ∃ V : Type u, ∃ _ : Fintype V,
       Nonempty (PivotGraphCertificate T L V)
+
+/--
+Canonical almost-face pivot certificates are enough to supply abstract pivot
+graph certificates.
+-/
+theorem hasPivotGraphCertificates_of_almostFacePivotCertificates [DecidableEq ι]
+    {T : GridTriangulation ι N}
+    (hT : T.HasAlmostFacePivotCertificates) :
+    T.HasPivotGraphCertificates := by
+  classical
+  intro L
+  rcases hT L with ⟨missing, hC⟩
+  rcases hC with ⟨C⟩
+  exact ⟨{cell : GridSmallCell ι N // cell ∈ T.cells}, inferInstance,
+    ⟨C.toPivotGraphCertificate⟩⟩
 
 /--
 Any triangulation with pivot certificates satisfies Sperner's lemma.
@@ -1467,6 +3458,17 @@ theorem hasSpernerProperty_of_pivotGraphCertificates [DecidableEq ι]
   letI : Fintype V := hV
   rcases hC with ⟨C⟩
   exact C.exists_fullyLabeled
+
+/--
+Any triangulation with canonical almost-face pivot certificates satisfies
+Sperner's lemma.
+-/
+theorem hasSpernerProperty_of_almostFacePivotCertificates [DecidableEq ι]
+    {T : GridTriangulation ι N}
+    (hT : T.HasAlmostFacePivotCertificates) :
+    T.HasSpernerProperty :=
+  hasSpernerProperty_of_pivotGraphCertificates
+    (hasPivotGraphCertificates_of_almostFacePivotCertificates hT)
 
 /-- The cubical Sperner theorem for the integer simplex grid at mesh `N`. -/
 def CubicalSpernerProperty [DecidableEq ι] (N : ℕ) : Prop :=
@@ -1608,6 +3610,1545 @@ theorem toTriangulation_refinesCubeSlices
     U.toTriangulation.RefinesCubeSlices :=
   U.toRankedSubdivision.toTriangulation_refinesCubeSlices
 
+/--
+A facet state of a path subdivision: a path cell belonging to the subdivision
+together with one deletion facet of that path cell.
+-/
+structure FacetState (U : CubeSlicePathSubdivision ι N) where
+  cell : Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S
+  cell_mem : cell ∈ U.cells
+  facet : GridCubeSlice.RankedSubsetPathCell.DeletionFacet cell.2
+
+namespace FacetState
+
+/-- A finite sigma-type presentation of subdivision facet states. -/
+def equivSigma (U : CubeSlicePathSubdivision ι N) :
+    FacetState U ≃
+      Σ C : {C : Σ S : GridCubeSlice ι N,
+          GridCubeSlice.RankedSubsetPathCell S // C ∈ U.cells},
+        GridCubeSlice.RankedSubsetPathCell.DeletionFacet C.1.2 where
+  toFun st := ⟨⟨st.cell, st.cell_mem⟩, st.facet⟩
+  invFun st := ⟨st.1.1, st.1.2, st.2⟩
+  left_inv st := by
+    cases st
+    rfl
+  right_inv st := by
+    cases st with
+    | mk C F =>
+      cases C
+      rfl
+
+noncomputable instance instFintype (U : CubeSlicePathSubdivision ι N) :
+    Fintype (FacetState U) :=
+  Fintype.ofEquiv
+    (Σ C : {C : Σ S : GridCubeSlice ι N,
+          GridCubeSlice.RankedSubsetPathCell S // C ∈ U.cells},
+        GridCubeSlice.RankedSubsetPathCell.DeletionFacet C.1.2)
+    (equivSigma U).symm
+
+/-- The small grid cell carried by a facet state. -/
+noncomputable def smallCell {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) : GridSmallCell ι N :=
+  st.cell.2.toRankedSubsetCell.toSmallCell
+
+theorem smallCell_eq_of_cell_eq {U : CubeSlicePathSubdivision ι N}
+    {st st' : FacetState U} (hcell : st.cell = st'.cell) :
+    st.smallCell = st'.smallCell := by
+  cases st
+  cases st'
+  cases hcell
+  rfl
+
+theorem smallCell_mem_toTriangulation {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) :
+    st.smallCell ∈ U.toTriangulation.cells := by
+  classical
+  rw [toTriangulation, toRankedSubdivision,
+    CubeSliceRankedSubdivision.toTriangulation]
+  refine Finset.mem_image.mpr ?_
+  refine ⟨⟨st.cell.1, st.cell.2.toRankedSubsetCell⟩, ?_, rfl⟩
+  exact Finset.mem_image.mpr ⟨st.cell, st.cell_mem, rfl⟩
+
+/-- The grid face carried by a facet state. -/
+noncomputable def face {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) : Finset (SimplexGrid ι N) :=
+  st.facet.vertices
+
+theorem face_subset_smallCell {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) :
+    st.face ⊆ st.smallCell.vertices :=
+  st.facet.vertices_subset_cell
+
+theorem face_nonempty_of_one_lt_chain_length
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (hlen : 1 < st.cell.2.chain.length) :
+    st.face.Nonempty :=
+  st.facet.vertices_nonempty_of_one_lt_length hlen
+
+/-- A facet state contains every label except possibly `missing`. -/
+def AlmostFullyLabeled {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Prop :=
+  st.facet.AlmostFullyLabeled L missing
+
+theorem not_almostFullyLabeled_of_chain_length_eq_one
+    {U : CubeSlicePathSubdivision ι N} [Nontrivial ι]
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (hlen : st.cell.2.chain.length = 1) :
+    ¬ st.AlmostFullyLabeled L missing :=
+  st.facet.not_almostFullyLabeled_of_chain_length_eq_one L missing hlen
+
+theorem full_cell_of_almostFullyLabeled_omitted_label
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hlabel : L.label st.facet.omittedVertex = missing) :
+    st.smallCell.FullyLabeled L :=
+  st.facet.fullyLabeled_cell_of_almostFullyLabeled_omitted_label
+    L missing halmost hlabel
+
+theorem omitted_label_ne_of_almostFullyLabeled_not_full
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ st.smallCell.FullyLabeled L) :
+    L.label st.facet.omittedVertex ≠ missing :=
+  st.facet.omitted_label_ne_of_almostFullyLabeled_not_full
+    L missing halmost hnot_full
+
+/-- Local almost-facet count of the path cell underlying a facet state. -/
+noncomputable def localAlmostFacetCount {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    ℕ :=
+  st.cell.2.almostFullyLabeledFacetCount L missing
+
+theorem full_cell_of_odd_localAlmostFacetCount
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (hlen : st.cell.2.chain.length = Fintype.card ι)
+    (hodd : Odd (st.localAlmostFacetCount L missing)) :
+    st.smallCell.FullyLabeled L :=
+  st.cell.2.fullyLabeled_of_odd_almostFullyLabeledFacetCount_chain_length_eq_card
+    L missing hlen hodd
+
+/-- Turn another deletion facet of the same underlying path cell into a state. -/
+def sameCellState {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U)
+    (F : GridCubeSlice.RankedSubsetPathCell.DeletionFacet st.cell.2) :
+    FacetState U :=
+  ⟨st.cell, st.cell_mem, F⟩
+
+theorem sameCellState_injective {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) :
+    Function.Injective st.sameCellState := by
+  intro F G hFG
+  cases hFG
+  rfl
+
+/-- The embedding that inserts a deletion facet as a state of the same cell. -/
+def sameCellStateEmbedding {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) :
+    GridCubeSlice.RankedSubsetPathCell.DeletionFacet st.cell.2 ↪ FacetState U where
+  toFun := st.sameCellState
+  inj' := st.sameCellState_injective
+
+/--
+Two facet states match when they carry the same nonempty grid face but belong
+to distinct induced small cells.
+-/
+def Matches {U : CubeSlicePathSubdivision ι N}
+    (st st' : FacetState U) : Prop :=
+  st.smallCell ≠ st'.smallCell ∧ st.face.Nonempty ∧ st.face = st'.face
+
+theorem Matches.symm {U : CubeSlicePathSubdivision ι N}
+    {st st' : FacetState U} (hmatch : st.Matches st') :
+    st'.Matches st := by
+  refine ⟨fun hcell => hmatch.1 hcell.symm, ?_, hmatch.2.2.symm⟩
+  simpa [← hmatch.2.2] using hmatch.2.1
+
+/--
+The within-cell pivot between two almost fully labeled deletion facets of the
+same path cell. This is the second edge type in the usual Sperner path graph:
+non-solution cells pair their two almost facets internally.
+-/
+def LocalPivot {U : CubeSlicePathSubdivision ι N}
+    (st st' : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Prop :=
+  st.cell = st'.cell ∧ st.face ≠ st'.face ∧
+    st.AlmostFullyLabeled L missing ∧ st'.AlmostFullyLabeled L missing
+
+theorem LocalPivot.symm {U : CubeSlicePathSubdivision ι N}
+    {st st' : FacetState U} {L : GridSpernerLabeling ι N} {missing : ι}
+    (hpivot : st.LocalPivot st' L missing) :
+    st'.LocalPivot st L missing := by
+  exact ⟨hpivot.1.symm, fun hface => hpivot.2.1 hface.symm,
+    hpivot.2.2.2, hpivot.2.2.1⟩
+
+theorem localPivot_sameCellState_iff {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U)
+    (F : GridCubeSlice.RankedSubsetPathCell.DeletionFacet st.cell.2)
+    (L : GridSpernerLabeling ι N) (missing : ι) :
+    st.LocalPivot (st.sameCellState F) L missing ↔
+      F ≠ st.facet ∧ st.AlmostFullyLabeled L missing ∧
+        F.AlmostFullyLabeled L missing := by
+  classical
+  constructor
+  · intro hpivot
+    refine ⟨?_, hpivot.2.2.1, hpivot.2.2.2⟩
+    intro hF
+    exact hpivot.2.1 (by simp [face, sameCellState, hF])
+  · rintro ⟨hF, hst, hFalmost⟩
+    refine ⟨rfl, ?_, hst, hFalmost⟩
+    intro hface
+    have hfacet :
+        st.facet = F :=
+      (GridCubeSlice.RankedSubsetPathCell.DeletionFacet.vertices_eq_iff
+        st.facet F).mp (by simpa [face, sameCellState] using hface)
+    exact hF hfacet.symm
+
+/--
+The same-cell local pivot partners generated by the other almost-labeled
+deletion facets of the path cell.
+-/
+noncomputable def localPivotPartnerStates {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Finset (FacetState U) :=
+  ((st.cell.2.almostFullyLabeledFacets L missing).erase st.facet).map
+    st.sameCellStateEmbedding
+
+theorem localPivot_of_mem_localPivotPartnerStates
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    {st' : FacetState U}
+    (hst' : st' ∈ st.localPivotPartnerStates L missing) :
+    st.LocalPivot st' L missing := by
+  classical
+  rw [localPivotPartnerStates] at hst'
+  rcases Finset.mem_map.mp hst' with ⟨F, hF, rfl⟩
+  have hF_ne : F ≠ st.facet := (Finset.mem_erase.mp hF).1
+  have hF_almost : F.AlmostFullyLabeled L missing :=
+    (st.cell.2.mem_almostFullyLabeledFacets_iff L missing).mp
+      (Finset.mem_erase.mp hF).2
+  exact (st.localPivot_sameCellState_iff F L missing).mpr
+    ⟨hF_ne, halmost, hF_almost⟩
+
+theorem mem_localPivotPartnerStates_of_localPivot
+    {U : CubeSlicePathSubdivision ι N}
+    {st st' : FacetState U} {L : GridSpernerLabeling ι N} {missing : ι}
+    (hpivot : st.LocalPivot st' L missing) :
+    st' ∈ st.localPivotPartnerStates L missing := by
+  classical
+  rcases st with ⟨C, hC, F⟩
+  rcases st' with ⟨C', hC', F'⟩
+  rcases hpivot with ⟨hcell, hface_ne, _halmost, hF'_almost⟩
+  cases hcell
+  rw [localPivotPartnerStates]
+  refine Finset.mem_map.mpr ⟨F', ?_, ?_⟩
+  · refine Finset.mem_erase.mpr ⟨?_, ?_⟩
+    · intro hF
+      exact hface_ne (by subst hF; simp [face])
+    · exact (C.2.mem_almostFullyLabeledFacets_iff L missing).mpr hF'_almost
+  · dsimp [sameCellStateEmbedding, sameCellState]
+
+theorem localPivotPartnerStates_card_eq_localAlmostFacetCount_sub_one
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing) :
+    (st.localPivotPartnerStates L missing).card =
+      st.localAlmostFacetCount L missing - 1 := by
+  classical
+  have hfacet_mem :
+      st.facet ∈ st.cell.2.almostFullyLabeledFacets L missing :=
+    (st.cell.2.mem_almostFullyLabeledFacets_iff L missing).mpr halmost
+  rw [localPivotPartnerStates,
+    Finset.card_map,
+    Finset.card_erase_of_mem hfacet_mem,
+    localAlmostFacetCount,
+    st.cell.2.almostFullyLabeledFacetCount_eq_card]
+
+theorem localPivotPartnerStates_card_eq_one_of_almostFullyLabeled_not_full_chain_length_eq_card
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ st.smallCell.FullyLabeled L)
+    (hlen : st.cell.2.chain.length = Fintype.card ι) :
+    (st.localPivotPartnerStates L missing).card = 1 := by
+  classical
+  have hfacet_mem :
+      st.facet ∈ st.cell.2.almostFullyLabeledFacets L missing :=
+    (st.cell.2.mem_almostFullyLabeledFacets_iff L missing).mpr halmost
+  have hcount :
+      st.cell.2.almostFullyLabeledFacetCount L missing = 2 :=
+    st.cell.2.almostFullyLabeledFacetCount_eq_two_of_almostFullyLabeled_not_full_chain_length_eq_card
+      L missing halmost hnot_full hlen
+  rw [localPivotPartnerStates,
+    Finset.card_map,
+    Finset.card_erase_of_mem hfacet_mem,
+    ← st.cell.2.almostFullyLabeledFacetCount_eq_card L missing,
+    hcount]
+
+/--
+Geometric cross-cell partners of a facet state, independent of labels. These
+are the states carrying the same nonempty face in a distinct induced small
+cell.
+-/
+noncomputable def matchPartnerStates {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) : Finset (FacetState U) := by
+  classical
+  exact (Finset.univ : Finset (FacetState U)).filter fun st' =>
+    st.Matches st'
+
+theorem mem_matchPartnerStates_iff
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) {st' : FacetState U} :
+    st' ∈ st.matchPartnerStates ↔ st.Matches st' := by
+  classical
+  simp [matchPartnerStates]
+
+theorem matchPartnerStates_card_eq_zero_iff
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) :
+    st.matchPartnerStates.card = 0 ↔
+      ∀ st' : FacetState U, ¬ st.Matches st' := by
+  classical
+  rw [Finset.card_eq_zero]
+  constructor
+  · intro hzero st' hmatch
+    have hmem : st' ∈ st.matchPartnerStates :=
+      (st.mem_matchPartnerStates_iff).mpr hmatch
+    simp [hzero] at hmem
+  · intro hno
+    apply Finset.eq_empty_iff_forall_notMem.mpr
+    intro st' hmem
+    exact hno st' ((st.mem_matchPartnerStates_iff).mp hmem)
+
+theorem matchPartnerStates_card_eq_one_iff_existsUnique_matches
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) :
+    st.matchPartnerStates.card = 1 ↔
+      ∃! st' : FacetState U, st.Matches st' := by
+  classical
+  rw [Finset.card_eq_one, st.matchPartnerStates.singleton_iff_unique_mem]
+  simp [st.mem_matchPartnerStates_iff]
+
+/--
+The active same-cell partners of a state. They are empty unless the state
+itself is almost fully labeled, matching the actual graph adjacency relation.
+-/
+noncomputable def activeLocalPivotPartnerStates {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Finset (FacetState U) := by
+  classical
+  exact if st.AlmostFullyLabeled L missing then
+    st.localPivotPartnerStates L missing
+  else
+    ∅
+
+theorem mem_activeLocalPivotPartnerStates_iff
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    {st' : FacetState U} :
+    st' ∈ st.activeLocalPivotPartnerStates L missing ↔
+      st.AlmostFullyLabeled L missing ∧
+        st' ∈ st.localPivotPartnerStates L missing := by
+  classical
+  by_cases halmost : st.AlmostFullyLabeled L missing
+  · simp [activeLocalPivotPartnerStates, halmost]
+  · simp [activeLocalPivotPartnerStates, halmost]
+
+theorem mem_activeLocalPivotPartnerStates_iff_localPivot
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    {st' : FacetState U} :
+    st' ∈ st.activeLocalPivotPartnerStates L missing ↔
+      st.LocalPivot st' L missing := by
+  constructor
+  · intro hst'
+    rcases (st.mem_activeLocalPivotPartnerStates_iff L missing).mp hst' with
+      ⟨halmost, hlocal⟩
+    exact st.localPivot_of_mem_localPivotPartnerStates L missing halmost hlocal
+  · intro hpivot
+    exact (st.mem_activeLocalPivotPartnerStates_iff L missing).mpr
+      ⟨hpivot.2.2.1, mem_localPivotPartnerStates_of_localPivot hpivot⟩
+
+theorem activeLocalPivotPartnerStates_card_eq
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing) :
+    (st.activeLocalPivotPartnerStates L missing).card =
+      (st.localPivotPartnerStates L missing).card := by
+  classical
+  simp [activeLocalPivotPartnerStates, halmost]
+
+/--
+Cross-cell matching partners of a facet state. These are the neighboring states
+across the same geometric face; same-cell local pivots are tracked separately by
+`localPivotPartnerStates`.
+-/
+noncomputable def crossMatchPartnerStates {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Finset (FacetState U) := by
+  classical
+  exact (Finset.univ : Finset (FacetState U)).filter fun st' =>
+    st.Matches st' ∧ st.AlmostFullyLabeled L missing
+
+theorem mem_crossMatchPartnerStates_iff
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    {st' : FacetState U} :
+    st' ∈ st.crossMatchPartnerStates L missing ↔
+      st.Matches st' ∧ st.AlmostFullyLabeled L missing := by
+  classical
+  simp [crossMatchPartnerStates]
+
+theorem mem_crossMatchPartnerStates_iff_matches_of_almostFullyLabeled
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    {st' : FacetState U} :
+    st' ∈ st.crossMatchPartnerStates L missing ↔ st.Matches st' := by
+  rw [st.mem_crossMatchPartnerStates_iff L missing]
+  simp [halmost]
+
+theorem crossMatchPartnerStates_eq_matchPartnerStates_of_almostFullyLabeled
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing) :
+    st.crossMatchPartnerStates L missing = st.matchPartnerStates := by
+  classical
+  ext st'
+  rw [st.mem_crossMatchPartnerStates_iff_matches_of_almostFullyLabeled
+    L missing halmost, st.mem_matchPartnerStates_iff]
+
+theorem crossMatchPartnerStates_card_eq_matchPartnerStates_card_of_almostFullyLabeled
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing) :
+    (st.crossMatchPartnerStates L missing).card =
+      st.matchPartnerStates.card := by
+  rw [st.crossMatchPartnerStates_eq_matchPartnerStates_of_almostFullyLabeled
+    L missing halmost]
+
+theorem crossMatchPartnerStates_eq_empty_of_not_almostFullyLabeled
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : ¬ st.AlmostFullyLabeled L missing) :
+    st.crossMatchPartnerStates L missing = ∅ := by
+  classical
+  ext st'
+  rw [st.mem_crossMatchPartnerStates_iff L missing]
+  simp [halmost]
+
+theorem mem_crossMatchPartnerStates_symm
+    {U : CubeSlicePathSubdivision ι N}
+    {st st' : FacetState U} {L : GridSpernerLabeling ι N} {missing : ι}
+    (hst' : st' ∈ st.crossMatchPartnerStates L missing) :
+    st ∈ st'.crossMatchPartnerStates L missing := by
+  rcases (st.mem_crossMatchPartnerStates_iff L missing).mp hst' with
+    ⟨hmatch, halmost⟩
+  have halmost' : st'.AlmostFullyLabeled L missing := by
+    have hvertices : st.facet.vertices = st'.facet.vertices := by
+      simpa [face] using hmatch.2.2
+    rw [AlmostFullyLabeled,
+      GridCubeSlice.RankedSubsetPathCell.DeletionFacet.AlmostFullyLabeled] at halmost ⊢
+    simpa [hvertices] using halmost
+  exact (st'.mem_crossMatchPartnerStates_iff L missing).mpr
+    ⟨hmatch.symm, halmost'⟩
+
+/--
+All graph partners of a facet state, split into same-cell local pivots and
+cross-cell matches.
+-/
+noncomputable def pivotPartnerStates {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Finset (FacetState U) := by
+  classical
+  exact st.activeLocalPivotPartnerStates L missing ∪
+    st.crossMatchPartnerStates L missing
+
+theorem disjoint_activeLocalPivotPartnerStates_crossMatchPartnerStates
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    Disjoint (st.activeLocalPivotPartnerStates L missing)
+      (st.crossMatchPartnerStates L missing) := by
+  classical
+  rw [Finset.disjoint_left]
+  intro st' hlocal hcross
+  have hpivot :
+      st.LocalPivot st' L missing :=
+    (st.mem_activeLocalPivotPartnerStates_iff_localPivot L missing).mp hlocal
+  have hmatch :
+      st.Matches st' :=
+    ((st.mem_crossMatchPartnerStates_iff L missing).mp hcross).1
+  exact hmatch.1 (smallCell_eq_of_cell_eq hpivot.1)
+
+theorem pivotPartnerStates_card_eq
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    (st.pivotPartnerStates L missing).card =
+      (st.activeLocalPivotPartnerStates L missing).card +
+        (st.crossMatchPartnerStates L missing).card := by
+  classical
+  rw [pivotPartnerStates,
+    Finset.card_union_of_disjoint
+      (st.disjoint_activeLocalPivotPartnerStates_crossMatchPartnerStates L missing)]
+
+theorem exists_localPivot_of_almostFullyLabeled_not_full
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ st.smallCell.FullyLabeled L) :
+    ∃ st' : FacetState U, st.LocalPivot st' L missing := by
+  classical
+  rcases st.cell.2.exists_ne_almostFullyLabeledFacet_of_almostFullyLabeled_not_full
+      L missing halmost hnot_full with
+    ⟨G, hG_ne, hG⟩
+  let st' : FacetState U := ⟨st.cell, st.cell_mem, G⟩
+  refine ⟨st', ?_⟩
+  have hface_ne : st.face ≠ st'.face := by
+    intro hface
+    have hfacet : st.facet = G :=
+      (GridCubeSlice.RankedSubsetPathCell.DeletionFacet.vertices_eq_iff
+        st.facet G).mp (by simpa [face, st'] using hface)
+    exact hG_ne hfacet.symm
+  exact ⟨rfl, hface_ne, halmost, hG⟩
+
+theorem sharedFace_of_matches {U : CubeSlicePathSubdivision ι N}
+    {st st' : FacetState U} (hmatch : st.Matches st') :
+    GridSmallCell.SharedFace st.smallCell st'.smallCell st.face where
+  nonempty := hmatch.2.1
+  subset_left := st.face_subset_smallCell
+  subset_right := by
+    intro a ha
+    exact st'.face_subset_smallCell (by simpa [hmatch.2.2] using ha)
+
+theorem almostFullyLabeled_of_face_eq {U : CubeSlicePathSubdivision ι N}
+    {st st' : FacetState U} {L : GridSpernerLabeling ι N} {missing : ι}
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hface : st.face = st'.face) :
+    st'.AlmostFullyLabeled L missing := by
+  have hvertices : st.facet.vertices = st'.facet.vertices := by
+    simpa [face] using hface
+  rw [AlmostFullyLabeled,
+    GridCubeSlice.RankedSubsetPathCell.DeletionFacet.AlmostFullyLabeled] at halmost ⊢
+  simpa [hvertices] using halmost
+
+theorem sharesAlmostFullyLabeledFace_of_matches
+    {U : CubeSlicePathSubdivision ι N}
+    {st st' : FacetState U} (L : GridSpernerLabeling ι N) (missing : ι)
+    (hmatch : st.Matches st')
+    (halmost : st.AlmostFullyLabeled L missing) :
+    st.smallCell.SharesAlmostFullyLabeledFace st'.smallCell L missing := by
+  exact ⟨hmatch.1, st.face, st.sharedFace_of_matches hmatch, halmost⟩
+
+/--
+The actual facet-state Sperner pivot graph. Edges either cross a shared
+almost-labeled face into a neighboring cell, or pivot inside the same cell
+between its two almost-labeled facets.
+-/
+def spernerFacetPivotGraph
+    (U : CubeSlicePathSubdivision ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι) :
+    SimpleGraph (FacetState U) where
+  Adj st st' :=
+    st.LocalPivot st' L missing ∨
+      (st.Matches st' ∧ st.AlmostFullyLabeled L missing)
+  symm := by
+    intro st st' hadj
+    rcases hadj with hpivot | hmatch
+    · exact Or.inl hpivot.symm
+    · exact Or.inr ⟨hmatch.1.symm,
+        st.almostFullyLabeled_of_face_eq hmatch.2 hmatch.1.2.2⟩
+  loopless := ⟨fun st hadj => by
+    rcases hadj with hpivot | hmatch
+    · exact hpivot.2.1 rfl
+    · exact hmatch.1.1 rfl⟩
+
+theorem spernerFacetPivotGraph_adj_of_localPivot
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    {st st' : FacetState U}
+    (hpivot : st.LocalPivot st' L missing) :
+    (spernerFacetPivotGraph U L missing).Adj st st' :=
+  Or.inl hpivot
+
+theorem spernerFacetPivotGraph_adj_of_matches
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    {st st' : FacetState U}
+    (hmatch : st.Matches st') (halmost : st.AlmostFullyLabeled L missing) :
+    (spernerFacetPivotGraph U L missing).Adj st st' :=
+  Or.inr ⟨hmatch, halmost⟩
+
+theorem spernerFacetPivotGraph_adj_of_mem_crossMatchPartnerStates
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    {st' : FacetState U}
+    (hst' : st' ∈ st.crossMatchPartnerStates L missing) :
+    (spernerFacetPivotGraph U L missing).Adj st st' := by
+  rcases (st.mem_crossMatchPartnerStates_iff L missing).mp hst' with
+    ⟨hmatch, halmost⟩
+  exact spernerFacetPivotGraph_adj_of_matches hmatch halmost
+
+theorem spernerFacetPivotGraph_adj_of_mem_localPivotPartnerStates
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    {st' : FacetState U}
+    (hst' : st' ∈ st.localPivotPartnerStates L missing) :
+    (spernerFacetPivotGraph U L missing).Adj st st' :=
+  spernerFacetPivotGraph_adj_of_localPivot
+    (st.localPivot_of_mem_localPivotPartnerStates L missing halmost hst')
+
+theorem mem_pivotPartnerStates_iff_spernerFacetPivotGraph_adj
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    {st' : FacetState U} :
+    st' ∈ st.pivotPartnerStates L missing ↔
+      (spernerFacetPivotGraph U L missing).Adj st st' := by
+  classical
+  simp [pivotPartnerStates,
+    mem_activeLocalPivotPartnerStates_iff_localPivot,
+    mem_crossMatchPartnerStates_iff,
+    spernerFacetPivotGraph]
+
+theorem neighborFinset_spernerFacetPivotGraph
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    [Fintype ((spernerFacetPivotGraph U L missing).neighborSet st)] :
+    (spernerFacetPivotGraph U L missing).neighborFinset st =
+      st.pivotPartnerStates L missing := by
+  classical
+  ext st'
+  rw [SimpleGraph.mem_neighborFinset,
+    (st.mem_pivotPartnerStates_iff_spernerFacetPivotGraph_adj L missing).symm]
+
+theorem exists_spernerFacetPivotGraph_adj_of_almostFullyLabeled_not_full
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ st.smallCell.FullyLabeled L) :
+    ∃ st' : FacetState U,
+      (spernerFacetPivotGraph U L missing).Adj st st' := by
+  rcases st.exists_localPivot_of_almostFullyLabeled_not_full
+      L missing halmost hnot_full with
+    ⟨st', hpivot⟩
+  exact ⟨st', spernerFacetPivotGraph_adj_of_localPivot hpivot⟩
+
+/-- Degree in the actual two-edge-type facet-state Sperner pivot graph. -/
+noncomputable def spernerFacetPivotDegree
+    (U : CubeSlicePathSubdivision ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι)
+    (st : FacetState U) : ℕ := by
+  classical
+  exact (spernerFacetPivotGraph U L missing).degree st
+
+theorem spernerFacetPivotDegree_eq_card_pivotPartnerStates
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    spernerFacetPivotDegree U L missing st =
+      (st.pivotPartnerStates L missing).card := by
+  classical
+  rw [spernerFacetPivotDegree, SimpleGraph.degree,
+    neighborFinset_spernerFacetPivotGraph]
+
+theorem spernerFacetPivotDegree_eq_activeLocal_add_cross
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι) :
+    spernerFacetPivotDegree U L missing st =
+      (st.activeLocalPivotPartnerStates L missing).card +
+        (st.crossMatchPartnerStates L missing).card := by
+  rw [spernerFacetPivotDegree_eq_card_pivotPartnerStates,
+    pivotPartnerStates_card_eq]
+
+theorem spernerFacetPivotDegree_eq_localPivot_add_cross_of_almostFullyLabeled
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing) :
+    spernerFacetPivotDegree U L missing st =
+      (st.localPivotPartnerStates L missing).card +
+        (st.crossMatchPartnerStates L missing).card := by
+  rw [spernerFacetPivotDegree_eq_activeLocal_add_cross,
+    st.activeLocalPivotPartnerStates_card_eq L missing halmost]
+
+theorem spernerFacetPivotDegree_eq_localAlmostFacetCount_of_cross_card_eq_one
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hcross : (st.crossMatchPartnerStates L missing).card = 1) :
+    spernerFacetPivotDegree U L missing st =
+      st.localAlmostFacetCount L missing := by
+  classical
+  have hlocal :
+      (st.localPivotPartnerStates L missing).card =
+        st.localAlmostFacetCount L missing - 1 :=
+    st.localPivotPartnerStates_card_eq_localAlmostFacetCount_sub_one
+      L missing halmost
+  have hfacet_mem :
+      st.facet ∈ st.cell.2.almostFullyLabeledFacets L missing :=
+    (st.cell.2.mem_almostFullyLabeledFacets_iff L missing).mpr halmost
+  have hcount_pos : 0 < st.localAlmostFacetCount L missing := by
+    rw [localAlmostFacetCount,
+      st.cell.2.almostFullyLabeledFacetCount_eq_card]
+    exact Finset.card_pos.mpr ⟨st.facet, hfacet_mem⟩
+  rw [st.spernerFacetPivotDegree_eq_localPivot_add_cross_of_almostFullyLabeled
+    L missing halmost, hlocal, hcross]
+  omega
+
+theorem spernerFacetPivotDegree_eq_localPivot_of_cross_card_eq_zero
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hcross : (st.crossMatchPartnerStates L missing).card = 0) :
+    spernerFacetPivotDegree U L missing st =
+      (st.localPivotPartnerStates L missing).card := by
+  rw [st.spernerFacetPivotDegree_eq_localPivot_add_cross_of_almostFullyLabeled
+    L missing halmost, hcross, Nat.add_zero]
+
+theorem odd_spernerFacetPivotDegree_of_cross_card_eq_zero_local_card_eq_one
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hcross : (st.crossMatchPartnerStates L missing).card = 0)
+    (hlocal : (st.localPivotPartnerStates L missing).card = 1) :
+    Odd (spernerFacetPivotDegree U L missing st) := by
+  rw [st.spernerFacetPivotDegree_eq_localPivot_of_cross_card_eq_zero
+    L missing halmost hcross, hlocal]
+  exact odd_one
+
+theorem odd_spernerFacetPivotDegree_of_almostFullyLabeled_not_full_cross_card_eq_zero
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing)
+    (hnot_full : ¬ st.smallCell.FullyLabeled L)
+    (hlen : st.cell.2.chain.length = Fintype.card ι)
+    (hcross : (st.crossMatchPartnerStates L missing).card = 0) :
+    Odd (spernerFacetPivotDegree U L missing st) := by
+  exact st.odd_spernerFacetPivotDegree_of_cross_card_eq_zero_local_card_eq_one
+    L missing halmost hcross
+    (st.localPivotPartnerStates_card_eq_one_of_almostFullyLabeled_not_full_chain_length_eq_card
+      L missing halmost hnot_full hlen)
+
+theorem almostFullyLabeled_of_spernerFacetPivotGraph_adj
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    {st st' : FacetState U}
+    (hadj : (spernerFacetPivotGraph U L missing).Adj st st') :
+    st.AlmostFullyLabeled L missing := by
+  rcases hadj with hpivot | hmatch
+  · exact hpivot.2.2.1
+  · exact hmatch.2
+
+theorem almostFullyLabeled_of_spernerFacetPivotDegree_pos
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (hpos : 0 < spernerFacetPivotDegree U L missing st) :
+    st.AlmostFullyLabeled L missing := by
+  classical
+  let G := spernerFacetPivotGraph U L missing
+  have hposG : 0 < G.degree st := by
+    simpa [spernerFacetPivotDegree, G] using hpos
+  rcases (G.degree_pos_iff_exists_adj st).mp hposG with ⟨st', hadj⟩
+  exact almostFullyLabeled_of_spernerFacetPivotGraph_adj hadj
+
+theorem almostFullyLabeled_of_odd_spernerFacetPivotDegree
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (hodd : Odd (spernerFacetPivotDegree U L missing st)) :
+    st.AlmostFullyLabeled L missing := by
+  have hpos : 0 < spernerFacetPivotDegree U L missing st := by
+    rcases hodd with ⟨k, hk⟩
+    omega
+  exact st.almostFullyLabeled_of_spernerFacetPivotDegree_pos L missing hpos
+
+theorem full_cell_of_odd_spernerFacetPivotDegree_of_cross_card_eq_one
+    {U : CubeSlicePathSubdivision ι N}
+    (st : FacetState U) (L : GridSpernerLabeling ι N) (missing : ι)
+    (hcross : (st.crossMatchPartnerStates L missing).card = 1)
+    (hlen : st.cell.2.chain.length = Fintype.card ι)
+    (hodd : Odd (spernerFacetPivotDegree U L missing st)) :
+    st.smallCell.FullyLabeled L := by
+  have halmost :
+      st.AlmostFullyLabeled L missing :=
+    st.almostFullyLabeled_of_odd_spernerFacetPivotDegree L missing hodd
+  have hdegree :
+      spernerFacetPivotDegree U L missing st =
+        st.localAlmostFacetCount L missing :=
+    st.spernerFacetPivotDegree_eq_localAlmostFacetCount_of_cross_card_eq_one
+      L missing halmost hcross
+  exact st.full_cell_of_odd_localAlmostFacetCount L missing hlen
+    (by simpa [hdegree] using hodd)
+
+/--
+The cross-cell matching graph: edges pair matching nonempty deletion facets that
+are almost fully labeled. The actual Sperner pivot graph is
+`spernerFacetPivotGraph`, which also includes same-cell local pivots.
+-/
+def almostLabeledFacetGraph
+    (U : CubeSlicePathSubdivision ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι) :
+    SimpleGraph (FacetState U) where
+  Adj st st' :=
+    st.Matches st' ∧ st.AlmostFullyLabeled L missing
+  symm := by
+    intro st st' hadj
+    exact ⟨hadj.1.symm,
+      st.almostFullyLabeled_of_face_eq hadj.2 hadj.1.2.2⟩
+  loopless := ⟨fun st hadj => hadj.1.1 rfl⟩
+
+theorem almostFacePivotGraph_adj_of_facetGraph_adj
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    {st st' : FacetState U}
+    (hadj : (almostLabeledFacetGraph U L missing).Adj st st') :
+    (U.toTriangulation.almostFacePivotGraph L missing).Adj
+      ⟨st.smallCell, st.smallCell_mem_toTriangulation⟩
+      ⟨st'.smallCell, st'.smallCell_mem_toTriangulation⟩ := by
+  exact st.sharesAlmostFullyLabeledFace_of_matches L missing hadj.1 hadj.2
+
+end FacetState
+
+/-- Degree in the cross-cell almost-labeled facet matching graph. -/
+noncomputable def almostLabeledFacetDegree
+    (U : CubeSlicePathSubdivision ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι)
+    (st : FacetState U) : ℕ := by
+  classical
+  exact (FacetState.almostLabeledFacetGraph U L missing).degree st
+
+/--
+A parity certificate for the concrete facet-state pivot graph of a
+path-shaped subdivision.
+-/
+structure FacetPivotCertificate
+    (U : CubeSlicePathSubdivision ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι) where
+  boundary : FacetState U → Prop
+  start : FacetState U
+  start_boundary : boundary start
+  start_odd : Odd (FacetState.spernerFacetPivotDegree U L missing start)
+  boundary_unique : ∀ st, boundary st → st = start
+  odd_nonboundary_full :
+    ∀ st, Odd (FacetState.spernerFacetPivotDegree U L missing st) →
+      ¬ boundary st → st.smallCell.FullyLabeled L
+
+namespace FacetPivotCertificate
+
+/--
+View a concrete facet-state certificate as the abstract pivot graph
+certificate used by the existing Sperner bridge.
+-/
+noncomputable def toPivotGraphCertificate
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : FacetPivotCertificate U L missing) :
+    PivotGraphCertificate U.toTriangulation L (FacetState U) := by
+  classical
+  let G := FacetState.spernerFacetPivotGraph U L missing
+  exact
+    { graph := G
+      decidableAdj := inferInstance
+      cellOf := fun st => st.smallCell
+      cell_mem := fun st => st.smallCell_mem_toTriangulation
+      boundary := C.boundary
+      start := C.start
+      start_boundary := C.start_boundary
+      start_odd := by
+        simpa [FacetState.spernerFacetPivotDegree, G] using C.start_odd
+      boundary_unique := C.boundary_unique
+      odd_nonboundary_full := by
+        intro st hodd hboundary
+        exact C.odd_nonboundary_full st
+          (by simpa [FacetState.spernerFacetPivotDegree, G] using hodd)
+          hboundary }
+
+theorem exists_fullyLabeled
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : FacetPivotCertificate U L missing) :
+    ∃ cell ∈ U.toTriangulation.cells, cell.FullyLabeled L :=
+  C.toPivotGraphCertificate.exists_fullyLabeled
+
+end FacetPivotCertificate
+
+/--
+Incidence data sufficient to build a concrete facet-pivot certificate.
+
+This is the reusable bridge we want for Kuhn/Sperner: after the subdivision
+proves that relevant non-boundary almost facets have a unique cross-cell mate
+and lie in maximal path cells, the local parity theorem identifies every odd
+non-boundary graph state with a fully labeled cell.
+-/
+structure FacetIncidenceCertificate
+    (U : CubeSlicePathSubdivision ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι) where
+  boundary : FacetState U → Prop
+  start : FacetState U
+  start_boundary : boundary start
+  start_odd : Odd (FacetState.spernerFacetPivotDegree U L missing start)
+  boundary_unique : ∀ st, boundary st → st = start
+  nonboundary_cross_card_eq_one :
+    ∀ st, st.AlmostFullyLabeled L missing → ¬ boundary st →
+      (st.crossMatchPartnerStates L missing).card = 1
+  nonboundary_chain_length :
+    ∀ st, st.AlmostFullyLabeled L missing → ¬ boundary st →
+      st.cell.2.chain.length = Fintype.card ι
+
+namespace FacetIncidenceCertificate
+
+/--
+Convert incidence-and-local-parity data into the concrete graph certificate
+used by the existing Sperner bridge.
+-/
+noncomputable def toFacetPivotCertificate
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : FacetIncidenceCertificate U L missing) :
+    FacetPivotCertificate U L missing where
+  boundary := C.boundary
+  start := C.start
+  start_boundary := C.start_boundary
+  start_odd := C.start_odd
+  boundary_unique := C.boundary_unique
+  odd_nonboundary_full := by
+    intro st hodd hboundary
+    have halmost :
+        st.AlmostFullyLabeled L missing :=
+      st.almostFullyLabeled_of_odd_spernerFacetPivotDegree L missing hodd
+    exact st.full_cell_of_odd_spernerFacetPivotDegree_of_cross_card_eq_one
+      L missing
+      (C.nonboundary_cross_card_eq_one st halmost hboundary)
+      (C.nonboundary_chain_length st halmost hboundary)
+      hodd
+
+theorem exists_fullyLabeled
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : FacetIncidenceCertificate U L missing) :
+    ∃ cell ∈ U.toTriangulation.cells, cell.FullyLabeled L :=
+  C.toFacetPivotCertificate.exists_fullyLabeled
+
+end FacetIncidenceCertificate
+
+/--
+Counting-style incidence data. This is closer to what a concrete Kuhn
+construction should prove: the start boundary facet has no cross mate and one
+internal pivot partner, while every relevant non-boundary almost facet has one
+cross mate.
+-/
+structure FacetCountingIncidenceCertificate
+    (U : CubeSlicePathSubdivision ι N)
+    (L : GridSpernerLabeling ι N) (missing : ι) where
+  boundary : FacetState U → Prop
+  start : FacetState U
+  start_boundary : boundary start
+  start_almost : start.AlmostFullyLabeled L missing
+  start_not_full : ¬ start.smallCell.FullyLabeled L
+  start_cross_card_eq_zero :
+    (start.crossMatchPartnerStates L missing).card = 0
+  start_chain_length : start.cell.2.chain.length = Fintype.card ι
+  boundary_unique : ∀ st, boundary st → st = start
+  nonboundary_cross_card_eq_one :
+    ∀ st, st.AlmostFullyLabeled L missing → ¬ boundary st →
+      (st.crossMatchPartnerStates L missing).card = 1
+  nonboundary_chain_length :
+    ∀ st, st.AlmostFullyLabeled L missing → ¬ boundary st →
+      st.cell.2.chain.length = Fintype.card ι
+
+namespace FacetCountingIncidenceCertificate
+
+/-- Convert purely counting-style incidence data into a graph-incidence certificate. -/
+noncomputable def toFacetIncidenceCertificate
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : FacetCountingIncidenceCertificate U L missing) :
+    FacetIncidenceCertificate U L missing where
+  boundary := C.boundary
+  start := C.start
+  start_boundary := C.start_boundary
+  start_odd :=
+    C.start.odd_spernerFacetPivotDegree_of_almostFullyLabeled_not_full_cross_card_eq_zero
+      L missing C.start_almost C.start_not_full C.start_chain_length
+      C.start_cross_card_eq_zero
+  boundary_unique := C.boundary_unique
+  nonboundary_cross_card_eq_one := C.nonboundary_cross_card_eq_one
+  nonboundary_chain_length := C.nonboundary_chain_length
+
+noncomputable def toFacetPivotCertificate
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : FacetCountingIncidenceCertificate U L missing) :
+    FacetPivotCertificate U L missing :=
+  C.toFacetIncidenceCertificate.toFacetPivotCertificate
+
+theorem exists_fullyLabeled
+    {U : CubeSlicePathSubdivision ι N}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : FacetCountingIncidenceCertificate U L missing) :
+    ∃ cell ∈ U.toTriangulation.cells, cell.FullyLabeled L :=
+  C.toFacetPivotCertificate.exists_fullyLabeled
+
+end FacetCountingIncidenceCertificate
+
+/--
+A path subdivision has concrete facet-pivot certificates if every labeling
+admits a parity certificate for its facet-state graph.
+-/
+def HasFacetPivotCertificates
+    (U : CubeSlicePathSubdivision ι N) : Prop :=
+  ∀ L : GridSpernerLabeling ι N,
+    ∃ missing : ι, Nonempty (FacetPivotCertificate U L missing)
+
+theorem hasPivotGraphCertificates_of_facetPivotCertificates
+    {U : CubeSlicePathSubdivision ι N}
+    (hU : U.HasFacetPivotCertificates) :
+    U.toTriangulation.HasPivotGraphCertificates := by
+  classical
+  intro L
+  rcases hU L with ⟨missing, hC⟩
+  rcases hC with ⟨C⟩
+  exact ⟨FacetState U, inferInstance, ⟨C.toPivotGraphCertificate⟩⟩
+
+/--
+A path subdivision has facet-incidence certificates if every labeling admits
+the incidence data needed to construct a concrete facet-pivot certificate.
+-/
+def HasFacetIncidenceCertificates
+    (U : CubeSlicePathSubdivision ι N) : Prop :=
+  ∀ L : GridSpernerLabeling ι N,
+    ∃ missing : ι, Nonempty (FacetIncidenceCertificate U L missing)
+
+theorem hasFacetPivotCertificates_of_facetIncidenceCertificates
+    {U : CubeSlicePathSubdivision ι N}
+    (hU : U.HasFacetIncidenceCertificates) :
+    U.HasFacetPivotCertificates := by
+  intro L
+  rcases hU L with ⟨missing, hC⟩
+  rcases hC with ⟨C⟩
+  exact ⟨missing, ⟨C.toFacetPivotCertificate⟩⟩
+
+/--
+A path subdivision has counting-style facet-incidence certificates if every
+labeling admits the purely combinatorial degree-count data.
+-/
+def HasFacetCountingIncidenceCertificates
+    (U : CubeSlicePathSubdivision ι N) : Prop :=
+  ∀ L : GridSpernerLabeling ι N,
+    ∃ missing : ι, Nonempty (FacetCountingIncidenceCertificate U L missing)
+
+theorem hasFacetIncidenceCertificates_of_facetCountingIncidenceCertificates
+    {U : CubeSlicePathSubdivision ι N}
+    (hU : U.HasFacetCountingIncidenceCertificates) :
+    U.HasFacetIncidenceCertificates := by
+  intro L
+  rcases hU L with ⟨missing, hC⟩
+  rcases hC with ⟨C⟩
+  exact ⟨missing, ⟨C.toFacetIncidenceCertificate⟩⟩
+
+theorem hasFacetPivotCertificates_of_facetCountingIncidenceCertificates
+    {U : CubeSlicePathSubdivision ι N}
+    (hU : U.HasFacetCountingIncidenceCertificates) :
+    U.HasFacetPivotCertificates :=
+  hasFacetPivotCertificates_of_facetIncidenceCertificates
+    (hasFacetIncidenceCertificates_of_facetCountingIncidenceCertificates hU)
+
+/--
+The finite family of interior cyclic-window Kuhn cells generated by a finite
+set of coordinate orders `Fin d ≃ ι`.
+
+Rank `0` and rank `d` cube slices are deliberately omitted here: they are
+degenerate one-vertex hypersimplex slices and will be added by the boundary
+case constructor rather than by cyclic windows.
+-/
+noncomputable def cyclicWindowCellsOfOrders
+    {d : ℕ} (orders : Finset (Fin d ≃ ι)) (hd : 0 < d) :
+    CubeSlicePathSubdivision ι N := by
+  classical
+  exact
+    { cells := (Finset.univ : Finset (GridCubeSlice ι N)).biUnion fun S =>
+        if hrpos : 0 < S.rank then
+          if hrlt : S.rank < d then
+            orders.image fun e =>
+              ⟨S, GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv
+                S e hd hrpos hrlt⟩
+          else ∅
+        else ∅ }
+
+theorem mem_cyclicWindowCellsOfOrders_of_mem
+    {d : ℕ} {orders : Finset (Fin d ≃ ι)} {hd : 0 < d}
+    (S : GridCubeSlice ι N) {e : Fin d ≃ ι}
+    (he : e ∈ orders) (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    (⟨S, GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv
+      S e hd hrpos hrlt⟩ :
+        Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S) ∈
+      (cyclicWindowCellsOfOrders (ι := ι) (N := N) orders hd).cells := by
+  classical
+  rw [cyclicWindowCellsOfOrders]
+  refine Finset.mem_biUnion.mpr ⟨S, Finset.mem_univ S, ?_⟩
+  simp [hrpos, hrlt]
+  refine ⟨e, he, ?_⟩
+  congr
+
+/--
+All interior cyclic-window Kuhn cells, using every equivalence
+`Fin (Fintype.card ι) ≃ ι` as a coordinate order.
+-/
+noncomputable def allInteriorCyclicWindowCells
+    (hcard : 0 < Fintype.card ι) :
+    CubeSlicePathSubdivision ι N :=
+  cyclicWindowCellsOfOrders
+    (ι := ι) (N := N)
+    (orders := (Finset.univ : Finset (Fin (Fintype.card ι) ≃ ι)))
+    hcard
+
+theorem mem_allInteriorCyclicWindowCells
+    (hcard : 0 < Fintype.card ι)
+    (S : GridCubeSlice ι N) (e : Fin (Fintype.card ι) ≃ ι)
+    (hrpos : 0 < S.rank) (hrlt : S.rank < Fintype.card ι) :
+    (⟨S, GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv
+      S e hcard hrpos hrlt⟩ :
+        Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S) ∈
+      (allInteriorCyclicWindowCells (ι := ι) (N := N) hcard).cells := by
+  classical
+  exact mem_cyclicWindowCellsOfOrders_of_mem
+    (S := S) (e := e) (Finset.mem_univ e) hrpos hrlt
+
+/--
+The finite candidate Kuhn subdivision generated by coordinate orders.
+
+Interior cube slices contribute one cyclic-window path cell for every supplied
+order. Degenerate rank slices contribute a canonical singleton cell.
+-/
+noncomputable def kuhnCandidateCellsOfOrders
+    {d : ℕ} (orders : Finset (Fin d ≃ ι)) (hd : 0 < d) :
+    CubeSlicePathSubdivision ι N := by
+  classical
+  exact
+    { cells := (Finset.univ : Finset (GridCubeSlice ι N)).biUnion fun S =>
+        if hrpos : 0 < S.rank then
+          if hrlt : S.rank < d then
+            orders.image fun e =>
+              ⟨S, GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv
+                S e hd hrpos hrlt⟩
+          else
+            {⟨S, GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S⟩}
+        else
+          {⟨S, GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S⟩} }
+
+theorem mem_kuhnCandidateCellsOfOrders_cyclic
+    {d : ℕ} {orders : Finset (Fin d ≃ ι)} {hd : 0 < d}
+    (S : GridCubeSlice ι N) {e : Fin d ≃ ι}
+    (he : e ∈ orders) (hrpos : 0 < S.rank) (hrlt : S.rank < d) :
+    (⟨S, GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv
+      S e hd hrpos hrlt⟩ :
+        Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S) ∈
+      (kuhnCandidateCellsOfOrders (ι := ι) (N := N) orders hd).cells := by
+  classical
+  rw [kuhnCandidateCellsOfOrders]
+  refine Finset.mem_biUnion.mpr ⟨S, Finset.mem_univ S, ?_⟩
+  simp [hrpos, hrlt]
+  refine ⟨e, he, ?_⟩
+  congr
+
+theorem mem_kuhnCandidateCellsOfOrders_singleton_of_not_rank_pos
+    {d : ℕ} {orders : Finset (Fin d ≃ ι)} {hd : 0 < d}
+    (S : GridCubeSlice ι N) (hrpos : ¬ 0 < S.rank) :
+    (⟨S, GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S⟩ :
+        Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S) ∈
+      (kuhnCandidateCellsOfOrders (ι := ι) (N := N) orders hd).cells := by
+  classical
+  rw [kuhnCandidateCellsOfOrders]
+  refine Finset.mem_biUnion.mpr ⟨S, Finset.mem_univ S, ?_⟩
+  simp [hrpos]
+
+theorem mem_kuhnCandidateCellsOfOrders_singleton_of_not_rank_lt
+    {d : ℕ} {orders : Finset (Fin d ≃ ι)} {hd : 0 < d}
+    (S : GridCubeSlice ι N) (hrpos : 0 < S.rank) (hrlt : ¬ S.rank < d) :
+    (⟨S, GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S⟩ :
+        Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S) ∈
+      (kuhnCandidateCellsOfOrders (ι := ι) (N := N) orders hd).cells := by
+  classical
+  rw [kuhnCandidateCellsOfOrders]
+  refine Finset.mem_biUnion.mpr ⟨S, Finset.mem_univ S, ?_⟩
+  simp [hrpos, hrlt]
+
+theorem mem_kuhnCandidateCellsOfOrders_iff
+    {d : ℕ} {orders : Finset (Fin d ≃ ι)} {hd : 0 < d}
+    {C : Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S} :
+    C ∈ (kuhnCandidateCellsOfOrders (ι := ι) (N := N) orders hd).cells ↔
+      (∃ (S : GridCubeSlice ι N) (hrpos : 0 < S.rank)
+          (hrlt : S.rank < d) (e : Fin d ≃ ι), e ∈ orders ∧
+            C = ⟨S, GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv
+              S e hd hrpos hrlt⟩) ∨
+      (∃ S : GridCubeSlice ι N, ¬ 0 < S.rank ∧
+        C = ⟨S, GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S⟩) ∨
+      (∃ S : GridCubeSlice ι N, 0 < S.rank ∧ ¬ S.rank < d ∧
+          C = ⟨S, GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S⟩) := by
+  classical
+  constructor
+  · intro hC
+    rw [kuhnCandidateCellsOfOrders] at hC
+    rcases Finset.mem_biUnion.mp hC with ⟨S, _hS, hC⟩
+    by_cases hrpos : 0 < S.rank
+    · by_cases hrlt : S.rank < d
+      · left
+        simp [hrpos, hrlt] at hC
+        rcases hC with ⟨e, he, hCeq⟩
+        exact ⟨S, hrpos, hrlt, e, he, hCeq.symm⟩
+      · right
+        right
+        simp [hrpos, hrlt] at hC
+        exact ⟨S, hrpos, hrlt, hC⟩
+    · right
+      left
+      simp [hrpos] at hC
+      exact ⟨S, hrpos, hC⟩
+  · rintro (⟨S, hrpos, hrlt, e, he, rfl⟩ | ⟨S, hrpos, rfl⟩ |
+      ⟨S, hrpos, hrlt, rfl⟩)
+    · exact mem_kuhnCandidateCellsOfOrders_cyclic
+        (S := S) (e := e) he hrpos hrlt
+    · exact mem_kuhnCandidateCellsOfOrders_singleton_of_not_rank_pos
+        (S := S) (orders := orders) hrpos
+    · exact mem_kuhnCandidateCellsOfOrders_singleton_of_not_rank_lt
+        (S := S) (orders := orders) hrpos hrlt
+
+/--
+The all-orders candidate Kuhn subdivision for a nonempty coordinate type.
+-/
+noncomputable def allKuhnCandidateCells
+    (hcard : 0 < Fintype.card ι) :
+    CubeSlicePathSubdivision ι N :=
+  kuhnCandidateCellsOfOrders
+    (ι := ι) (N := N)
+    (orders := (Finset.univ : Finset (Fin (Fintype.card ι) ≃ ι)))
+    hcard
+
+theorem mem_allKuhnCandidateCells_iff
+    (hcard : 0 < Fintype.card ι)
+    {C : Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S} :
+    C ∈ (allKuhnCandidateCells (ι := ι) (N := N) hcard).cells ↔
+      (∃ (S : GridCubeSlice ι N) (hrpos : 0 < S.rank)
+          (hrlt : S.rank < Fintype.card ι)
+          (e : Fin (Fintype.card ι) ≃ ι),
+            C = ⟨S, GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv
+              S e hcard hrpos hrlt⟩) ∨
+      (∃ S : GridCubeSlice ι N, ¬ 0 < S.rank ∧
+        C = ⟨S, GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S⟩) ∨
+      (∃ S : GridCubeSlice ι N, 0 < S.rank ∧
+        ¬ S.rank < Fintype.card ι ∧
+          C = ⟨S, GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S⟩) := by
+  classical
+  simpa [allKuhnCandidateCells] using
+    (mem_kuhnCandidateCellsOfOrders_iff
+      (ι := ι) (N := N)
+      (orders := (Finset.univ :
+        Finset (Fin (Fintype.card ι) ≃ ι)))
+      (hd := hcard) (C := C))
+
+theorem chain_length_eq_card_or_eq_one_of_mem_allKuhnCandidateCells
+    (hcard : 0 < Fintype.card ι)
+    {C : Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S}
+    (hC : C ∈ (allKuhnCandidateCells (ι := ι) (N := N) hcard).cells) :
+    C.2.chain.length = Fintype.card ι ∨ C.2.chain.length = 1 := by
+  classical
+  rw [mem_allKuhnCandidateCells_iff hcard] at hC
+  rcases hC with
+    ⟨S, hrpos, hrlt, e, rfl⟩ | ⟨S, _hrpos, rfl⟩ |
+      ⟨S, _hrpos, _hrlt, rfl⟩
+  · left
+    exact GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv_chain_length_eq_card
+      S e hcard hrpos hrlt
+  · right
+    simp
+  · right
+    simp
+
+theorem chain_length_eq_card_of_almostFullyLabeled_allKuhnCandidateCells
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (st : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard))
+    (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing) :
+    st.cell.2.chain.length = Fintype.card ι := by
+  rcases chain_length_eq_card_or_eq_one_of_mem_allKuhnCandidateCells
+      (ι := ι) (N := N) hcard st.cell_mem with hlen | hlen
+  · exact hlen
+  · exact False.elim
+      ((st.not_almostFullyLabeled_of_chain_length_eq_one L missing hlen)
+        halmost)
+
+theorem face_nonempty_of_almostFullyLabeled_allKuhnCandidateCells
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (st : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard))
+    (L : GridSpernerLabeling ι N) (missing : ι)
+    (halmost : st.AlmostFullyLabeled L missing) :
+    st.face.Nonempty := by
+  have hlen :
+      st.cell.2.chain.length = Fintype.card ι :=
+    chain_length_eq_card_of_almostFullyLabeled_allKuhnCandidateCells
+      hcard st L missing halmost
+  exact st.face_nonempty_of_one_lt_chain_length (by
+    rw [hlen]
+    exact Fintype.one_lt_card)
+
+/--
+The reduced incidence-count data still needed for the all-orders Kuhn
+candidate family. Maximality of relevant cells is supplied automatically by
+`chain_length_eq_card_of_almostFullyLabeled_allKuhnCandidateCells`.
+-/
+structure AllKuhnIncidenceCountCertificate
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (L : GridSpernerLabeling ι N) (missing : ι) where
+  boundary : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard) → Prop
+  start : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard)
+  start_boundary : boundary start
+  start_almost : start.AlmostFullyLabeled L missing
+  start_not_full : ¬ start.smallCell.FullyLabeled L
+  start_cross_card_eq_zero :
+    (start.crossMatchPartnerStates L missing).card = 0
+  boundary_unique : ∀ st, boundary st → st = start
+  nonboundary_cross_card_eq_one :
+    ∀ st, st.AlmostFullyLabeled L missing → ¬ boundary st →
+      (st.crossMatchPartnerStates L missing).card = 1
+
+namespace AllKuhnIncidenceCountCertificate
+
+noncomputable def toFacetCountingIncidenceCertificate
+    [Nontrivial ι]
+    {hcard : 0 < Fintype.card ι}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : AllKuhnIncidenceCountCertificate
+      (ι := ι) (N := N) hcard L missing) :
+    FacetCountingIncidenceCertificate
+      (allKuhnCandidateCells (ι := ι) (N := N) hcard) L missing where
+  boundary := C.boundary
+  start := C.start
+  start_boundary := C.start_boundary
+  start_almost := C.start_almost
+  start_not_full := C.start_not_full
+  start_cross_card_eq_zero := C.start_cross_card_eq_zero
+  start_chain_length :=
+    chain_length_eq_card_of_almostFullyLabeled_allKuhnCandidateCells
+      hcard C.start L missing C.start_almost
+  boundary_unique := C.boundary_unique
+  nonboundary_cross_card_eq_one := C.nonboundary_cross_card_eq_one
+  nonboundary_chain_length := by
+    intro st halmost _hboundary
+    exact chain_length_eq_card_of_almostFullyLabeled_allKuhnCandidateCells
+      hcard st L missing halmost
+
+noncomputable def toFacetPivotCertificate
+    [Nontrivial ι]
+    {hcard : 0 < Fintype.card ι}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : AllKuhnIncidenceCountCertificate
+      (ι := ι) (N := N) hcard L missing) :
+    FacetPivotCertificate
+      (allKuhnCandidateCells (ι := ι) (N := N) hcard) L missing :=
+  C.toFacetCountingIncidenceCertificate.toFacetPivotCertificate
+
+end AllKuhnIncidenceCountCertificate
+
+/--
+Geometric version of `AllKuhnIncidenceCountCertificate`: the cross-incidence
+fields are stated using label-free `matchPartnerStates`.
+-/
+structure AllKuhnGeometricIncidenceCountCertificate
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (L : GridSpernerLabeling ι N) (missing : ι) where
+  boundary : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard) → Prop
+  start : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard)
+  start_boundary : boundary start
+  start_almost : start.AlmostFullyLabeled L missing
+  start_not_full : ¬ start.smallCell.FullyLabeled L
+  start_match_card_eq_zero : start.matchPartnerStates.card = 0
+  boundary_unique : ∀ st, boundary st → st = start
+  nonboundary_match_card_eq_one :
+    ∀ st, st.AlmostFullyLabeled L missing → ¬ boundary st →
+      st.matchPartnerStates.card = 1
+
+namespace AllKuhnGeometricIncidenceCountCertificate
+
+noncomputable def toAllKuhnIncidenceCountCertificate
+    [Nontrivial ι]
+    {hcard : 0 < Fintype.card ι}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : AllKuhnGeometricIncidenceCountCertificate
+      (ι := ι) (N := N) hcard L missing) :
+    AllKuhnIncidenceCountCertificate
+      (ι := ι) (N := N) hcard L missing where
+  boundary := C.boundary
+  start := C.start
+  start_boundary := C.start_boundary
+  start_almost := C.start_almost
+  start_not_full := C.start_not_full
+  start_cross_card_eq_zero := by
+    rw [C.start.crossMatchPartnerStates_card_eq_matchPartnerStates_card_of_almostFullyLabeled
+      L missing C.start_almost]
+    exact C.start_match_card_eq_zero
+  boundary_unique := C.boundary_unique
+  nonboundary_cross_card_eq_one := by
+    intro st halmost hboundary
+    rw [st.crossMatchPartnerStates_card_eq_matchPartnerStates_card_of_almostFullyLabeled
+      L missing halmost]
+    exact C.nonboundary_match_card_eq_one st halmost hboundary
+
+end AllKuhnGeometricIncidenceCountCertificate
+
+/--
+Geometric incidence data in logical form: the start state has no geometric
+match, and every relevant non-boundary almost facet has a unique geometric
+match.
+-/
+structure AllKuhnGeometricIncidenceCertificate
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (L : GridSpernerLabeling ι N) (missing : ι) where
+  boundary : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard) → Prop
+  start : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard)
+  start_boundary : boundary start
+  start_almost : start.AlmostFullyLabeled L missing
+  start_not_full : ¬ start.smallCell.FullyLabeled L
+  start_no_match :
+    ∀ st : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard),
+      ¬ start.Matches st
+  boundary_unique : ∀ st, boundary st → st = start
+  nonboundary_existsUnique_match :
+    ∀ st, st.AlmostFullyLabeled L missing → ¬ boundary st →
+      ∃! st' : FacetState (allKuhnCandidateCells (ι := ι) (N := N) hcard),
+        st.Matches st'
+
+namespace AllKuhnGeometricIncidenceCertificate
+
+noncomputable def toGeometricIncidenceCountCertificate
+    [Nontrivial ι]
+    {hcard : 0 < Fintype.card ι}
+    {L : GridSpernerLabeling ι N} {missing : ι}
+    (C : AllKuhnGeometricIncidenceCertificate
+      (ι := ι) (N := N) hcard L missing) :
+    AllKuhnGeometricIncidenceCountCertificate
+      (ι := ι) (N := N) hcard L missing where
+  boundary := C.boundary
+  start := C.start
+  start_boundary := C.start_boundary
+  start_almost := C.start_almost
+  start_not_full := C.start_not_full
+  start_match_card_eq_zero :=
+    (C.start.matchPartnerStates_card_eq_zero_iff).mpr C.start_no_match
+  boundary_unique := C.boundary_unique
+  nonboundary_match_card_eq_one := by
+    intro st halmost hboundary
+    exact (st.matchPartnerStates_card_eq_one_iff_existsUnique_matches).mpr
+      (C.nonboundary_existsUnique_match st halmost hboundary)
+
+end AllKuhnGeometricIncidenceCertificate
+
+/--
+All-orders Kuhn candidate cells have reduced incidence-count certificates if
+every labeling admits the remaining boundary/cross-match data.
+-/
+def HasAllKuhnIncidenceCountCertificates
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι) : Prop :=
+  ∀ L : GridSpernerLabeling ι N,
+    ∃ missing : ι,
+      Nonempty (AllKuhnIncidenceCountCertificate
+        (ι := ι) (N := N) hcard L missing)
+
+theorem hasFacetCountingIncidenceCertificates_allKuhnCandidateCells
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : HasAllKuhnIncidenceCountCertificates
+      (ι := ι) (N := N) hcard) :
+    (allKuhnCandidateCells (ι := ι) (N := N) hcard).HasFacetCountingIncidenceCertificates := by
+  intro L
+  rcases hU L with ⟨missing, hC⟩
+  rcases hC with ⟨C⟩
+  exact ⟨missing, ⟨C.toFacetCountingIncidenceCertificate⟩⟩
+
+/--
+All-orders Kuhn candidate cells have geometric incidence-count certificates if
+every labeling admits the remaining label-free face-match counts.
+-/
+def HasAllKuhnGeometricIncidenceCountCertificates
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι) : Prop :=
+  ∀ L : GridSpernerLabeling ι N,
+    ∃ missing : ι,
+      Nonempty (AllKuhnGeometricIncidenceCountCertificate
+        (ι := ι) (N := N) hcard L missing)
+
+theorem hasAllKuhnIncidenceCountCertificates_of_geometric
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : HasAllKuhnGeometricIncidenceCountCertificates
+      (ι := ι) (N := N) hcard) :
+    HasAllKuhnIncidenceCountCertificates
+      (ι := ι) (N := N) hcard := by
+  intro L
+  rcases hU L with ⟨missing, hC⟩
+  rcases hC with ⟨C⟩
+  exact ⟨missing, ⟨C.toAllKuhnIncidenceCountCertificate⟩⟩
+
+/--
+All-orders Kuhn candidate cells have logical geometric incidence certificates
+if every labeling admits no-match/unique-match face-incidence data.
+-/
+def HasAllKuhnGeometricIncidenceCertificates
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι) : Prop :=
+  ∀ L : GridSpernerLabeling ι N,
+    ∃ missing : ι,
+      Nonempty (AllKuhnGeometricIncidenceCertificate
+        (ι := ι) (N := N) hcard L missing)
+
+theorem hasAllKuhnGeometricIncidenceCountCertificates_of_geometric
+    [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : HasAllKuhnGeometricIncidenceCertificates
+      (ι := ι) (N := N) hcard) :
+    HasAllKuhnGeometricIncidenceCountCertificates
+      (ι := ι) (N := N) hcard := by
+  intro L
+  rcases hU L with ⟨missing, hC⟩
+  rcases hC with ⟨C⟩
+  exact ⟨missing, ⟨C.toGeometricIncidenceCountCertificate⟩⟩
+
+theorem exists_cell_over_slice_allKuhnCandidateCells
+    (hcard : 0 < Fintype.card ι) (S : GridCubeSlice ι N) :
+    ∃ P : GridCubeSlice.RankedSubsetPathCell S,
+      (⟨S, P⟩ :
+        Σ S : GridCubeSlice ι N, GridCubeSlice.RankedSubsetPathCell S) ∈
+        (allKuhnCandidateCells (ι := ι) (N := N) hcard).cells := by
+  classical
+  by_cases hrpos : 0 < S.rank
+  · by_cases hrlt : S.rank < Fintype.card ι
+    · let e : Fin (Fintype.card ι) ≃ ι := (Fintype.equivFin ι).symm
+      refine ⟨GridCubeSlice.RankedSubsetPathCell.cyclicWindowOfEquiv
+        S e hcard hrpos hrlt, ?_⟩
+      simpa [allKuhnCandidateCells] using
+        mem_kuhnCandidateCellsOfOrders_cyclic
+          (S := S) (e := e) (Finset.mem_univ e) hrpos hrlt
+    · refine ⟨GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S, ?_⟩
+      simpa [allKuhnCandidateCells] using
+        mem_kuhnCandidateCellsOfOrders_singleton_of_not_rank_lt
+          (S := S) (orders := (Finset.univ :
+            Finset (Fin (Fintype.card ι) ≃ ι))) hrpos hrlt
+  · refine ⟨GridCubeSlice.RankedSubsetPathCell.singletonOfSlice S, ?_⟩
+    simpa [allKuhnCandidateCells] using
+      mem_kuhnCandidateCellsOfOrders_singleton_of_not_rank_pos
+        (S := S) (orders := (Finset.univ :
+          Finset (Fin (Fintype.card ι) ≃ ι))) hrpos
+
+theorem allKuhnCandidateCells_refinesCubeSlices
+    (hcard : 0 < Fintype.card ι) :
+    (allKuhnCandidateCells (ι := ι) (N := N) hcard).toTriangulation.RefinesCubeSlices :=
+  (allKuhnCandidateCells (ι := ι) (N := N) hcard).toTriangulation_refinesCubeSlices
+
 end CubeSlicePathSubdivision
 
 /--
@@ -1638,6 +5179,18 @@ theorem cubicalSpernerProperty_of_refining_pivotGraphCertificates [DecidableEq �
     T (hasSpernerProperty_of_pivotGraphCertificates hT) hrefine
 
 /--
+A refining triangulation with canonical almost-face pivot certificates proves
+cubical Sperner.
+-/
+theorem cubicalSpernerProperty_of_refining_almostFacePivotCertificates
+    [DecidableEq ι]
+    (T : GridTriangulation ι N) (hT : T.HasAlmostFacePivotCertificates)
+    (hrefine : T.RefinesCubeSlices) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_refining_pivotGraphCertificates
+    T (hasPivotGraphCertificates_of_almostFacePivotCertificates hT) hrefine
+
+/--
 All-mesh version of `cubicalSpernerProperty_of_refining_triangulation`.
 -/
 theorem cubicalSpernerPropertyAllMeshes_of_refining_triangulations
@@ -1662,6 +5215,20 @@ theorem cubicalSpernerPropertyAllMeshes_of_refining_pivotGraphCertificates
     CubicalSpernerPropertyAllMeshes (ι := ι) := by
   intro N hN
   exact cubicalSpernerProperty_of_refining_pivotGraphCertificates
+    (T N hN) (hT N hN) (hrefine N hN)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_refining_almostFacePivotCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_refining_almostFacePivotCertificates
+    [DecidableEq ι]
+    (T : ∀ N : ℕ, 0 < N → GridTriangulation ι N)
+    (hT : ∀ N hN, (T N hN).HasAlmostFacePivotCertificates)
+    (hrefine : ∀ N hN, (T N hN).RefinesCubeSlices) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_refining_almostFacePivotCertificates
     (T N hN) (hT N hN) (hrefine N hN)
 
 /--
@@ -1698,6 +5265,18 @@ theorem cubicalSpernerProperty_of_ranked_subdivision_pivotGraphCertificates
     (hasSpernerProperty_of_pivotGraphCertificates hU)
 
 /--
+A ranked-subset subdivision proves cubical Sperner as soon as its induced
+small-cell triangulation has canonical almost-face pivot certificates.
+-/
+theorem cubicalSpernerProperty_of_ranked_subdivision_almostFacePivotCertificates
+    [DecidableEq ι]
+    (U : CubeSliceRankedSubdivision ι N)
+    (hU : U.toTriangulation.HasAlmostFacePivotCertificates) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_ranked_subdivision U
+    (hasSpernerProperty_of_almostFacePivotCertificates hU)
+
+/--
 All-mesh version of
 `cubicalSpernerProperty_of_ranked_subdivision_pivotGraphCertificates`.
 -/
@@ -1708,6 +5287,19 @@ theorem cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_pivotGraphCertific
     CubicalSpernerPropertyAllMeshes (ι := ι) := by
   intro N hN
   exact cubicalSpernerProperty_of_ranked_subdivision_pivotGraphCertificates
+    (U N hN) (hU N hN)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_ranked_subdivision_almostFacePivotCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_almostFacePivotCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasAlmostFacePivotCertificates) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_ranked_subdivision_almostFacePivotCertificates
     (U N hN) (hU N hN)
 
 /--
@@ -1744,6 +5336,100 @@ theorem cubicalSpernerProperty_of_path_subdivision_pivotGraphCertificates
     (hasSpernerProperty_of_pivotGraphCertificates hU)
 
 /--
+A path-shaped ranked-subset subdivision proves cubical Sperner as soon as its
+concrete facet-state graph has parity certificates.
+-/
+theorem cubicalSpernerProperty_of_path_subdivision_facetPivotCertificates
+    [DecidableEq ι]
+    (U : CubeSlicePathSubdivision ι N)
+    (hU : U.HasFacetPivotCertificates) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_path_subdivision_pivotGraphCertificates U
+    (CubeSlicePathSubdivision.hasPivotGraphCertificates_of_facetPivotCertificates hU)
+
+/--
+A path-shaped ranked-subset subdivision proves cubical Sperner as soon as its
+facet-state incidence data constructs concrete facet-pivot certificates.
+-/
+theorem cubicalSpernerProperty_of_path_subdivision_facetIncidenceCertificates
+    [DecidableEq ι]
+    (U : CubeSlicePathSubdivision ι N)
+    (hU : U.HasFacetIncidenceCertificates) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_path_subdivision_facetPivotCertificates U
+    (CubeSlicePathSubdivision.hasFacetPivotCertificates_of_facetIncidenceCertificates hU)
+
+/--
+A path-shaped ranked-subset subdivision proves cubical Sperner from the
+counting-style incidence data expected from the Kuhn construction.
+-/
+theorem cubicalSpernerProperty_of_path_subdivision_facetCountingIncidenceCertificates
+    [DecidableEq ι]
+    (U : CubeSlicePathSubdivision ι N)
+    (hU : U.HasFacetCountingIncidenceCertificates) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_path_subdivision_facetPivotCertificates U
+    (CubeSlicePathSubdivision.hasFacetPivotCertificates_of_facetCountingIncidenceCertificates hU)
+
+/--
+The all-orders Kuhn candidate family proves cubical Sperner once its remaining
+boundary/cross-match incidence counts are supplied.
+-/
+theorem cubicalSpernerProperty_of_allKuhnCandidateCells_incidenceCounts
+    [DecidableEq ι] [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : CubeSlicePathSubdivision.HasAllKuhnIncidenceCountCertificates
+      (ι := ι) (N := N) hcard) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_path_subdivision_facetCountingIncidenceCertificates
+    (CubeSlicePathSubdivision.allKuhnCandidateCells (ι := ι) (N := N) hcard)
+    (CubeSlicePathSubdivision.hasFacetCountingIncidenceCertificates_allKuhnCandidateCells
+      hcard hU)
+
+/--
+The all-orders Kuhn candidate family proves cubical Sperner once its remaining
+boundary data and label-free face-match counts are supplied.
+-/
+theorem cubicalSpernerProperty_of_allKuhnCandidateCells_geometricIncidenceCounts
+    [DecidableEq ι] [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : CubeSlicePathSubdivision.HasAllKuhnGeometricIncidenceCountCertificates
+      (ι := ι) (N := N) hcard) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_allKuhnCandidateCells_incidenceCounts
+    hcard
+    (CubeSlicePathSubdivision.hasAllKuhnIncidenceCountCertificates_of_geometric
+      hcard hU)
+
+/--
+The all-orders Kuhn candidate family proves cubical Sperner once its remaining
+boundary data and logical no-match/unique-match face-incidence data are
+supplied.
+-/
+theorem cubicalSpernerProperty_of_allKuhnCandidateCells_geometricIncidence
+    [DecidableEq ι] [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : CubeSlicePathSubdivision.HasAllKuhnGeometricIncidenceCertificates
+      (ι := ι) (N := N) hcard) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_allKuhnCandidateCells_geometricIncidenceCounts
+    hcard
+    (CubeSlicePathSubdivision.hasAllKuhnGeometricIncidenceCountCertificates_of_geometric
+      hcard hU)
+
+/--
+A path-shaped ranked-subset subdivision proves cubical Sperner as soon as its
+induced small-cell triangulation has canonical almost-face pivot certificates.
+-/
+theorem cubicalSpernerProperty_of_path_subdivision_almostFacePivotCertificates
+    [DecidableEq ι]
+    (U : CubeSlicePathSubdivision ι N)
+    (hU : U.toTriangulation.HasAlmostFacePivotCertificates) :
+    CubicalSpernerProperty (ι := ι) N :=
+  cubicalSpernerProperty_of_path_subdivision U
+    (hasSpernerProperty_of_almostFacePivotCertificates hU)
+
+/--
 All-mesh version of
 `cubicalSpernerProperty_of_path_subdivision_pivotGraphCertificates`.
 -/
@@ -1754,6 +5440,103 @@ theorem cubicalSpernerPropertyAllMeshes_of_path_subdivision_pivotGraphCertificat
     CubicalSpernerPropertyAllMeshes (ι := ι) := by
   intro N hN
   exact cubicalSpernerProperty_of_path_subdivision_pivotGraphCertificates
+    (U N hN) (hU N hN)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_path_subdivision_facetPivotCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_path_subdivision_facetPivotCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).HasFacetPivotCertificates) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_path_subdivision_facetPivotCertificates
+    (U N hN) (hU N hN)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_path_subdivision_facetIncidenceCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_path_subdivision_facetIncidenceCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).HasFacetIncidenceCertificates) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_path_subdivision_facetIncidenceCertificates
+    (U N hN) (hU N hN)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_path_subdivision_facetCountingIncidenceCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_path_subdivision_facetCountingIncidenceCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).HasFacetCountingIncidenceCertificates) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_path_subdivision_facetCountingIncidenceCertificates
+    (U N hN) (hU N hN)
+
+/--
+All-mesh all-orders Kuhn candidate family version of
+`cubicalSpernerProperty_of_allKuhnCandidateCells_incidenceCounts`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_allKuhnCandidateCells_incidenceCounts
+    [DecidableEq ι] [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : ∀ N : ℕ, 0 < N →
+      CubeSlicePathSubdivision.HasAllKuhnIncidenceCountCertificates
+        (ι := ι) (N := N) hcard) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_allKuhnCandidateCells_incidenceCounts
+    (N := N) hcard (hU N hN)
+
+/--
+All-mesh all-orders Kuhn candidate family version of
+`cubicalSpernerProperty_of_allKuhnCandidateCells_geometricIncidenceCounts`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_allKuhnCandidateCells_geometricIncidenceCounts
+    [DecidableEq ι] [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : ∀ N : ℕ, 0 < N →
+      CubeSlicePathSubdivision.HasAllKuhnGeometricIncidenceCountCertificates
+        (ι := ι) (N := N) hcard) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_allKuhnCandidateCells_geometricIncidenceCounts
+    (N := N) hcard (hU N hN)
+
+/--
+All-mesh all-orders Kuhn candidate family version of
+`cubicalSpernerProperty_of_allKuhnCandidateCells_geometricIncidence`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_allKuhnCandidateCells_geometricIncidence
+    [DecidableEq ι] [Nontrivial ι]
+    (hcard : 0 < Fintype.card ι)
+    (hU : ∀ N : ℕ, 0 < N →
+      CubeSlicePathSubdivision.HasAllKuhnGeometricIncidenceCertificates
+        (ι := ι) (N := N) hcard) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_allKuhnCandidateCells_geometricIncidence
+    (N := N) hcard (hU N hN)
+
+/--
+All-mesh version of
+`cubicalSpernerProperty_of_path_subdivision_almostFacePivotCertificates`.
+-/
+theorem cubicalSpernerPropertyAllMeshes_of_path_subdivision_almostFacePivotCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasAlmostFacePivotCertificates) :
+    CubicalSpernerPropertyAllMeshes (ι := ι) := by
+  intro N hN
+  exact cubicalSpernerProperty_of_path_subdivision_almostFacePivotCertificates
     (U N hN) (hU N hN)
 
 /-- The zero-dimensional/nonempty subsingleton case of cubical Sperner. -/
@@ -2270,6 +6053,50 @@ theorem kakutaniFixedPointProperty_stdSimplex_of_ranked_subdivision_pivotGraphCe
       U hU)
     hApprox
 
+/--
+All-mesh ranked-subset subdivisions with canonical almost-face pivot
+certificates imply the closed KKM property on the standard simplex.
+-/
+theorem stdSimplexKKMProperty_of_ranked_subdivision_almostFacePivotCertificates
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasAlmostFacePivotCertificates) :
+    StdSimplexKKMProperty ι :=
+  stdSimplexKKMProperty_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_almostFacePivotCertificates
+      U hU)
+
+/--
+All-mesh ranked-subset subdivisions with canonical almost-face pivot
+certificates imply Brouwer's fixed-point property on the standard simplex.
+-/
+theorem brouwerFixedPointProperty_stdSimplex_of_ranked_subdivision_almostFacePivotCertificates
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasAlmostFacePivotCertificates) :
+    BrouwerFixedPointProperty (stdSimplex ℝ ι) :=
+  brouwerFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_almostFacePivotCertificates
+      U hU)
+
+/--
+Ranked-subset subdivisions with canonical almost-face pivot certificates plus
+approximate selections imply Kakutani's fixed-point property on the standard
+simplex.
+-/
+theorem kakutaniFixedPointProperty_stdSimplex_of_ranked_subdivision_almostFacePivotCertificates
+    (U : ∀ N : ℕ, 0 < N → CubeSliceRankedSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasAlmostFacePivotCertificates)
+    (hApprox :
+      ∀ F : Correspondence (ι → ℝ) (ι → ℝ),
+        KakutaniPremises (stdSimplex ℝ ι) F →
+          ∀ n : ℕ,
+            ApproximateKakutaniSelection
+              (stdSimplex ℝ ι) F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    KakutaniFixedPointProperty (stdSimplex ℝ ι) :=
+  kakutaniFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_ranked_subdivision_almostFacePivotCertificates
+      U hU)
+    hApprox
+
 set_option linter.unusedSectionVars false
 
 /--
@@ -2357,6 +6184,54 @@ theorem kakutaniFixedPointProperty_stdSimplex_of_path_subdivision_pivotGraphCert
     KakutaniFixedPointProperty (stdSimplex ℝ ι) :=
   kakutaniFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
     (cubicalSpernerPropertyAllMeshes_of_path_subdivision_pivotGraphCertificates
+      U hU)
+    hApprox
+
+/--
+All-mesh path-shaped ranked-subset subdivisions with canonical almost-face
+pivot certificates imply the closed KKM property on the standard simplex.
+-/
+theorem stdSimplexKKMProperty_of_path_subdivision_almostFacePivotCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasAlmostFacePivotCertificates) :
+    StdSimplexKKMProperty ι :=
+  stdSimplexKKMProperty_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivision_almostFacePivotCertificates
+      U hU)
+
+/--
+All-mesh path-shaped ranked-subset subdivisions with canonical almost-face
+pivot certificates imply Brouwer's fixed-point property on the standard
+simplex.
+-/
+theorem brouwerFixedPointProperty_stdSimplex_of_path_subdivision_almostFacePivotCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasAlmostFacePivotCertificates) :
+    BrouwerFixedPointProperty (stdSimplex ℝ ι) :=
+  brouwerFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivision_almostFacePivotCertificates
+      U hU)
+
+/--
+Path-shaped ranked-subset subdivisions with canonical almost-face pivot
+certificates plus approximate selections imply Kakutani's fixed-point property
+on the standard simplex.
+-/
+theorem kakutaniFixedPointProperty_stdSimplex_of_path_subdivision_almostFacePivotCertificates
+    [DecidableEq ι]
+    (U : ∀ N : ℕ, 0 < N → CubeSlicePathSubdivision ι N)
+    (hU : ∀ N hN, (U N hN).toTriangulation.HasAlmostFacePivotCertificates)
+    (hApprox :
+      ∀ F : Correspondence (ι → ℝ) (ι → ℝ),
+        KakutaniPremises (stdSimplex ℝ ι) F →
+          ∀ n : ℕ,
+            ApproximateKakutaniSelection
+              (stdSimplex ℝ ι) F ((1 : ℝ) / ((n.succ : ℕ) : ℝ))) :
+    KakutaniFixedPointProperty (stdSimplex ℝ ι) :=
+  kakutaniFixedPointProperty_stdSimplex_of_cubicalSpernerPropertyAllMeshes
+    (cubicalSpernerPropertyAllMeshes_of_path_subdivision_almostFacePivotCertificates
       U hU)
     hApprox
 
