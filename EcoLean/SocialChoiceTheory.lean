@@ -1,3 +1,4 @@
 import EcoLean.SocialChoiceTheory.Basic
 import EcoLean.SocialChoiceTheory.Arrow
+import EcoLean.SocialChoiceTheory.ArrowUltrafilter
 import EcoLean.SocialChoiceTheory.GibbardSatterthwaite
