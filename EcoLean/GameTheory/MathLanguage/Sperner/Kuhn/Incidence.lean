@@ -587,7 +587,7 @@ theorem KuhnGeometricGridFacet.exists_lowerCompletion_of_lowerGapFillExtension {
   rw [F.mem_completingOppositeVertices_iff]
   exact ⟨hvnotin, ⟨D', hDvert⟩⟩
 
-/-! ### Lower support wall facts (for the DOWN-side capstone application)
+/-! ### Lower support wall facts (for the DOWN-side existence argument)
 
 The lower support wall `lowerSlift F.vertices` is the up-frame support wall `slift F.vertices`
 with the constant coordinate `c` inserted into every member (`lowerSupport w = insert c

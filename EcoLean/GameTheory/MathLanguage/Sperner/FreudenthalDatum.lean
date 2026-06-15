@@ -10,7 +10,7 @@ namespace BarycentricFreudenthal
 /--
 Barycentric Freudenthal simplex data.
 
-For this first barycentric milestone, the chain of vertices is stored explicitly.
+In this barycentric formulation, the chain of vertices is stored explicitly.
 The `step` field says consecutive vertices are obtained by transferring one
 unit of mass along adjacent entries of `perm`.  This avoids baking a difficult
 recursive positivity proof into the definition; finite enumeration of the

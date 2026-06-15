@@ -3180,8 +3180,8 @@ namespace FreudenthalGeomFacet
 /--
 For the geometric-key development, boundary currently means "has exactly one
 incident simplex".  The non-circular syntactic endpoint predicate remains
-`FreudenthalFacet.boundary`; connecting the two is part of the neighbour
-uniqueness milestone.
+`FreudenthalFacet.boundary`; connecting the two requires the
+neighbour-uniqueness argument.
 -/
 def boundary {d N : ℕ} (K : FreudenthalGeomFacet d N) : Prop :=
   K.incidentSimplices.card = 1

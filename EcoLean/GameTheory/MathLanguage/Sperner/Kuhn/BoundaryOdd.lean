@@ -341,7 +341,7 @@ theorem KuhnGeometricGridFacet.deleteMissingFace_isSortedCell {m N : ℕ} (hm : 
 
 Dual of  Reinserting the (zero, hence absent) coordinate `missing` shifts a sorted collection
 in `Fin (m+1)` into `Fin (m+2)` (along `succAbove`), making `missing` the UNIQUE frozen coordinate;
-completing that codim-1 wall (the c=1 up-side capstone) gives a top cell whose `missing`-vertex
+completing that codim-1 wall (the c=1 same-frame extension existence) gives a top cell whose `missing`-vertex
 deletion is exactly `insertZeroFace C`. -/
 
 /-- Insert the absent coordinate `missing`: shift a `k`-subset of `Fin (m+1)` into `Fin (m+2)` along
@@ -515,7 +515,7 @@ theorem KuhnGeometricGridCell.insertZeroFace_isSortedFacet {m N : ℕ} (hm : 1 �
       rw [hj, KSubsetCollection.frozenCoords, Finset.mem_union]
       exact Or.inr hcabs
   have hone : (KSubsetCollection.frozenCoords W'').card = 1 := by rw [hfroz, Finset.card_singleton]
-  -- complete the wall (c=1 up-side capstone)
+  -- complete the wall: a same-frame extension exists (one common-absent frozen coordinate)
   obtain ⟨T, hTmem⟩ := KSubsetCollection.sameFrameExtensions_nonempty_of_commonAbsent_oneFrozen
     hsorted hne hcard hcabs hone
   rw [KSubsetCollection.mem_sameFrameExtensions_iff] at hTmem

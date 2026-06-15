@@ -2407,7 +2407,7 @@ theorem KSubsetCollection.sameFrameExtensions_nonempty_of_commonAbsent_oneFrozen
     have htc : top.val = c.val := congrArg Fin.val hmem
     omega
 
-/-- **`c = 1` UP-SIDE EXISTENCE (capstone).**  A codimension-one sorted wall with EXACTLY ONE
+/-- **`c = 1` up-side existence.**  A codimension-one sorted wall with EXACTLY ONE
 frozen coordinate, which is common-absent (`hcabs`, `hone`), has a same-frame extension.  This is
 the combinatorial heart of the geometric `c = 1` UP-side existence (for the wall `slift F`,
 `commonPresent = ∅` always, so its unique frozen coordinate is common-absent).  PURE missing-rank

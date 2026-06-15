@@ -1383,7 +1383,7 @@ theorem support_mem_sameFrameExtensions {d N : ℕ} (F : KuhnGeometricGridFacet 
     exact F.slift_insert_maximal hne hvc hvf
 
 /-- (the same-min-frame / fixed-SLICE half of the Freudenthal flip): a facet has at
-most two same-min-frame completions.  Lifts the combinatorial fixed-slice milestone
+most two same-min-frame completions.  Lifts the combinatorial fixed-slice bound
 `KSubsetCollection.sameFrame_extensions_card_le_two_of_erase_maximalSorted` through the
 `supportOverMin` injection, with the wall realised as `C.erase φ₀` for the maximal collection
 `C = slift (insert v₀ F.vertices)` of any one completion `v₀`. -/
@@ -1934,12 +1934,12 @@ theorem KSubsetCollection.mem_of_commonAbsent_of_sameFrameExtension {n k : ℕ} 
   rw [KSubsetCollection.commonAbsent_eq_empty_of_isMaximalSorted hn hT.2] at hca
   exact absurd hca (Finset.notMem_empty c)
 
-/-! ### DOWN-side: complement-bridge existence (the dual of the up-side capstone)
+/-! ### DOWN-side: complement-bridge existence (dual of the up-side existence result)
 
 `sameFrameExtensions`/`IsSortedPair` depend only on the underlying `Finset (Fin n)`, so they
 TRANSPORT across the level index (e.g. the `n - (n - k) = k` "double-complement" mismatch).  These
 congruence lemmas let us pull a same-frame extension of `W.image compl` (common-absent) back to a
-`lowerGapFillExtension` of `W` (common-present), reusing the proven up-side capstone. -/
+`lowerGapFillExtension` of `W` (common-present), reusing the proven up-side existence result. -/
 
 /-- Prefix count depends only on the underlying set, so it transports across the level index. -/
 theorem KSubset.prefixCount_congr {n k k' : ℕ} {I : KSubset n k} {I' : KSubset n k'}
@@ -2030,7 +2030,7 @@ theorem KSubsetCollection.notMem_of_commonPresent_of_sameFrameExtension {n k : �
 /-- **DOWN-side combinatorial existence.**  A codimension-one sorted wall whose unique
 frozen coordinate `c` is COMMON-PRESENT has a same-frame extension that OMITS `c` (a
 `lowerGapFillExtension`).  Proof: the complement `W.image compl` is common-ABSENT one-frozen, so the
-proven up-side capstone gives an extension `U`; `mem_of_commonAbsent_…` forces `c ∈ U`; the
+proven up-side existence result gives an extension `U`; `mem_of_commonAbsent_…` forces `c ∈ U`; the
 underlying-set complement `T = U.1ᶜ` is then a same-frame extension of `W` (via the level-index
 `isSortedPair_congr` transport) that omits `c`. -/
 theorem KSubsetCollection.lowerGapFillExtensions_nonempty_of_commonPresent_oneFrozen {n k : ℕ}

@@ -14,7 +14,7 @@ chain, which lives in the split modules under `Sperner/Kuhn/` (dependency order)
                                         local-flip door property (`incidentCells_card_eq_one_or_two`).
 * `Kuhn/Incidence.lean`            — the incidence classification: a facet is shared by one cell ⟺
                                         boundary, two ⟺ interior.
-* `Kuhn/Mesh.lean`                 — the realisation-mesh brick `realise_barySupDistLe`.
+* `Kuhn/Mesh.lean`                 — the realisation-mesh bound `realise_barySupDistLe`.
 * `Kuhn/Certificate.lean`          — the `Sperner.SpernerTriangulationCertificate` + `local_parity`.
 * `Kuhn/BoundaryOdd.lean`          — `boundary_odd` (deletion bijection, dimension induction,
                                         1-dim base case `OneDimSperner`).
