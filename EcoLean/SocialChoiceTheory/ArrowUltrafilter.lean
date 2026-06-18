@@ -136,7 +136,8 @@ theorem decisive_mono {G H : Set ι} (hsub : G ⊆ H) (h : IsDecisiveCoalition f
 
 Weak decisiveness on one pair spreads to full decisiveness on every pair. The constructions reposition
 the intermediate alternative voter-by-voter with `makeabove`/`maketop`/`makebot`, leaving the target
-pair untouched, then transport the social verdict back with IIA (the technique of `Arrow.third_step`).
+pair untouched, then transport the social verdict back with IIA — the standard profile-modification
+and IIA-transport technique.
 
 * `fe_expand_right`: weak decisiveness for `(α, β)` gives decisiveness for `(α, γ)` — place `β` just
   below `α` for `G` and on top for the rest, so weak decisiveness gives `α ≻ β`, Pareto gives `β ≻ γ`,
