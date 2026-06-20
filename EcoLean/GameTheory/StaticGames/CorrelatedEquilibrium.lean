@@ -24,6 +24,9 @@ Main results:
 * `correlatedEquilibrium_eq_zero_of_strictlyDominated` — every profile recommending a strictly
   dominated action carries zero probability, the correlated analogue of
   `not_isNashEquilibrium_of_strictlyDominated`.
+* `IsCoarseCorrelatedEquilibrium` and `isCoarseCorrelatedEquilibrium_of_isCorrelatedEquilibrium` —
+  the weaker coarse correlated equilibrium (no profitable *constant* departure), giving the inclusion
+  chain Nash ⊆ correlated ⊆ coarse correlated.
 
 A finite type of players with finite action sets is assumed throughout, so distributions over action
 profiles can be summed.
@@ -177,6 +180,46 @@ theorem correlatedEquilibrium_eq_zero_of_strictlyDominated {μ : G.ActionProfile
       ⟨a₀, Finset.mem_univ a₀, hlt⟩
     simpa only [Finset.sum_const_zero] using h
   linarith [hge, hsumlt]
+
+/-! ### Coarse correlated equilibrium -/
+
+/-- `μ` is a *coarse correlated equilibrium*: a distribution over action profiles under which no
+player can gain by committing in advance to a single fixed action `bi`, ignoring the recommendation
+(a *constant* departure). This is weaker than a correlated equilibrium, where the departure may depend
+on the recommended action. -/
+def IsCoarseCorrelatedEquilibrium (μ : G.ActionProfile → ℝ) : Prop :=
+  G.IsCorrelatedDistribution μ ∧
+    ∀ (i : G.Player) (bi : G.Action i),
+      G.expectedDeviationPayoff μ i (fun _ => bi) ≤ G.expectedPayoff μ i
+
+/-- Every correlated equilibrium is a coarse correlated equilibrium: a constant departure is the
+special case `δ = fun _ => bi` of an arbitrary departure. Combined with `isCorrelatedEquilibrium_dirac`
+this gives the inclusion chain Nash ⊆ correlated ⊆ coarse correlated. -/
+theorem isCoarseCorrelatedEquilibrium_of_isCorrelatedEquilibrium {μ : G.ActionProfile → ℝ}
+    (h : G.IsCorrelatedEquilibrium μ) : G.IsCoarseCorrelatedEquilibrium μ :=
+  ⟨h.1, fun i bi => h.2 i (fun _ => bi)⟩
+
+/-- A coarse correlated equilibrium exists whenever a pure Nash equilibrium does. -/
+theorem exists_coarseCorrelatedEquilibrium_of_nash {a : G.ActionProfile}
+    (hNash : G.IsNashEquilibrium a) :
+    ∃ μ : G.ActionProfile → ℝ, G.IsCoarseCorrelatedEquilibrium μ :=
+  ⟨G.dirac a, isCoarseCorrelatedEquilibrium_of_isCorrelatedEquilibrium
+    (isCorrelatedEquilibrium_dirac hNash)⟩
+
+/-- Like the set of correlated equilibria, the set of coarse correlated equilibria is convex. -/
+theorem IsCoarseCorrelatedEquilibrium.convexCombo {μ ν : G.ActionProfile → ℝ}
+    (hμ : G.IsCoarseCorrelatedEquilibrium μ) (hν : G.IsCoarseCorrelatedEquilibrium ν)
+    {t : ℝ} (ht0 : 0 ≤ t) (ht1 : t ≤ 1) :
+    G.IsCoarseCorrelatedEquilibrium (fun a => t * μ a + (1 - t) * ν a) := by
+  obtain ⟨⟨hμpos, hμsum⟩, hμic⟩ := hμ
+  obtain ⟨⟨hνpos, hνsum⟩, hνic⟩ := hν
+  have h1t : 0 ≤ 1 - t := by linarith
+  refine ⟨⟨fun a => add_nonneg (mul_nonneg ht0 (hμpos a)) (mul_nonneg h1t (hνpos a)), ?_⟩,
+    fun i bi => ?_⟩
+  · rw [Finset.sum_add_distrib, ← Finset.mul_sum, ← Finset.mul_sum, hμsum, hνsum]; ring
+  · rw [expectedPayoff_combo, expectedDeviationPayoff_combo]
+    nlinarith [mul_le_mul_of_nonneg_left (hμic i bi) ht0,
+      mul_le_mul_of_nonneg_left (hνic i bi) h1t]
 
 end StaticGame
 
