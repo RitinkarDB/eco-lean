@@ -1,5 +1,5 @@
-import EcoLean.GameTheory.MathLanguage.SpernerBrouwer
-import EcoLean.GameTheory.MathLanguage.SetsFunctionsCorrespondences
+import EcoLean.MathematicalMiscellany.SpernerBrouwer
+import EcoLean.MathematicalMiscellany.SetsFunctionsCorrespondences
 import Mathlib.Analysis.InnerProductSpace.Projection.Minimal
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
@@ -24,8 +24,7 @@ order:
   (`kakutaniFixedPointProperty_pi_stdSimplex`).
 -/
 
-namespace EcoLean
-namespace GameTheory
+namespace EconLib
 namespace Correspondence
 
 open scoped BigOperators
@@ -41,12 +40,12 @@ theorem brouwerFixedPointProperty_stdSimplex {d : ℕ} (hd : 2 ≤ d) :
   intro f hfMap hfCont
   -- `StdSimplex d` is defeq to `↥(stdSimplex ℝ (Fin (d+1)))`, so this typechecks as a
   -- continuous self-map of the eco-lean simplex subtype.
-  let g : EcoLean.SpernerFreudenthal.Brouwer.StdSimplex d →
-      EcoLean.SpernerFreudenthal.Brouwer.StdSimplex d :=
+  let g : EconLib.SpernerFreudenthal.Brouwer.StdSimplex d →
+      EconLib.SpernerFreudenthal.Brouwer.StdSimplex d :=
     fun x => ⟨f x.1, hfMap x.2⟩
   have hgCont : Continuous g :=
     (hfCont.restrict).codRestrict (fun x => hfMap x.2)
-  obtain ⟨z, hz⟩ := EcoLean.SpernerFreudenthal.Brouwer.brouwer_simplex_sorted hd g hgCont
+  obtain ⟨z, hz⟩ := EconLib.SpernerFreudenthal.Brouwer.brouwer_simplex_sorted hd g hgCont
   refine ⟨z.1, z.2, ?_⟩
   have hval : (g z).1 = z.1 := congrArg Subtype.val hz
   simpa [g] using hval
@@ -865,5 +864,4 @@ theorem kakutaniFixedPointProperty_pi_stdSimplex
 end ProductSimplex
 
 end Correspondence
-end GameTheory
-end EcoLean
+end EconLib

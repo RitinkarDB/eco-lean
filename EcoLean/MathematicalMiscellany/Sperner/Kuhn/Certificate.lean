@@ -1,9 +1,9 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.Kuhn.Mesh
+import EcoLean.MathematicalMiscellany.Sperner.Kuhn.Mesh
 
 /-! The Freudenthal triangulation packaged as an abstract `Sperner.SpernerTriangulationCertificate`,
 the Sperner labelling layer, and the per-cell `local_parity` certificate. -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace BarycentricFreudenthal
 open Finset
@@ -324,4 +324,4 @@ theorem kuhn_exists_fullyLabeled_of_boundaryOdd {d N : ℕ} (hd : 2 ≤ d)
 
 end BarycentricFreudenthal
 end SpernerFreudenthal
-end EcoLean
+end EconLib

@@ -1,10 +1,10 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.GridPackage
+import EcoLean.MathematicalMiscellany.Sperner.GridPackage
 
 /-! Sorted `k`-subsets — the combinatorial encoding of the Freudenthal / Kuhn triangulation of the
 barycentric simplex grid.  Prefix-count sortedness, the weight spectrum, the gap-fill / separation
 theory of facet completions, and the coordinate-deletion machinery.  Pure combinatorics, no geometry. -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace BarycentricFreudenthal
 open Finset
@@ -4262,4 +4262,4 @@ drop `frozenCoords_…_succ`, then the engine `sorted_card_add_frozenCoords_card
 
 end BarycentricFreudenthal
 end SpernerFreudenthal
-end EcoLean
+end EconLib

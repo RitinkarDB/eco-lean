@@ -1,6 +1,6 @@
 import EcoLean.GameTheory.StaticGames.Equilibrium
 import EcoLean.GameTheory.StaticGames.MixedStrategies
-import EcoLean.GameTheory.MathLanguage.Kakutani
+import EcoLean.MathematicalMiscellany.Kakutani
 
 /-!
 # Nice games and Nash existence (Debreu–Glicksberg–Fan)
@@ -26,6 +26,7 @@ namespace EcoLean.GameTheory
 
 namespace StaticGame
 
+open EconLib
 open Correspondence
 
 variable {G : StaticGame} [DecidableEq G.Player]

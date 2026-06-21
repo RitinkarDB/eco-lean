@@ -1,6 +1,6 @@
 import Mathlib.Probability.ProbabilityMassFunction.Basic
 
-namespace EcoLean.GameTheory
+namespace EconLib
 
 /-!
 # Probability measures
@@ -8,4 +8,4 @@ namespace EcoLean.GameTheory
 Currently re-exports mathlib probability mass functions. Extend as needed.
 -/
 
-end EcoLean.GameTheory
+end EconLib

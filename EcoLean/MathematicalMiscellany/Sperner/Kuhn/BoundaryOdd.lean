@@ -1,10 +1,10 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.Kuhn.Certificate
+import EcoLean.MathematicalMiscellany.Sperner.Kuhn.Certificate
 
 /-! Boundary oddness for the Freudenthal Sperner certificate: the missing-face
 deletion/reinsertion bijection, colour transport, the dimension induction, and the 1-dimensional
 Sperner base case (`OneDimSperner`). -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace BarycentricFreudenthal
 open Finset
@@ -1211,4 +1211,4 @@ theorem oneDimensional_base (N : ℕ) (L : SimplexGrid 1 N → Fin 2) (hS : Grid
 end OneDimSperner
 end BarycentricFreudenthal
 end SpernerFreudenthal
-end EcoLean
+end EconLib

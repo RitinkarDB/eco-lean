@@ -1,4 +1,4 @@
-import EcoLean.GameTheory.MathLanguage.SpernerFreudenthal
+import EcoLean.MathematicalMiscellany.SpernerFreudenthal
 
 /-!
 # Brouwer-facing analytic setup
@@ -8,7 +8,7 @@ This file starts the analytic bridge from the finite grid Sperner interface in
 compactness, continuity, Kakutani, or Brouwer fixed-point proof.
 -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace Brouwer
 
@@ -1315,4 +1315,4 @@ bypasses the geometric grid packages.
 
 end Brouwer
 end SpernerFreudenthal
-end EcoLean
+end EconLib

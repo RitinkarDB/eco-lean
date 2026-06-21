@@ -22,7 +22,7 @@ everywhere-positive; a separating functional has a nonnegative normal, which (no
 distribution `y`.
 -/
 
-namespace EcoLean.LinearInequalities
+namespace EconLib.LinearInequalities
 
 open scoped BigOperators
 
@@ -250,4 +250,4 @@ theorem minimax [Nonempty ι] [Nonempty κ] (A : ι → κ → ℝ) :
       hymem.2, one_mul]
   rw [hsum] at hyi; linarith
 
-end EcoLean.LinearInequalities
+end EconLib.LinearInequalities

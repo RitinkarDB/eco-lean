@@ -1,5 +1,5 @@
 import EcoLean.ChoicePreferenceUtility.OnSet
-import EcoLean.GameTheory.MathLanguage.ProbabilityMeasures
+import EcoLean.MathematicalMiscellany.ProbabilityMeasures
 import Mathlib.Probability.ProbabilityMassFunction.Constructions
 import Mathlib.Probability.ProbabilityMassFunction.Monad
 import Mathlib.Topology.Algebra.InfiniteSum.Ring

@@ -1,4 +1,4 @@
-import EcoLean.GameTheory.MathLanguage.MathematicalStructures
+import EcoLean.MathematicalMiscellany.MathematicalStructures
 import Mathlib.Logic.Function.Basic
 import Mathlib.Data.Real.Basic
 

@@ -1,4 +1,4 @@
-import EcoLean.GameTheory.MathLanguage.Sperner
+import EcoLean.MathematicalMiscellany.Sperner
 
 /-!
 # Freudenthal data for n-dimensional Sperner
@@ -12,7 +12,7 @@ lemmas.  The full boundary induction and door-counting proof are deliberately
 left as future work.
 -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 
 open scoped BigOperators
@@ -3322,7 +3322,7 @@ noncomputable def relevantOmittedIndices {d N : ℕ}
     (missing : Label d) : Finset (Fin (d + 1)) := by
   classical
   exact Finset.univ.filter fun k =>
-    EcoLean.Sperner.AlmostFullyLabeled
+    EconLib.Sperner.AlmostFullyLabeled
       C.color missing
       (({ simplex := σ, omitted := k } : FreudenthalFacet d N).vertices)
 
@@ -3331,7 +3331,7 @@ theorem mem_relevantOmittedIndices_iff {d N : ℕ}
     (missing : Label d) (k : Fin (d + 1)) :
     k ∈ σ.relevantOmittedIndices C missing
       ↔
-    EcoLean.Sperner.AlmostFullyLabeled
+    EconLib.Sperner.AlmostFullyLabeled
       C.color missing
       (({ simplex := σ, omitted := k } : FreudenthalFacet d N).vertices) := by
   classical
@@ -3735,7 +3735,7 @@ theorem local_parity_facets {d N : ℕ}
       (((by
           classical
           exact Finset.univ.filter fun k : Fin (d + 1) =>
-            EcoLean.Sperner.AlmostFullyLabeled
+            EconLib.Sperner.AlmostFullyLabeled
               C.color missing
               ((FreudenthalFacet.mk σ k).vertices)) :
           Finset (Fin (d + 1))).card)
@@ -4330,4 +4330,4 @@ def BaryDatumRealizable {d N : ℕ}
 end BarycentricFreudenthal
 
 end SpernerFreudenthal
-end EcoLean
+end EconLib

@@ -1,5 +1,5 @@
 import EcoLean.GameTheory.StaticGames.Equilibrium
-import EcoLean.GameTheory.MathLanguage.SetsFunctionsCorrespondences
+import EcoLean.MathematicalMiscellany.SetsFunctionsCorrespondences
 
 /-!
 # Best-response correspondences and fixed-point existence for static games
@@ -16,6 +16,7 @@ namespace EcoLean.GameTheory
 
 namespace StaticGame
 
+open EconLib
 open Correspondence
 
 universe u v

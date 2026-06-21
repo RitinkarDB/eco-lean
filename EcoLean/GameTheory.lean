@@ -1,4 +1,4 @@
-import EcoLean.GameTheory.MathLanguage
+import EcoLean.MathematicalMiscellany
 import EcoLean.GameTheory.Introduction.AbstractGameModels
 import EcoLean.GameTheory.StaticGames
 import EcoLean.GameTheory.ExpectedUtility

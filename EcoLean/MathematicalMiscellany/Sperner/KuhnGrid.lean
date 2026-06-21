@@ -1,4 +1,4 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.Kuhn.BoundaryOdd
+import EcoLean.MathematicalMiscellany.Sperner.Kuhn.BoundaryOdd
 
 /-!
 # Freudenthal / Kuhn triangulation of the barycentric simplex grid — public barrel
@@ -26,7 +26,7 @@ This file itself holds only the unconditional finite Sperner theorems (the `kuhn
 `SpernerBrouwer.lean`.
 -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace BarycentricFreudenthal
 
@@ -108,4 +108,4 @@ a `ContinuousMap`-bundled restatement. -/
 
 end BarycentricFreudenthal
 end SpernerFreudenthal
-end EcoLean
+end EconLib

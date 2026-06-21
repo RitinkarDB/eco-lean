@@ -14,7 +14,7 @@ machinery.  Such geometry belongs in a separate instantiation of the certificate
 below.
 -/
 
-namespace EcoLean
+namespace EconLib
 namespace Sperner
 
 open scoped BigOperators
@@ -556,4 +556,4 @@ end IndexedCell
 end IndexedSimplexLocalParity
 
 end Sperner
-end EcoLean
+end EconLib

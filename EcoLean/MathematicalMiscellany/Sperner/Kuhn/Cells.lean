@@ -1,11 +1,11 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.Kuhn.KSubsetCombinatorics
+import EcoLean.MathematicalMiscellany.Sperner.Kuhn.KSubsetCombinatorics
 
 /-! Geometric cells and facets of the Freudenthal simplex grid, the lattice-completion
 completions API, and the door property `incidentCells_card_eq_one_or_two` (every facet is shared by
 one or two cells).  The boundary ↔ interior degree classification built on top of this is in
 `Incidence.lean`. -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace BarycentricFreudenthal
 open Finset
@@ -2309,4 +2309,4 @@ theorem KuhnGeometricGridFacet.incidentCells_card_eq_one_or_two {d N : ℕ} (hd 
 
 end BarycentricFreudenthal
 end SpernerFreudenthal
-end EcoLean
+end EconLib

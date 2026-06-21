@@ -1,6 +1,6 @@
 import EcoLean.GameTheory.StaticGames.MixedDominance
 import EcoLean.GameTheory.StaticGames.CorrelatedEquilibrium
-import EcoLean.GameTheory.MathLanguage.Farkas
+import EcoLean.MathematicalMiscellany.Farkas
 
 /-!
 # Pearce's lemma
@@ -85,7 +85,7 @@ theorem exists_belief_of_not_mixedStrictlyDominated (i : G.Player) (bi : G.Actio
   by_cases hane : Nonempty G.ActionProfile
   · haveI := hane
     obtain ⟨y, hymem, hyle⟩ :=
-      EcoLean.LinearInequalities.exists_separating_distribution_via_farkas
+      EconLib.LinearInequalities.exists_separating_distribution_via_farkas
         (fun (ci : G.Action i) (a : G.ActionProfile) => G.devPayoff a i ci - G.devPayoff a i bi)
         (by
           rintro ⟨x, hx, hpos⟩

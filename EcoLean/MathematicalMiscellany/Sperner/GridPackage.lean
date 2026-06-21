@@ -1,6 +1,6 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.FreudenthalDatum
+import EcoLean.MathematicalMiscellany.Sperner.FreudenthalDatum
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 
 open scoped BigOperators
@@ -60,7 +60,7 @@ noncomputable instance instGridSmallSimplexFintype (d N : ℕ) :
 def FullyLabelledGridSmallSimplex {d N : ℕ}
     (L : SimplexGrid d N → Fin (d + 1))
     (C : GridSmallSimplex d N) : Prop :=
-  EcoLean.Sperner.FullyLabeled L C.vertices
+  EconLib.Sperner.FullyLabeled L C.vertices
 
 def GridIsSperner {d N : ℕ}
     (L : SimplexGrid d N → Fin (d + 1)) : Prop :=
@@ -1537,7 +1537,7 @@ noncomputable instance instDecidableAlmostFullyLabeledGeometricGridFacet {d N : 
     (L : SimplexGrid d N → Fin (d + 1))
     (missing : Fin (d + 1)) :
     DecidablePred fun F : GeometricGridFacet d N =>
-      EcoLean.Sperner.AlmostFullyLabeled L missing F.vertices := by
+      EconLib.Sperner.AlmostFullyLabeled L missing F.vertices := by
   classical
   intro F
   exact Classical.propDecidable _
@@ -1600,15 +1600,15 @@ theorem eraseFacet_almostFullyLabeled_iff {d N : ℕ}
     (missing : Fin (d + 1))
     {x : SimplexGrid d N}
     (_hx : x ∈ C.vertices) :
-    EcoLean.Sperner.AlmostFullyLabeled
+    EconLib.Sperner.AlmostFullyLabeled
       L missing
       (C.vertices.erase x)
       ↔
     ∀ j : Fin (d + 1), j ≠ missing →
       ∃ y ∈ C.vertices.erase x, L y = j := by
   classical
-  simp [EcoLean.Sperner.AlmostFullyLabeled,
-    EcoLean.Sperner.mem_labelsOn_iff]
+  simp [EconLib.Sperner.AlmostFullyLabeled,
+    EconLib.Sperner.mem_labelsOn_iff]
 
 end GeometricGridCell
 
@@ -1832,7 +1832,7 @@ theorem localParity {d N : ℕ}
     (missing : Fin (d + 1)) :
     Odd
       ((C.facets.filter fun F : GeometricGridFacet d N =>
-        EcoLean.Sperner.AlmostFullyLabeled
+        EconLib.Sperner.AlmostFullyLabeled
           L missing F.vertices).card)
       ↔
     FullyLabelledGeometricGridCell L C := by
@@ -1854,11 +1854,11 @@ theorem localParity {d N : ℕ}
     exact Subtype.ext hxyval
   have hcardFacets :
       ((C.facets.filter fun F : GeometricGridFacet d N =>
-        EcoLean.Sperner.AlmostFullyLabeled
+        EconLib.Sperner.AlmostFullyLabeled
           L missing F.vertices).card)
         =
       ((C.vertices.attach.filter fun x =>
-        EcoLean.Sperner.AlmostFullyLabeled
+        EconLib.Sperner.AlmostFullyLabeled
           L missing (C.vertices.erase x.1)).card) := by
     rw [GeometricGridCell.facets]
     rw [Finset.filter_image]
@@ -1866,16 +1866,16 @@ theorem localParity {d N : ℕ}
     rfl
   have hcardAttach :
       ((C.vertices.attach.filter fun x =>
-        EcoLean.Sperner.AlmostFullyLabeled
+        EconLib.Sperner.AlmostFullyLabeled
           L missing (C.vertices.erase x.1)).card)
         =
       ((C.vertices.filter fun x =>
-        EcoLean.Sperner.AlmostFullyLabeled
+        EconLib.Sperner.AlmostFullyLabeled
           L missing (C.vertices.erase x)).card) :=
     FiniteSimplexLocalParity.card_attach_filter_eq_filter
       C.vertices
       (fun x =>
-        EcoLean.Sperner.AlmostFullyLabeled
+        EconLib.Sperner.AlmostFullyLabeled
           L missing (C.vertices.erase x))
   have hvertexCard :
       C.vertices.card = Fintype.card (Fin (d + 1)) := by
@@ -1890,7 +1890,7 @@ theorem localParity {d N : ℕ}
       missing
   have halmost :
       ((C.vertices.filter fun x =>
-        EcoLean.Sperner.AlmostFullyLabeled
+        EconLib.Sperner.AlmostFullyLabeled
           L missing (C.vertices.erase x)).card)
         =
       ((C.vertices.filter fun x =>
@@ -3057,20 +3057,20 @@ theorem fullyLabelled_restrictBoundaryLabelSucc_iff_almostFullyLabelled_extend
     FullyLabelledGridSmallSimplex
       (restrictBoundaryLabelSucc L hL missing) C
       ↔
-    EcoLean.Sperner.AlmostFullyLabeled
+    EconLib.Sperner.AlmostFullyLabeled
       L missing
       (C.extendBoundaryVerticesSucc missing) := by
   classical
   constructor
   · intro hfull i hi_missing
-    rw [EcoLean.Sperner.mem_labelsOn_iff]
+    rw [EconLib.Sperner.mem_labelsOn_iff]
     rw [FullyLabelledGridSmallSimplex] at hfull
-    rw [EcoLean.Sperner.fullyLabeled_iff
+    rw [EconLib.Sperner.fullyLabeled_iff
       (restrictBoundaryLabelSucc L hL missing) C.vertices] at hfull
     let bi : BoundaryIndex (d + 1) missing := ⟨i, hi_missing⟩
     have hlabel :=
       hfull (BoundaryIndex.equivFin missing bi)
-    rw [EcoLean.Sperner.mem_labelsOn_iff] at hlabel
+    rw [EconLib.Sperner.mem_labelsOn_iff] at hlabel
     rcases hlabel with ⟨y, hyC, hylabel⟩
     refine ⟨SimplexGrid.extendBoundarySucc missing y, ?_, ?_⟩
     · rw [GridSmallSimplex.mem_extendBoundaryVerticesSucc_iff]
@@ -3091,13 +3091,13 @@ theorem fullyLabelled_restrictBoundaryLabelSucc_iff_almostFullyLabelled_extend
         rw [hsub, hspec]
       exact (congrArg Subtype.val hbi).symm
   · intro halmost
-    rw [FullyLabelledGridSmallSimplex, EcoLean.Sperner.fullyLabeled_iff]
+    rw [FullyLabelledGridSmallSimplex, EconLib.Sperner.fullyLabeled_iff]
     intro j
-    rw [EcoLean.Sperner.mem_labelsOn_iff]
+    rw [EconLib.Sperner.mem_labelsOn_iff]
     let bi : BoundaryIndex (d + 1) missing :=
       (BoundaryIndex.equivFin missing).symm j
     have hlabel := halmost bi.1 bi.2
-    rw [EcoLean.Sperner.mem_labelsOn_iff] at hlabel
+    rw [EconLib.Sperner.mem_labelsOn_iff] at hlabel
     rcases hlabel with ⟨x, hxExt, hxlabel⟩
     rw [GridSmallSimplex.mem_extendBoundaryVerticesSucc_iff] at hxExt
     rcases hxExt with ⟨y, hyC, hyx⟩
@@ -3250,7 +3250,7 @@ theorem lowerFullyLabelledBoundaryVertexSet_almostFullyLabelled {d N : ℕ}
     (missing : Fin ((d + 1) + 1))
     {S : Finset (SimplexGrid (d + 1) N)}
     (hS : S ∈ LowerFullyLabelledBoundaryVertexSets L hL missing) :
-    EcoLean.Sperner.AlmostFullyLabeled L missing S := by
+    EconLib.Sperner.AlmostFullyLabeled L missing S := by
   classical
   rcases (mem_LowerFullyLabelledBoundaryVertexSets_iff
       L hL missing S).mp hS with ⟨C, hC, hCS⟩
@@ -3282,14 +3282,14 @@ noncomputable def GeometricGridBoundaryRelevantFacets {d N : ℕ}
     Finset (GeometricGridFacet d N) := by
   classical
   exact Finset.univ.filter fun F =>
-    F.boundary ∧ EcoLean.Sperner.AlmostFullyLabeled L missing F.vertices
+    F.boundary ∧ EconLib.Sperner.AlmostFullyLabeled L missing F.vertices
 
 theorem mem_GeometricGridBoundaryRelevantFacets_iff {d N : ℕ}
     (L : SimplexGrid d N → Fin (d + 1))
     (missing : Fin (d + 1))
     (F : GeometricGridFacet d N) :
     F ∈ GeometricGridBoundaryRelevantFacets L missing ↔
-      F.boundary ∧ EcoLean.Sperner.AlmostFullyLabeled L missing F.vertices := by
+      F.boundary ∧ EconLib.Sperner.AlmostFullyLabeled L missing F.vertices := by
   classical
   simp [GeometricGridBoundaryRelevantFacets]
 
@@ -3389,7 +3389,7 @@ noncomputable instance instDecidableAlmostFullyLabeledGridSmallFacet {d N : ℕ}
     (L : SimplexGrid d N → Fin (d + 1))
     (missing : Fin (d + 1)) :
     DecidablePred fun F : GridSmallFacet d N =>
-      EcoLean.Sperner.AlmostFullyLabeled L missing F.1 := by
+      EconLib.Sperner.AlmostFullyLabeled L missing F.1 := by
   classical
   intro F
   exact Classical.propDecidable _
@@ -3537,14 +3537,14 @@ theorem localParity_toGridSmallSimplex {d N : ℕ}
     (missing : Fin (d + 1)) :
     Odd
       ((D.toGridSmallSimplex.facets.filter fun F : GridSmallFacet d N =>
-        EcoLean.Sperner.AlmostFullyLabeled L missing F.1).card)
+        EconLib.Sperner.AlmostFullyLabeled L missing F.1).card)
       ↔
     FullyLabelledGridSmallSimplex L D.toGridSmallSimplex := by
   classical
   let C : Coloring d N := { color := L }
   have hfilter :
       ((Finset.univ : Finset (Fin (d + 1))).filter fun k =>
-          EcoLean.Sperner.AlmostFullyLabeled L missing
+          EconLib.Sperner.AlmostFullyLabeled L missing
             ((D.toGridSmallFacet k).1))
         =
       D.toSimplex.relevantOmittedIndices C missing := by
@@ -3554,7 +3554,7 @@ theorem localParity_toGridSmallSimplex {d N : ℕ}
   calc
     Odd
       ((D.toGridSmallSimplex.facets.filter fun F : GridSmallFacet d N =>
-        EcoLean.Sperner.AlmostFullyLabeled L missing F.1).card)
+        EconLib.Sperner.AlmostFullyLabeled L missing F.1).card)
         ↔
       Odd (D.toSimplex.relevantOmittedIndices C missing).card := by
         rw [D.facets_toGridSmallSimplex]
@@ -3609,7 +3609,7 @@ noncomputable def GridBoundaryRelevantFacets {d N : ℕ}
   classical
   exact Finset.univ.filter fun F : GridSmallFacet d N =>
     F.boundary ∧
-      EcoLean.Sperner.AlmostFullyLabeled L missing F.1
+      EconLib.Sperner.AlmostFullyLabeled L missing F.1
 
 namespace GridSmallSimplex
 
@@ -3619,7 +3619,7 @@ theorem localParity {d N : ℕ}
     (missing : Fin (d + 1)) :
     Odd
       ((C.facets.filter fun F : GridSmallFacet d N =>
-        EcoLean.Sperner.AlmostFullyLabeled L missing F.1).card)
+        EconLib.Sperner.AlmostFullyLabeled L missing F.1).card)
       ↔
     FullyLabelledGridSmallSimplex L C := by
   classical
@@ -3636,7 +3636,7 @@ theorem grid_local_parity {d N : ℕ} :
     ∀ (L : SimplexGrid d N → Fin (d + 1)) (missing : Fin (d + 1))
       (C : GridSmallSimplex d N),
       Odd ((C.facets.filter fun F : GridSmallFacet d N =>
-        EcoLean.Sperner.AlmostFullyLabeled L missing F.1).card)
+        EconLib.Sperner.AlmostFullyLabeled L missing F.1).card)
         ↔ FullyLabelledGridSmallSimplex L C := by
   intro L missing C
   exact GridSmallSimplex.localParity C L missing
@@ -3939,4 +3939,4 @@ theorem BoundedBaseVec.toNat_le {d N : ℕ}
 end BarycentricFreudenthal
 
 end SpernerFreudenthal
-end EcoLean
+end EconLib

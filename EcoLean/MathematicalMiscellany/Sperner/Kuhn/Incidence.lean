@@ -1,10 +1,10 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.Kuhn.Cells
+import EcoLean.MathematicalMiscellany.Sperner.Kuhn.Cells
 
 /-! Local pseudomanifold incidence for the Freudenthal triangulation: boundary facets have degree one
 and interior facets degree two (`incidentCells_card_eq_two_iff_not_boundary`), via the door property
 and the `c = 0` / `c = 1` non-boundary degree-two converses. -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace BarycentricFreudenthal
 open Finset
@@ -1244,4 +1244,4 @@ alias kuhn_facet_incidence_classification :=
 
 end BarycentricFreudenthal
 end SpernerFreudenthal
-end EcoLean
+end EconLib

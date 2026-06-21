@@ -1,6 +1,6 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.BarycentricGrid
+import EcoLean.MathematicalMiscellany.Sperner.BarycentricGrid
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 
 open scoped BigOperators
@@ -1611,7 +1611,7 @@ structure Coloring (d N : ℕ) where
 
 def IsFullyColored {d N : ℕ}
     (C : Coloring d N) (σ : BaryFreudenthalSimplex d N) : Prop :=
-  EcoLean.Sperner.FullyLabeled C.color σ.vertices
+  EconLib.Sperner.FullyLabeled C.color σ.vertices
 
 namespace BaryFreudenthalSimplex
 
@@ -1631,7 +1631,7 @@ noncomputable def relevantOmittedIndices {d N : ℕ}
     (missing : Label d) : Finset (Fin (d + 1)) := by
   classical
   exact Finset.univ.filter fun k =>
-    EcoLean.Sperner.AlmostFullyLabeled
+    EconLib.Sperner.AlmostFullyLabeled
       C.color missing
       ((BaryFreudenthalFacet.mk σ k).vertices)
 
@@ -1642,7 +1642,7 @@ theorem mem_relevantOmittedIndices_iff {d N : ℕ}
     (k : Fin (d + 1)) :
     k ∈ σ.relevantOmittedIndices C missing
       ↔
-    EcoLean.Sperner.AlmostFullyLabeled
+    EconLib.Sperner.AlmostFullyLabeled
       C.color missing
       ((BaryFreudenthalFacet.mk σ k).vertices) := by
   classical
@@ -1718,7 +1718,7 @@ theorem local_parity_facets {d N : ℕ}
       (((by
           classical
           exact Finset.univ.filter fun k : Fin (d + 1) =>
-            EcoLean.Sperner.AlmostFullyLabeled
+            EconLib.Sperner.AlmostFullyLabeled
               C.color missing
               ((BaryFreudenthalFacet.mk σ k).vertices)) :
           Finset (Fin (d + 1))).card)
@@ -1739,7 +1739,7 @@ noncomputable def relevantGeomFacets {d N : ℕ}
     Finset (BaryFreudenthalGeomFacet d N) := by
   classical
   exact D.geomFacets.filter fun K =>
-    EcoLean.Sperner.AlmostFullyLabeled C.color missing
+    EconLib.Sperner.AlmostFullyLabeled C.color missing
       (K : Finset (SimplexGrid d N))
 
 theorem relevantGeomFacets_card_eq_relevantOmittedIndices {d N : ℕ}
@@ -1769,7 +1769,7 @@ theorem relevantGeomFacets_card_eq_relevantOmittedIndices {d N : ℕ}
       change (BaryFreudenthalDatumFacet.mk D k).vertices =
         (K : Finset (SimplexGrid d N)) at hval
       have hrel' :
-          EcoLean.Sperner.AlmostFullyLabeled C.color missing
+          EconLib.Sperner.AlmostFullyLabeled C.color missing
             (BaryFreudenthalDatumFacet.mk D k).vertices := by
         rw [hval]
         exact hrel
@@ -1785,10 +1785,10 @@ theorem relevantGeomFacets_card_eq_relevantOmittedIndices {d N : ℕ}
         have hval := congrArg Subtype.val hk
         change (BaryFreudenthalDatumFacet.mk D k).vertices =
           (K : Finset (SimplexGrid d N)) at hval
-        change EcoLean.Sperner.AlmostFullyLabeled C.color missing
+        change EconLib.Sperner.AlmostFullyLabeled C.color missing
           (K : Finset (SimplexGrid d N))
         have hkrel' :
-            EcoLean.Sperner.AlmostFullyLabeled C.color missing
+            EconLib.Sperner.AlmostFullyLabeled C.color missing
               (BaryFreudenthalDatumFacet.mk D k).vertices := by
           simpa [BaryFreudenthalDatumFacet.vertices,
             BaryFreudenthalDatumFacet.toChainFacet,
@@ -1867,7 +1867,7 @@ noncomputable def BarycentricBoundaryRelevantFacets {d N : ℕ}
   classical
   exact (Finset.univ : Finset (BaryFreudenthalGeomFacet d N)).filter fun K =>
     K.boundary ∧
-      EcoLean.Sperner.AlmostFullyLabeled C.color missing
+      EconLib.Sperner.AlmostFullyLabeled C.color missing
         (K : Finset (SimplexGrid d N))
 
 theorem barycentric_freudenthal_sperner_of_boundary_odd_of_incidence {d N : ℕ}
@@ -1898,4 +1898,4 @@ theorem barycentric_freudenthal_sperner_of_boundary_odd_of_incidence {d N : ℕ}
 end BarycentricFreudenthal
 
 end SpernerFreudenthal
-end EcoLean
+end EconLib

@@ -1,8 +1,8 @@
-import EcoLean.GameTheory.MathLanguage.SetsFunctionsCorrespondences
-import EcoLean.GameTheory.MathLanguage.Sperner
+import EcoLean.MathematicalMiscellany.SetsFunctionsCorrespondences
+import EcoLean.MathematicalMiscellany.Sperner
 import Mathlib.Data.Set.Basic
 
-namespace EcoLean.GameTheory
+namespace EconLib
 
 universe u v
 
@@ -170,4 +170,4 @@ end Extremal
 
 end BinRel
 
-end EcoLean.GameTheory
+end EconLib

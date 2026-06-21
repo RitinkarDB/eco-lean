@@ -1,0 +1,3 @@
+import EcoLean.MathematicalMiscellany.Sperner.BarycentricGrid
+import EcoLean.MathematicalMiscellany.Sperner.FreudenthalDatum
+import EcoLean.MathematicalMiscellany.Sperner.GridPackage

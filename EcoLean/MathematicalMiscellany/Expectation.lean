@@ -6,7 +6,7 @@ import Mathlib.Data.Real.Basic
 open MeasureTheory ProbabilityTheory
 open scoped ENNReal ProbabilityTheory
 
-namespace EcoLean.GameTheory
+namespace EconLib
 
 universe u
 
@@ -19,4 +19,4 @@ noncomputable def expectation (P : MeasureTheory.ProbabilityMeasure Ω) (X : Ω 
 
 end
 
-end EcoLean.GameTheory
+end EconLib

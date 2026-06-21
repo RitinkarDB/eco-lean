@@ -1,6 +1,6 @@
 import EcoLean.GameTheory.StaticGames.FormalRepresentation
 import EcoLean.GameTheory.StaticGames.Equilibrium
-import EcoLean.GameTheory.MathLanguage.Kakutani
+import EcoLean.MathematicalMiscellany.Kakutani
 
 /-!
 # Mixed strategies and mixed (Nash) equilibrium of a finite game
@@ -27,6 +27,7 @@ namespace EcoLean
 namespace GameTheory
 namespace StaticGame
 
+open EconLib
 open scoped BigOperators
 
 variable (G : StaticGame) [Fintype G.Player] [DecidableEq G.Player]

@@ -13,7 +13,7 @@ import Mathlib.Topology.Order.Compact
 import Mathlib.Topology.Order.Real
 import Mathlib.Topology.Sequences
 
-namespace EcoLean.GameTheory
+namespace EconLib
 
 universe u v w t
 
@@ -2166,4 +2166,4 @@ end FixedPoints
 
 end Correspondence
 
-end EcoLean.GameTheory
+end EconLib

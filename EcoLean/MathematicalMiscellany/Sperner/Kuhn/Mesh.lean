@@ -1,9 +1,9 @@
-import EcoLean.GameTheory.MathLanguage.Sperner.Kuhn.Incidence
+import EcoLean.MathematicalMiscellany.Sperner.Kuhn.Incidence
 
 /-! Mesh bound for realised sorted-Freudenthal cells: the two vertices of a cell realise within
 barycentric sup-distance `1/N` — the analytic input to the Sperner → Brouwer bridge. -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace BarycentricFreudenthal
 open Finset
@@ -37,4 +37,4 @@ theorem realise_barySupDistLe {d N : ℕ} [NeZero N]
 end KuhnGeometricGridCell
 end BarycentricFreudenthal
 end SpernerFreudenthal
-end EcoLean
+end EconLib

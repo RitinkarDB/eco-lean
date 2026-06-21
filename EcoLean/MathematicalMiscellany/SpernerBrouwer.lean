@@ -1,5 +1,5 @@
-import EcoLean.GameTheory.MathLanguage.BrouwerFreudenthal
-import EcoLean.GameTheory.MathLanguage.Sperner.KuhnGrid
+import EcoLean.MathematicalMiscellany.BrouwerFreudenthal
+import EcoLean.MathematicalMiscellany.Sperner.KuhnGrid
 
 /-!
 # Sperner → Brouwer bridge through the Kuhn cells
@@ -12,7 +12,7 @@ follow — arbitrarily-good approximate fixed points as `N → ∞`, then the co
 `brouwer_simplex_sorted`: every continuous self-map of `Δ^d` (`2 ≤ d`) has a fixed point.
 -/
 
-namespace EcoLean
+namespace EconLib
 namespace SpernerFreudenthal
 namespace Brouwer
 
@@ -180,4 +180,4 @@ alias brouwer_simplex_via_freudenthal := brouwer_simplex_sorted
 
 end Brouwer
 end SpernerFreudenthal
-end EcoLean
+end EconLib

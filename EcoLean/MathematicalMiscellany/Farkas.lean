@@ -1,4 +1,4 @@
-import EcoLean.GameTheory.MathLanguage.LinearInequalities
+import EcoLean.MathematicalMiscellany.LinearInequalities
 import Mathlib.Topology.Algebra.Module.FiniteDimension
 
 /-!
@@ -17,7 +17,7 @@ This file is being developed incrementally. The current milestone is the foundat
   (the linear combination map is an injective, hence closed, embedding of the orthant).
 -/
 
-namespace EcoLean.LinearInequalities
+namespace EconLib.LinearInequalities
 
 open scoped BigOperators
 
@@ -340,4 +340,4 @@ theorem exists_separating_distribution_via_farkas [Nonempty ι] [Nonempty κ] (g
     have : ∑ k, c (Sum.inl k) * g i k = -c (Sum.inr i) := by linarith
     rw [this]; linarith [hcnn (Sum.inr i)]
 
-end EcoLean.LinearInequalities
+end EconLib.LinearInequalities
