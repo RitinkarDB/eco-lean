@@ -198,6 +198,86 @@ theorem exists_mixedNashEquilibrium [∀ i, Nonempty (G.Action i)]
     have hle := h.2 βᵢ hβ
     rwa [Function.update_eq_self] at hle
 
+/-! ### The equalizing principle (support characterization of mixed equilibrium)
+
+In a mixed equilibrium every action played with positive probability is a pure best response — its
+deterministic payoff against the opponents equals the equilibrium value (and so no other pure action
+does strictly better). This is the *equalizing property* of mixed equilibrium, the foundation of the
+anonymous self-confirming equilibrium of §6.3.2 (every support action is independently justifiable). -/
+
+section Equalizing
+
+variable [∀ i, DecidableEq (G.Action i)]
+
+/-- The **pure-deviation payoff**: `i`'s expected payoff when `i` deterministically plays `aᵢ` and the
+others randomise according to `α`. -/
+noncomputable def purePayoffAgainst (i : G.Player) (aᵢ : G.Action i) (α : G.MixedProfile) : ℝ :=
+  G.mixedPayoff i (Function.update α i (Pi.single aᵢ 1))
+
+/-- In a mixed equilibrium no pure deviation beats the equilibrium value (the Dirac on `aᵢ` is itself
+a mixed strategy). -/
+theorem purePayoffAgainst_le_of_mixedNash {α : G.MixedProfile} (hα : G.IsMixedNashEquilibrium α)
+    (i : G.Player) (aᵢ : G.Action i) : G.purePayoffAgainst i aᵢ α ≤ G.mixedPayoff i α :=
+  hα.2 i (Pi.single aᵢ 1) (single_mem_stdSimplex ℝ aᵢ)
+
+/-- **Decomposition.** The mixed payoff is the `αᵢ`-average of `i`'s pure-deviation payoffs (the mixed
+payoff is linear in `i`'s own randomisation). -/
+theorem mixedPayoff_eq_sum_purePayoff (i : G.Player) (α : G.MixedProfile) :
+    G.mixedPayoff i α = ∑ aᵢ : G.Action i, α i aᵢ * G.purePayoffAgainst i aᵢ α := by
+  have hcommon : G.mixedPayoff i α
+      = ∑ a : G.ActionProfile, α i (a i) * (∏ j ∈ Finset.univ \ {i}, α j (a j)) * G.payoff i a := by
+    rw [mixedPayoff]
+    refine Finset.sum_congr rfl fun a _ => ?_
+    rw [Finset.prod_eq_mul_prod_diff_singleton_of_mem (Finset.mem_univ i) (fun j => α j (a j))]
+  rw [hcommon]
+  simp only [purePayoffAgainst, mixedPayoff_update, Finset.mul_sum]
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun a _ => ?_
+  have hcollapse : (∑ aᵢ : G.Action i, α i aᵢ * (Pi.single aᵢ (1:ℝ) : G.Action i → ℝ) (a i))
+      = α i (a i) := by
+    simp_rw [Pi.single_apply, mul_ite, mul_one, mul_zero]
+    rw [Finset.sum_ite_eq, if_pos (Finset.mem_univ _)]
+  rw [← hcollapse]
+  simp only [Finset.sum_mul]
+  exact Finset.sum_congr rfl fun aᵢ _ => by ring
+
+/-- **The equalizing principle.** In a mixed equilibrium every action in the support of `αᵢ` is a pure
+best response: its pure-deviation payoff equals the equilibrium value. (The value is the
+`αᵢ`-average of pure payoffs, each at most the value; a positive-weight action below the value would
+drag the average down.) -/
+theorem purePayoffAgainst_eq_of_mem_support {α : G.MixedProfile} (hα : G.IsMixedNashEquilibrium α)
+    (i : G.Player) (aᵢ : G.Action i) (hsupp : α i aᵢ ≠ 0) :
+    G.purePayoffAgainst i aᵢ α = G.mixedPayoff i α := by
+  set V := G.mixedPayoff i α with hV
+  have hle : ∀ bᵢ, G.purePayoffAgainst i bᵢ α ≤ V := fun bᵢ =>
+    purePayoffAgainst_le_of_mixedNash G hα i bᵢ
+  have hsimplex := hα.1 i
+  have hnn : ∀ bᵢ, 0 ≤ α i bᵢ := fun bᵢ => hsimplex.1 bᵢ
+  have hsum1 : ∑ bᵢ, α i bᵢ = 1 := hsimplex.2
+  have hdecomp : V = ∑ bᵢ, α i bᵢ * G.purePayoffAgainst i bᵢ α :=
+    mixedPayoff_eq_sum_purePayoff G i α
+  have hzero : ∑ bᵢ, α i bᵢ * (V - G.purePayoffAgainst i bᵢ α) = 0 := by
+    have hrw : ∑ bᵢ, α i bᵢ * (V - G.purePayoffAgainst i bᵢ α)
+        = (∑ bᵢ, α i bᵢ) * V - ∑ bᵢ, α i bᵢ * G.purePayoffAgainst i bᵢ α := by
+      rw [Finset.sum_mul, ← Finset.sum_sub_distrib]
+      exact Finset.sum_congr rfl fun bᵢ _ => by ring
+    rw [hrw, hsum1, one_mul, ← hdecomp, sub_self]
+  have hnn' : ∀ bᵢ ∈ Finset.univ, 0 ≤ α i bᵢ * (V - G.purePayoffAgainst i bᵢ α) := fun bᵢ _ =>
+    mul_nonneg (hnn bᵢ) (by linarith [hle bᵢ])
+  have hterm := (Finset.sum_eq_zero_iff_of_nonneg hnn').mp hzero
+  rcases mul_eq_zero.mp (hterm aᵢ (Finset.mem_univ aᵢ)) with h0 | h0
+  · exact absurd h0 hsupp
+  · exact (sub_eq_zero.mp h0).symm
+
+/-- A support action weakly dominates every pure action in expected payoff against `α`. -/
+theorem purePayoffAgainst_le_of_mem_support {α : G.MixedProfile} (hα : G.IsMixedNashEquilibrium α)
+    (i : G.Player) {aᵢ : G.Action i} (hsupp : α i aᵢ ≠ 0) (bᵢ : G.Action i) :
+    G.purePayoffAgainst i bᵢ α ≤ G.purePayoffAgainst i aᵢ α := by
+  rw [purePayoffAgainst_eq_of_mem_support G hα i aᵢ hsupp]
+  exact purePayoffAgainst_le_of_mixedNash G hα i bᵢ
+
+end Equalizing
+
 end StaticGame
 end GameTheory
 end EcoLean
